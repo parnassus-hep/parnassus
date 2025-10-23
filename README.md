@@ -11,7 +11,7 @@ To install the `Parnassus` package, ensure you have Python 3.10 or 3.11 installe
 
 ```bash
 # Clone the repository
-git clone https://github.com/parnassus-hep/parnassus.git
+git clone https://github.com/dkobylianskii/parnassus/
 cd parnassus
 
 # Install package
