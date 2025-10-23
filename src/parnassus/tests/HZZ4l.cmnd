@@ -1,0 +1,19 @@
+! HZZ4l.cmnd
+! This file contains parameters to generate H->ZZ->4l via Pythia8
+
+! 1) Settings used in the main program.
+! No need to set nEvents here - we determine that based on the number
+! of workers and the total number of events needed
+
+! 2) Settings related to the incoming beams 
+Beams:idA = 2212                    ! first beam proton
+Beams:idA = 2212                    ! second beam proton
+Beams:eCM = 13000.                  ! beam COM energy
+
+! 3) Settings related to the decay we want to force
+HiggsSM:ff2Hff(t:ZZ) = on           ! VBF Higgs with H->ZZ enabled 
+25:onMode = off 
+25:onIfMatch = 23 23                ! Force H->ZZ
+23:onMode = off     
+23:onIfAny = 11 13                  ! Force Z->2l                
+! PhaseSpace:pTHatMin = 20.          ! Optionally tighten phase space

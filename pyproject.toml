@@ -11,12 +11,15 @@ requires-python = ">=3.12, <3.13"
 dependencies = [
     "energyflow>=1.4.0",
     "fastjet>=3.4.3.1",
-    "numpy>=2.2.2",
+    "numpy",
     "particle>=0.25.2",
     "pyhepmc>=2.14.0",
     "rich>=13.9.4",
     "torch>=2.6.0",
     "uproot>=5.5.2",
+    "pyyaml",
+    "joblib",
+    "pythia8mc"
 ]
 
 [project.scripts]
