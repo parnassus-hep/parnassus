@@ -35,6 +35,7 @@ LEPTON_ACCESSORS = [
     partial(ParticleAccessor, name=name, dtype="float32") for name in ["pt", "eta", "phi"]
 ]
 
+
 @final
 class GenerativeModel:
     def __init__(self, config: GenerativeModelConfig, log):
@@ -106,7 +107,9 @@ class GenerativeModel:
             fs_evt[..., self.fs_npart_pos]
         )
         fs_ht = fs_evt[..., self.fs_ht_pos]
-        good_evt_mask = (fs_npart > 0) & (fs_ht > self.min_ht_scaled) & (fs_ht < self.max_particles)
+        good_evt_mask = (
+            (fs_npart > 0) & (fs_npart <= self.max_particles) & (fs_ht > self.min_ht_scaled)
+        )
         bad_idxs = torch.argwhere(~good_evt_mask).flatten().cpu().numpy()
 
         ctxt_data = ctxt_data[good_evt_mask]

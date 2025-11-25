@@ -192,8 +192,8 @@ class GenLeptonCollection:
         return cls(
             name=name,
             pt=particles.pt[class_mask],
-            eta=particles.pt[class_mask],
-            phi=particles.pt[class_mask],
+            eta=particles.eta[class_mask],
+            phi=particles.phi[class_mask],
         )
 
     def __post_init__(self):

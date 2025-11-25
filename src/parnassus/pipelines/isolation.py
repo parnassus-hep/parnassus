@@ -151,7 +151,7 @@ class IsolationPipeline(GenPipeline):
             for data_ in pool.imap(process_events_wrapper, input_batched_data):
                 electrons_data.extend(data_[0])
                 muons_data.extend(data_[1])
-            progress.update(task, advance=next(n_events_in_batch))
+                progress.update(task, advance=next(n_events_in_batch))
         for i in range(n_events):
             if self.config.collection in {"electrons", "all"}:
                 events[i].electrons.sum_pt = electrons_data[i][:, 0]

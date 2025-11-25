@@ -101,7 +101,7 @@ class AccessorStore:
             else:
                 for accessor in accessors:
                     if accessor in self.accessors_dict[key]:
-                        pass
+                        continue
                     self.accessors_dict[key].append(accessor)
 
     def get_branch_types(self) -> dict[str, str]:
