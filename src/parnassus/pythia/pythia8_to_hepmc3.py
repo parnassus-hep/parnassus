@@ -9,6 +9,21 @@ LOG = setup_logger()
 
 
 class HashableGenVertex:
+    """Hashable wrapper for pyhepmc.GenVertex objects.
+
+    This wrapper implements __hash__ and __eq__ to allow HepMC GenVertex
+    objects to be used as dictionary keys and set members by hashing a
+    string representation of the kinematic and identification attributes
+    of incoming and outgoing particles.
+
+    Warning: hash depends on particle ordering!
+
+    Attributes
+    ----------
+    vertex : pyhepmc.GenVertex
+        The underlying HepMC3 GenVertex object being wrapped.
+    """
+
     def __init__(self, pyhepmc_vertex: pyhepmc.GenVertex):
         """Example usage.
 
@@ -60,6 +75,37 @@ class HashableGenVertex:
 
 
 class Pythia8ToHepMC3:
+    """Convert Pythia8 events to HepMC3 GenEvent objects.
+
+    This class converts a Pythia8 event representation (particles,
+    vertices, and event-level information) into a pyhepmc.GenEvent,
+    while optionally performing checks and storing metadata such as
+    PDF info, cross-sections, and event weights.
+
+    Parameters
+    ----------
+    m_hadronization_on : bool, optional
+        Whether hadronization checks are enabled (default True).
+    m_internal_event_number : int, optional
+        Starting internal event number (default 0).
+    m_print_inconsistency : bool, optional
+        Whether to print inconsistency warnings (default True).
+    m_free_parton_warnings : bool, optional
+        Whether to warn about free partons (default True).
+    m_crash_on_problem : bool, optional
+        Whether to raise on problematic events (default False).
+    m_convert_gluon_to_0 : bool, optional
+        Convert gluon PDF ID (21) to 0 in stored PDF info (default False).
+    m_store_pdf : bool, optional
+        Whether to store PDF info (default True).
+    m_store_proc : bool, optional
+        Whether to store process-level attributes (default True).
+    m_store_xsec : bool, optional
+        Whether to store cross-section info (default True).
+    m_store_weights : bool, optional
+        Whether to store event weights (default True).
+    """
+
     def __init__(
         self,
         m_hadronization_on: bool = True,
@@ -101,10 +147,10 @@ class Pythia8ToHepMC3:
         hepmc_event.reserve(len(hepevt_particles), len(vertex_cache))
 
         # Add particles and vertices in topological order
-        self._add_tree(pythia.event, beam_particles)
+        self._add_tree(hepmc_evt=hepmc_event, beam_particles=beam_particles)
 
         # Add color attributes to particles AFTER adding them to event
-        # self._add_color(pythia.event, hepevt_particles)
+        # self._add_color(pythia.event, hepevt_particles)  # noqa: ERA001
         # TODO: Causes segmentation fault; requires custom HepMC3 bindings
         # (otherwise thread-locking not accessible)
 
@@ -119,9 +165,9 @@ class Pythia8ToHepMC3:
                     f"status = {hepevt_particles[i].status}, pid = {hepevt_particles[i].pid}"
                 )
                 # TODO: Below causes error; too few vertices when reading from hepmc file
-                # prod_vtx = pyhepmc.GenVertex()
-                # prod_vtx.add_particle_out(hepevt_particles[i])
-                # hepmc_event.add_vertex(prod_vtx)
+                # prod_vtx = pyhepmc.GenVertex()  # noqa: ERA001
+                # prod_vtx.add_particle_out(hepevt_particles[i])  # noqa: ERA001
+                # hepmc_event.add_vertex(prod_vtx)  # noqa: ERA001
 
         # 5. Check for free partons #################
 
@@ -347,13 +393,13 @@ class Pythia8ToHepMC3:
         print(f"AFTER inplace-op: {test_evt.particles[0].attributes=}")
         """
         for i in range(pythia_event.size()):
-            colType = pythia_event[i].colType()
-            if colType in {-1, 1, 2}:
+            col_type = pythia_event[i].colType()
+            if col_type in {-1, 1, 2}:
                 flow1 = 0
                 flow2 = 0
-                if colType in {1, 2}:
+                if col_type in {1, 2}:
                     flow1 = pythia_event[i].col()
-                if colType in {-1, 2}:
+                if col_type in {-1, 2}:
                     flow2 = pythia_event[i].acol()
 
                 hepmc_particles[i].attributes["flow1"] = flow1

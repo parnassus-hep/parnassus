@@ -12,6 +12,30 @@ LOG = setup_logger()
 
 
 class HepMC3Generator:
+    """Generate HepMC3 events using Pythia8 in parallel and merge outputs.
+
+    This class manages launching a single-core Pythia8 job (via a small helper
+    script) multiple times in parallel using joblib, collects and merges the
+    outputs into a single HepMC3 file, and writes per-job logs for debugging.
+
+    Attributes
+    ----------
+    cmnd_file : str
+        Path to the Pythia .cmnd configuration file.
+    output_dir : Path
+        Directory where generated HepMC files are written.
+    log_dir : Path
+        Directory where per-job logs are written.
+    hadronization_on : bool
+        Whether hadronization is enabled in the Pythia configuration.
+
+    Methods
+    -------
+    generate(n_events, max_workers, debug=False)
+        Generate n_events using up to max_workers parallel processes
+        and merge results into one HepMC3 file.
+    """
+
     def __init__(self, cmnd_file: str, output_dir: str, log_dir: str | None = None):
         self.cmnd_file = cmnd_file
         self.output_dir = Path(output_dir)
@@ -101,8 +125,8 @@ class HepMC3Generator:
         cmnd_file: str,
         n_events: int,
         seed: int,
-        fpath_output: str | Path,
-        fpath_log: str | Path,
+        fpath_output: Path,
+        fpath_log: Path,
     ):
         cmd = [
             "python",
@@ -113,13 +137,13 @@ class HepMC3Generator:
             "--seed",
             str(seed),
             "--output",
-            fpath_output,
+            fpath_output.as_posix(),
         ]
         if self.hadronization_on:
             cmd.append("--hadronization-on")
 
         with open(fpath_log, "w") as log_file:
-            result = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)  # noqa: S603
+            result = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)
 
         if result.returncode != 0:
             LOG.error(f"HepMC3Generator: Job #{seed} failed")
@@ -202,8 +226,11 @@ SINGLE_JOB_SCRIPT = """
 #!/usr/bin/env python3
 import pythia8mc
 import pyhepmc
-from parnassus.pythia.Pythia8ToHepMC3 import Pythia8ToHepMC3
+from parnassus.pythia import Pythia8ToHepMC3
+from parnassus.utils.logger import setup_logger
 import argparse
+
+LOG = setup_logger()
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate events with Pythia8 on a single core and save to HepMC3 format.")
