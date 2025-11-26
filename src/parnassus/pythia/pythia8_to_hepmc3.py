@@ -232,19 +232,19 @@ class Pythia8ToHepMC3:
         for particle_idx in range(pythia_event.size()):
             pythia_particle = pythia_event[particle_idx]
 
-            mother_indeces = pythia_particle.motherList()
+            mother_indices = pythia_particle.motherList()
+            mother_indices = sorted(mother_indices)
+
+            while len(mother_indices) > 0 and mother_indices[0] == 0:
+                mother_indices.pop(0)
 
             # If it has mother particle, produce a GenVertex for it
-            if len(mother_indeces) > 0:
-                hepmc_first_mother = hepevt_particles[mother_indeces[0]]
-
-                prod_vtx = None
-                if hepmc_first_mother.end_vertex is not None:
-                    prod_vtx = hepmc_first_mother.end_vertex
+            if len(mother_indices) > 0:
+                prod_vtx = hepevt_particles[mother_indices[0]].end_vertex
 
                 if prod_vtx is None:
                     prod_vtx = pyhepmc.GenVertex()
-                    for mother_idx in mother_indeces:
+                    for mother_idx in mother_indices:
                         prod_vtx.add_particle_in(hepevt_particles[mother_idx])
                     vertex_cache.append(prod_vtx)
 
