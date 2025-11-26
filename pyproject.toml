@@ -49,9 +49,6 @@ lint.ignore = [
   "S113", "TCH", "PT011", "PLR1702", "S108", "PTH207", "S607", "E203", "SIM115", "PLR0913",
   "PLR0917", "A005", "ANN401", "PLR0915", "RUF015", "PLR6104", "TD002", "TD003",
 ]
-exclude = [
-  "src/parnassus/tests/*",
-]
 
 
 [tool.ruff.lint.pydocstyle]
