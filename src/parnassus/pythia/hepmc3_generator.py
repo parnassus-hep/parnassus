@@ -14,13 +14,13 @@ LOG = setup_logger()
 class HepMC3Generator:
     def __init__(self, cmnd_file: str, output_dir: str, log_dir: str | None = None):
         self.cmnd_file = cmnd_file
-        self.output_dir = output_dir
+        self.output_dir = Path(output_dir)
         if log_dir is None:
             self.log_dir = Path(self.output_dir) / "logs"
         else:
-            self.log_dir = log_dir
-        Path(self.output_dir).mkdir(exist_ok=True, parents=True)
-        Path(self.log_dir).mkdir(exist_ok=True, parents=True)
+            self.log_dir = Path(log_dir)
+        self.output_dir.mkdir(exist_ok=True, parents=True)
+        self.log_dir.mkdir(exist_ok=True, parents=True)
 
         self.hadronization_on = self._is_hadronization_on()
 
@@ -30,7 +30,9 @@ class HepMC3Generator:
         n_events_per_job = n_events // max_workers
         n_remainder = n_events % max_workers
         # Create list of event counts: first n_remainder workers get +1 event
-        n_events_list = [n_events_per_job + (1 if i < n_remainder else 0) for i in range(max_workers)]
+        n_events_list = [
+            n_events_per_job + (1 if i < n_remainder else 0) for i in range(max_workers)
+        ]
         seeds = list(range(1, max_workers + 1))
         fpaths_output = [Path(self.output_dir) / f"events_part_{i}.hepmc" for i in seeds]
         fpaths_log = [Path(self.log_dir) / f"job_{i}.log" for i in seeds]
@@ -62,23 +64,24 @@ class HepMC3Generator:
                 )
                 for i in range(max_workers)
             )
+            fpath_merged = Path(self.output_dir) / "events.hepmc"
 
         toc_gen = time.time()
         dur_gen = toc_gen - tic_gen
         LOG.info(
-            f"HepMC3Generator: \nGenerated {n_events} events in {dur_gen // 60}m {dur_gen % 60:.1f}s"
+            f"HepMC3Generator: Generated {n_events} events in {dur_gen // 60}m {dur_gen % 60:.1f}s"
         )
 
         # Merge output files
         if not debug:
             LOG.info("HepMC3Generator: \nMerging files...")
             tic_merge = time.time()
-            fpath_merged = Path(self.output_dir) / "events.hepmc"
             self._merge_hepmc_files(fpaths_output, fpath_merged, max_workers=max_workers)
             toc_merge = time.time()
             dur_merge = toc_merge - tic_merge
             LOG.info(
-                f"HepMC3Generator: Merged {max_workers} files in {dur_merge // 60}m {dur_merge % 60:.1f}s"
+                f"HepMC3Generator: "
+                f"Merged {max_workers} files in {dur_merge // 60}m {dur_merge % 60:.1f}s"
             )
 
         toc = time.time()
@@ -94,7 +97,12 @@ class HepMC3Generator:
             f.write(SINGLE_JOB_SCRIPT.encode())
 
     def _gen_hepmc_single_job(
-        self, cmnd_file: str, n_events: int, seed: int, fpath_output: str, fpath_log: str
+        self,
+        cmnd_file: str,
+        n_events: int,
+        seed: int,
+        fpath_output: str | Path,
+        fpath_log: str | Path,
     ):
         cmd = [
             "python",
@@ -111,19 +119,19 @@ class HepMC3Generator:
             cmd.append("--hadronization-on")
 
         with open(fpath_log, "w") as log_file:
-            result = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)
+            result = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)  # noqa: S603
 
         if result.returncode != 0:
             LOG.error(f"HepMC3Generator: Job #{seed} failed")
 
-    def _merge_hepmc_files(self, input_files: list, output_file: str, max_workers: int = 8):
+    def _merge_hepmc_files(self, input_files: list[Path], output_file: Path, max_workers: int = 8):
         """Reads events from multiple input HepMC files and writes them to a single output file.
 
         Args:
             input_files (list): A list of paths to the input HepMC files.
             output_file (str): The path for the output merged HepMC file.
         """
-        all_files = input_files.copy()
+        all_files: list[Path] = input_files.copy()
 
         # Merge files in pairs in parallel until only 1 file remains
         while len(all_files) > 1:
@@ -135,13 +143,13 @@ class HepMC3Generator:
             all_files = Parallel(min(max_workers, len(all_files) // 2), backend="multiprocessing")(
                 delayed(self._append_hepmc_file)(all_files[i], all_files[i + 1])
                 for i in range(0, len(all_files), 2)
-            )
+            )  # pyright: ignore[reportAssignmentType]
 
         # Rename the final file to the desired output file name
         shutil.move(all_files[0], output_file)
         LOG.info(f"HepMC3Generator: len(files) = {len(all_files)}")
 
-    def _append_hepmc_file(self, fpath1: str, fpath2: str) -> str:
+    def _append_hepmc_file(self, fpath1: Path, fpath2: Path) -> Path:
         # Read files to memory
         with open(fpath1, "rb") as f:
             file1 = f.readlines()
@@ -156,8 +164,7 @@ class HepMC3Generator:
                 idx_event += 1
                 new_line = line.split(b" ")
                 new_line[1] = str(idx_event).encode()
-                new_line = b" ".join(new_line)
-                file2[line_idx] = new_line
+                file2[line_idx] = b" ".join(new_line)
 
         # Drop tail of file 1
         file1 = file1[:-1]
@@ -173,7 +180,7 @@ class HepMC3Generator:
         with open(fpath1, "wb") as f:
             f.writelines(merged_file)
 
-        Path(fpath2).unlink()
+        fpath2.unlink()
 
         return fpath1
 
@@ -181,14 +188,13 @@ class HepMC3Generator:
         with open(self.cmnd_file) as f:
             lines = f.readlines()
         for line in lines:
-            if not line.strip().startswith("!"):
-                if (
-                    "HadronLevel:Hadronize = off" in line
-                    or "HadronLevel:Hadronize=off" in line
-                    or "HadronLevel:all = off" in line
-                    or "HadronLevel:all=off" in line
-                ):
-                    return False
+            if not line.strip().startswith("!") and (
+                "HadronLevel:Hadronize = off" in line
+                or "HadronLevel:Hadronize=off" in line
+                or "HadronLevel:all = off" in line
+                or "HadronLevel:all=off" in line
+            ):
+                return False
         return True
 
 
@@ -249,4 +255,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     main()
-"""
+"""  # noqa: E501

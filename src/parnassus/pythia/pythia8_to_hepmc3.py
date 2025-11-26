@@ -10,7 +10,7 @@ LOG = setup_logger()
 
 class HashableGenVertex:
     def __init__(self, pyhepmc_vertex: pyhepmc.GenVertex):
-        """Example usage:
+        """Example usage.
 
         test_map = {}
         for v in all_vertices_sorted:
@@ -50,9 +50,7 @@ class HashableGenVertex:
 
         particles = [self._particle_to_str(p) for p in particles]
         hash_argument = "__".join(list(particles))
-        hash_ = int(hashlib.md5(hash_argument.encode("utf-8")).hexdigest(), 16)
-
-        return hash_
+        return int(hashlib.md5(hash_argument.encode("utf-8")).hexdigest(), 16)  # noqa: S324
 
     def __eq__(self, other_object: object) -> bool:
         if not isinstance(other_object, HashableGenVertex):
@@ -103,10 +101,12 @@ class Pythia8ToHepMC3:
         hepmc_event.reserve(len(hepevt_particles), len(vertex_cache))
 
         # Add particles and vertices in topological order
-        self._add_tree(pythia.event, hepmc_event, beam_particles)
+        self._add_tree(pythia.event, beam_particles)
 
         # Add color attributes to particles AFTER adding them to event
-        # self._add_color(pythia.event, hepevt_particles)  # TODO: Causes segmentation fault; requires custom HepMC3 bindings (otherwise thread-locking not accessible)
+        # self._add_color(pythia.event, hepevt_particles)
+        # TODO: Causes segmentation fault; requires custom HepMC3 bindings
+        # (otherwise thread-locking not accessible)
 
         # 4. Check for particles which come from nowhere, #################
         # i.e. are without mothers or daughters. These need to be attached
@@ -115,7 +115,8 @@ class Pythia8ToHepMC3:
         for i in range(pythia.event.size()):
             if not hepevt_particles[i].in_event:
                 LOG.warning(
-                    f"Pythia8ToHepMC3: Found detached particle; status = {hepevt_particles[i].status}, pid = {hepevt_particles[i].pid}"
+                    f"Pythia8ToHepMC3: Found detached particle; "
+                    f"status = {hepevt_particles[i].status}, pid = {hepevt_particles[i].pid}"
                 )
                 # TODO: Below causes error; too few vertices when reading from hepmc file
                 # prod_vtx = pyhepmc.GenVertex()
@@ -131,11 +132,13 @@ class Pythia8ToHepMC3:
                 ):
                     if self.m_crash_on_problem:
                         raise RuntimeError(
-                            f"Error: Found final-state gluon with no end vertex! event {evt_num}, particle {i}"
+                            f"Error: Found final-state gluon with no end vertex! "
+                            f"event {evt_num}, particle {i}"
                         )
                     if self.m_free_parton_warnings:
                         LOG.warning(
-                            f"Pythia8ToHepMC3: Found final-state gluon with no end vertex! event {evt_num}, particle {i}"
+                            f"Pythia8ToHepMC3: Found final-state gluon with no end vertex! "
+                            f"event {evt_num}, particle {i}"
                         )
 
                 if abs(hepevt_particles[i].pid) <= 6 and self._check_if_free_particle(
@@ -143,11 +146,13 @@ class Pythia8ToHepMC3:
                 ):
                     if self.m_crash_on_problem:
                         raise RuntimeError(
-                            f"Error: Found final-state quark with no end vertex! event {evt_num}, particle {i}"
+                            f"Error: Found final-state quark with no end vertex! "
+                            f"event {evt_num}, particle {i}"
                         )
                     if self.m_free_parton_warnings:
                         LOG.warning(
-                            f"Pythia8ToHepMC3: Found final-state quark with no end vertex! event {evt_num}, particle {i}"
+                            f"Pythia8ToHepMC3: Found final-state quark with no end vertex! "
+                            f"event {evt_num}, particle {i}"
                         )
 
         # 6. Store PDF, weight, cross section and other event information. #################
@@ -156,7 +161,7 @@ class Pythia8ToHepMC3:
         return hepmc_event
 
     def _get_particles(self, pythia_event: pythia8mc.Event) -> list[pyhepmc.GenParticle]:
-        hepevt_particles = [None for particle_idx in range(pythia_event.size())]
+        hepevt_particles = []
         for particle_idx in range(pythia_event.size()):
             pythia_particle = pythia_event[particle_idx]
             hepmc_particle = pyhepmc.GenParticle(
@@ -170,7 +175,7 @@ class Pythia8ToHepMC3:
                 pythia_particle.statusHepMC(),
             )
             hepmc_particle.generated_mass = pythia_particle.m()
-            hepevt_particles[particle_idx] = hepmc_particle
+            hepevt_particles.append(hepmc_particle)
         return hepevt_particles
 
     def _get_vertices(
@@ -210,7 +215,8 @@ class Pythia8ToHepMC3:
 
                 prod_vtx.add_particle_out(hepevt_particles[particle_idx])
                 """
-                To confirm in-place-ness (i.e. confirm that updating prod_vtx indeed updates vertex_cache[-1]):
+                To confirm in-place-ness
+                (i.e. confirm that updating prod_vtx indeed updates vertex_cache[-1]):
 
                 import pyhepmc
                 prt = pyhepmc.GenParticle(pyhepmc.FourVector(1,2,3,4), 6, 1)
@@ -219,35 +225,37 @@ class Pythia8ToHepMC3:
                 vtx_list = []
                 vtx_list.append(vtx)
 
-                print(f"BEFORE updating vtx outside-of-list: \n    vtx_list: {vtx_list}\n        vtx_list[0].particles_in: {vtx_list[0].particles_in}\n        vtx_list[0].position: {vtx_list[0].position}")
+                print(f"BEFORE updating vtx outside-of-list: \n"
+                      f"{vtx_list=}\n{vtx_list[0].particles_in=}\n{vtx_list[0].position=}"
+                )
 
                 vtx.add_particle_in(prt)
                 vtx.position = pyhepmc.FourVector(1,2,3,4)
 
-                print(f"AFTER updating vtx outside-of-list: \n    vtx_list: {vtx_list}\n        vtx_list[0].particles_in: {vtx_list[0].particles_in}\n        vtx_list[0].position: {vtx_list[0].position}")
+                print(f"AFTER updating vtx outside-of-list: \n"
+                      f"{vtx_list=}\n{vtx_list[0].particles_in=}\n{vtx_list[0].position=}"
+                )
                 """
 
             else:  # Otherwise, it's a beam particle
                 beam_particles.append(hepevt_particles[particle_idx])
 
-            if len(beam_particles) != 2:
-                if self.m_crash_on_problem:
-                    raise NotImplementedError(f"Error: len(beam_particles) = {len(beam_particles)}")
+            if len(beam_particles) != 2 and self.m_crash_on_problem:
+                raise NotImplementedError(f"Error: len(beam_particles) = {len(beam_particles)}")
 
         return vertex_cache, beam_particles
 
     def _add_tree(
         self,
-        pythia_evt: pythia8mc.Event,
         hepmc_evt: pyhepmc.GenEvent,
         beam_particles: list[pyhepmc.GenParticle],
     ):
-
         all_vertices_sorted = self._topological_sort_vertices(beam_particles)
         for v in all_vertices_sorted:
             hepmc_evt.add_vertex(v)
 
-        # TODO: Validate root-vertex handling; requires custom HepMC3 bindings (otherwise no attribute pyhepmc.GenEvent.m_root_vertex)
+        # TODO: Validate root-vertex handling; requires custom HepMC3 bindings
+        # (otherwise no attribute pyhepmc.GenEvent.m_root_vertex)
 
     def _topological_sort_vertices(
         self, beam_particles: list[pyhepmc.GenParticle]
@@ -323,22 +331,20 @@ class Pythia8ToHepMC3:
         particles_out = getattr(end_vertex, "particles_out", None)
         if particles_out is None:
             return True
-        if len(particles_out) == 0:
-            return True
-
-        return False
+        return len(particles_out) == 0
 
     def _add_color(self, pythia_event: pythia8mc.Event, hepmc_particles: list[pyhepmc.GenParticle]):
-        """To check in-place-ness:
+        """To check in-place-ness.
+
         import pyhepmc
         p1 = pyhepmc.GenParticle()
         p2 = pyhepmc.GenParticle()
         test_evt = pyhepmc.GenEvent()
         test_evt.add_particle(p1)
         test_evt.add_particle(p2)
-        print(f"test_evt.particles[0].attributes BEFORE inplace-op: {test_evt.particles[0].attributes}")
+        print(f"BEFORE inplace-op: {test_evt.particles[0].attributes=}")
         p1.attributes["flow1"] = 0
-        print(f"test_evt.particles[0].attributes AFTER inplace-op: {test_evt.particles[0].attributes}")
+        print(f"AFTER inplace-op: {test_evt.particles[0].attributes=}")
         """
         for i in range(pythia_event.size()):
             colType = pythia_event[i].colType()
@@ -391,7 +397,8 @@ class Pythia8ToHepMC3:
             xsec.set_cross_section(pyinfo.sigmaGen() * 1e9, pyinfo.sigmaErr() * 1e9)
             hepmc_event.cross_section = xsec
 
-        # Event weights # TODO: This doesn't save to file!
+        # Event weights
+        # TODO: This doesn't save to file!
         if self.m_store_weights:
             hepmc_event.weights.clear()
             for i in range(pyinfo.nWeights()):
