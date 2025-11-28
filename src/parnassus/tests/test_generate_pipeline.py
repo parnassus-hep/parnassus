@@ -7,6 +7,7 @@ import pytest
 from parnassus.configs.scheme import GenEvent
 from parnassus.pipelines.generate import (
     GenerationBuffers,
+    GenerationPipeline,
     build_accessors,
     build_dataset,
     build_events,
@@ -241,3 +242,31 @@ def test_generate_wiring_with_stubs(monkeypatch):
     assert isinstance(events[0], GenEvent)
     assert "Truth" in accessors
     assert "Pflow" in accessors
+
+
+def test_generation_pipeline_exposes_accessors(monkeypatch):
+    """Ensure GenerationPipeline.run stores accessors accessible via get_accessors."""
+    dataset_config = SimpleNamespace(max_particles=2, file_path="ignored")
+    model_config = SimpleNamespace(transform_registry=SimpleNamespace())
+    config = SimpleNamespace(
+        model=model_config,
+        dataset_config=dataset_config,
+        batch_size=1,
+        device="cpu",
+    )
+
+    dataloader = StubDataLoader(dataset_len=1, batches=[{}])
+    generative_model = make_stub_generative_model()
+    pipeline = GenerationPipeline(config)
+    generate_module = importlib.import_module("parnassus.pipelines.generate")
+
+    monkeypatch.setattr(generate_module, "build_dataset", lambda cfg, registry: dataloader.dataset)
+    monkeypatch.setattr(generate_module, "build_dataloader", lambda ds, bs: dataloader)
+    monkeypatch.setattr(
+        generate_module, "init_generative_model", lambda model_cfg, log, device: generative_model
+    )
+
+    events, accessors = pipeline.run()
+
+    assert len(events) == 1
+    assert pipeline.get_accessors() == {key: list(val) for key, val in accessors.items()}

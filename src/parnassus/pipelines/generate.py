@@ -1,4 +1,4 @@
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import partial
 from pathlib import Path
@@ -17,6 +17,8 @@ from parnassus.nn import ModelWrapper
 from parnassus.utils import Unscaler
 from parnassus.utils.logger import ProgressBar, setup_logger, update_task
 from parnassus.utils.typing import TensorDict
+
+from .base import SourcePipeline
 
 if TYPE_CHECKING:
     from parnassus.configs.data import DatasetConfig
@@ -218,8 +220,10 @@ def build_events(buffers: GenerationBuffers, generative_model: "GenerativeModel"
     return event_list
 
 
-def build_accessors(generative_model: "GenerativeModel") -> Mapping[str, Sequence[Accessor]]:
-    pflow_accessors = [accessor(collection="pflow_particles") for accessor in PARTICLE_ACCESSORS]
+def build_accessors(generative_model: "GenerativeModel") -> dict[str, list[Accessor]]:
+    pflow_accessors: list[Accessor] = [
+        accessor(collection="pflow_particles") for accessor in PARTICLE_ACCESSORS
+    ]
     if generative_model.impact_model is not None:
         pflow_accessors += [accessor(collection="pflow_particles") for accessor in IMPACT_ACCESSORS]
     return {
@@ -228,6 +232,35 @@ def build_accessors(generative_model: "GenerativeModel") -> Mapping[str, Sequenc
         "Electrons": [accessor(collection="electrons") for accessor in LEPTON_ACCESSORS],
         "Muons": [accessor(collection="muons") for accessor in LEPTON_ACCESSORS],
     }
+
+
+@final
+class GenerationPipeline(SourcePipeline):
+    def __init__(self, config: Config):
+        self.config = config
+        self._accessors: dict[str, list[Accessor]] | None = None
+
+    def get_accessors(self) -> dict[str, list[Accessor]]:
+        return {key: list(value) for key, value in (self._accessors or {}).items()}
+
+    def run(self) -> tuple[list[GenEvent], dict[str, list[Accessor]]]:
+        log = setup_logger()
+        model_config = self.config.model
+        dataset_config = self.config.dataset_config
+        device = torch.device(self.config.device)
+
+        log.info("[green]Starting loading input data...")
+        dataset = build_dataset(dataset_config, model_config.transform_registry)
+        dataloader = build_dataloader(dataset, self.config.batch_size)
+        log.info("[green]Data loading completed.")
+        generative_model = init_generative_model(model_config, log, device)
+
+        buffers = run_sampling(dataloader, generative_model, dataset_config)
+        log.info(f"[green]Generated {buffers.count} events from requested {len(dataset)}.")
+        event_list = build_events(buffers, generative_model)
+        accessors_dict = build_accessors(generative_model)
+        self._accessors = accessors_dict
+        return event_list, accessors_dict
 
 
 @final
@@ -370,20 +403,7 @@ class GenerativeModel:
         )
 
 
-def generate(config: Config) -> tuple[list[GenEvent], Mapping[str, Sequence[Accessor]]]:
-    log = setup_logger()
-    model_config = config.model
-    dataset_config = config.dataset_config
-    device = torch.device(config.device)
-
-    log.info("[green]Starting loading input data...")
-    dataset = build_dataset(dataset_config, model_config.transform_registry)
-    dataloader = build_dataloader(dataset, config.batch_size)
-    log.info("[green]Data loading completed.")
-    generative_model = init_generative_model(model_config, log, device)
-
-    buffers = run_sampling(dataloader, generative_model, dataset_config)
-    log.info(f"[green]Generated {buffers.count} events from requested {len(dataset)}.")
-    event_list = build_events(buffers, generative_model)
-    accessors_dict = build_accessors(generative_model)
-    return event_list, accessors_dict
+def generate(config: Config) -> tuple[list[GenEvent], dict[str, list[Accessor]]]:
+    """Legacy entrypoint. Prefer GenerationPipeline.run()."""  # noqa: DOC201
+    pipeline = GenerationPipeline(config)
+    return pipeline.run()

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from parnassus.configs import Config
 from parnassus.configs.pipeline import IsolationConfig, JetClusteringConfig
-from parnassus.pipelines import IsolationPipeline, JetClusteringPipeline, generate
+from parnassus.pipelines import GenerationPipeline, IsolationPipeline, JetClusteringPipeline
 from parnassus.utils.logger import setup_logger
 from parnassus.writers import RootWriter
 
@@ -87,7 +87,8 @@ def main(args: Sequence[str] | None = None) -> None:
         if parsed_args.num_steps:
             config.num_steps = parsed_args.num_steps
 
-        gen_events, accessors_dict = generate(config)
+        generation_pipeline = GenerationPipeline(config)
+        gen_events, accessors_dict = generation_pipeline.run()
         accessor_store.update_from_dict(accessors_dict)
         log.info("[green]Starting postprocessing.")
         pipeline: JetClusteringPipeline | IsolationPipeline
