@@ -109,7 +109,7 @@ def getEventHepMC(event_data: list[FloatArray], event_number: int) -> pyhepmc.Ge
     for pt, y, phi, pid, vx, vy, vz in zip(*event_data, strict=True):
         particle = getParticleHepMC(pt, y, phi, pid)
 
-        vtx = vtx_dict.get(hash((vx, vy, vz)), None)
+        vtx = vtx_dict.get(hash((vx, vy, vz)))
         if vtx is None:
             vtx = getVertexHepMC(vx, vy, vz)
             particle_in = getParticleHepMC(0.0001, 0, 0, 0, 0)
@@ -135,7 +135,7 @@ def get_mock_root_file(
     event_numbers = rng.integers(0, num_events * 4, num_events)
     # create a tempfile in a new folder
     if fname is None:
-        fname = NamedTemporaryFile(suffix=".root", dir=mkdtemp()).name  # noqa: SIM115
+        fname = NamedTemporaryFile(suffix=".root", dir=mkdtemp()).name
     else:
         Path(fname).parent.mkdir(exist_ok=True, parents=True)
     with uproot.recreate(fname) as f:
@@ -157,7 +157,7 @@ def get_mock_hepmc_file(
     event_numbers = rng.integers(0, num_events * 4, num_events)
     # create a tempfile in a new folder
     if fname is None:
-        fname = NamedTemporaryFile(suffix=".hepmc", dir=mkdtemp()).name  # noqa: SIM115
+        fname = NamedTemporaryFile(suffix=".hepmc", dir=mkdtemp()).name
     else:
         Path(fname).parent.mkdir(exist_ok=True, parents=True)
     events = [
@@ -170,6 +170,26 @@ def get_mock_hepmc_file(
     with pyhepmc.open(fname, "w") as f:
         for event in events:
             f.write(event)
+    return fname
+
+
+def get_mock_pythia_file(
+    fname: str | None = None,
+) -> str:
+    if fname is None:
+        fname = NamedTemporaryFile(suffix=".cmnd", dir=mkdtemp()).name
+    else:
+        Path(fname).parent.mkdir(exist_ok=True, parents=True)
+    with open(fname, "w") as f:
+        f.write("! Mock Pythia configuration file\n")
+        f.write("Beams:idA = 2212\n")
+        f.write("Beams:idB = 2212\n")
+        f.write("Beams:eCM = 13000.\n")
+        f.write("HardQCD:all = on\n")
+        f.write("PhaseSpace:pTHatMin = 20.0\n")
+        f.write("Print:quiet = on\n")
+        f.write("Random:setSeed = on\n")
+        f.write("Random:seed = 42\n")
     return fname
 
 
@@ -276,7 +296,7 @@ def get_mock_input_data(
 
 def get_mock_model_file(fname: str | None = None, mode: str = "evt") -> str:
     if fname is None:
-        fname = NamedTemporaryFile(suffix=".pt", dir=mkdtemp()).name  # noqa: SIM115
+        fname = NamedTemporaryFile(suffix=".pt", dir=mkdtemp()).name
     else:
         Path(fname).parent.mkdir(exist_ok=True, parents=True)
     model = MockModel(mode=mode)

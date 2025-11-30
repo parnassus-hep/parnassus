@@ -2,10 +2,11 @@ import numpy as np
 import pytest
 
 from parnassus.configs.data import DatasetConfig
-from parnassus.data import HepMCDataset, RootDataset
+from parnassus.data import HepMCDataset, PythiaDataset, RootDataset
 from parnassus.data.base import BaseDataset
 from parnassus.utils.mock import (
     get_mock_hepmc_file,
+    get_mock_pythia_file,
     get_mock_root_file,
     get_mock_transforms,
     get_mock_variable_requirements,
@@ -84,6 +85,32 @@ def test_hepmc_reader_get_data(hepmc_fname: str):
         file_path=hepmc_fname, variable_requirements=var_reqs, max_particles=400, num_events=500
     )
     reader = HepMCDataset(cfg, var_transform_dict=var_transform_dict)
+    output = reader[0]
+
+    assert "ctxt_data" in output
+    assert "ctxt_global_data" in output
+    assert "mask" in output
+    assert "event_number" in output
+
+
+def test_pythia_reader_load_data():
+    fname = get_mock_pythia_file()
+    var_transform_dict = get_mock_transforms()
+    var_reqs = get_mock_variable_requirements()
+    cfg = DatasetConfig(
+        file_path=fname, variable_requirements=var_reqs, max_particles=400, num_events=10
+    )
+    _ = PythiaDataset(cfg, var_transform_dict=var_transform_dict)
+
+
+def test_pythia_reader_get_data():
+    fname = get_mock_pythia_file()
+    var_transform_dict = get_mock_transforms()
+    var_reqs = get_mock_variable_requirements()
+    cfg = DatasetConfig(
+        file_path=fname, variable_requirements=var_reqs, max_particles=400, num_events=10
+    )
+    reader = PythiaDataset(cfg, var_transform_dict=var_transform_dict)
     output = reader[0]
 
     assert "ctxt_data" in output

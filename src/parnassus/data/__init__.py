@@ -1,15 +1,18 @@
+"""Data module providing dataset classes and factory function."""
+
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .hepmc import HepMCDataset
+from .pythia import PythiaDataset
 from .root import RootDataset
 
 if TYPE_CHECKING:
     from parnassus.configs.data import DatasetConfig
     from parnassus.data.base import BaseDataset
 
-__all__ = ["HepMCDataset", "RootDataset", "build_dataset"]
+__all__ = ["HepMCDataset", "PythiaDataset", "RootDataset", "build_dataset"]
 
 
 def build_dataset(
@@ -47,7 +50,11 @@ def build_dataset(
         raise FileNotFoundError(f"Trying to load file {input_file}, no file exists!")
 
     var_transform_dict = transform_registry.to_var_transform_dict() if transform_registry else {}
-    builders = dataset_builders or {".root": RootDataset, ".hepmc": HepMCDataset}
+    builders = dataset_builders or {
+        ".root": RootDataset,
+        ".hepmc": HepMCDataset,
+        ".cmnd": PythiaDataset,
+    }
     suffix = input_file.suffix.lower()
     if suffix not in builders:
         raise ValueError(

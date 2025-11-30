@@ -13,6 +13,12 @@ from .base import BaseDataset
 
 @final
 class HepMCDataset(BaseDataset):
+    """Dataset wrapper for HepMC events.
+
+    This class loads events from a HepMC file and prepares arrays for model
+    training and evaluation.
+    """
+
     def __init__(self, cfg: DatasetConfig, var_transform_dict: dict[str, VarTransform]):
         super().__init__(cfg=cfg, var_transform_dict=var_transform_dict)
 
@@ -44,14 +50,14 @@ class HepMCDataset(BaseDataset):
                     num_particles = 0
                     for vtx in evt.vertices:
                         for part in vtx.particles_out:
-                            pid = pid_to_class(part.pid)
                             if (
                                 part.status != 1
                                 or np.abs(part.momentum.eta()) >= 2.7
                                 or part.momentum.pt() <= 0.25
-                                or abs(pid) in {12, 14, 16}
+                                or abs(part.pid) in {12, 14, 16}
                             ):
                                 continue
+                            pid = pid_to_class(part.pid)
                             self.full_data_array["pt"][curr_particle_idx] = part.momentum.pt()
                             self.full_data_array["eta"][curr_particle_idx] = part.momentum.eta()
                             self.full_data_array["phi"][curr_particle_idx] = part.momentum.phi()
