@@ -11,7 +11,6 @@ from parnassus.utils.transform import VarTransform
 from .base import BaseDataset
 
 
-# You can adapt this to your own wrapper if you don't use the official pythia8 python interface
 def _make_pythia(pythia_card: Path | str, seed: int | None = None):
     """
     Helper that returns an initialized Pythia instance.
