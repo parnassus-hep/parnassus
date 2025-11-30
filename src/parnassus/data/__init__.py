@@ -44,7 +44,7 @@ def build_dataset(
     input_file = dataset_config.file_path
     assert isinstance(input_file, Path)
     if not Path(input_file).exists():
-        raise FileNotFoundError(f"Trying to load file {input_file}, no file exist!")
+        raise FileNotFoundError(f"Trying to load file {input_file}, no file exists!")
 
     var_transform_dict = transform_registry.to_var_transform_dict() if transform_registry else {}
     builders = dataset_builders or {".root": RootDataset, ".hepmc": HepMCDataset}
