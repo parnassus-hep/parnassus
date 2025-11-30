@@ -79,15 +79,44 @@ This project is structured in the following way:
 	- `parnassus/`
 		- `main.py`
 		- `configs/`
-		- `models/`
-			- `modules/`
-			- `utils/`
-			- `sampler/`
-		- `readers/`
+			- `config.py`
+			- `data.py`
+			- `pipeline.py`
+			- `writer.py`
+			- `accessors.py`
+			- `scheme.py`
+			- `generators/`
+				- `base.py` - Base generator configuration
+				- `neural.py` - Neural network generator config
+				- `parametric.py` - Parametric generator config
+				- `model.py` - Model and sampler configurations
+		- `pipelines/`
+			- `base.py` - EventGenerator protocol
+			- `generate.py` - Generation pipeline orchestration
+			- `cluster.py` - Jet clustering pipeline
+			- `isolation.py` - Lepton isolation pipeline
+			- `generators/`
+				- `neural.py` - Neural network event generator
+		- `nn/`
+			- `wrapper.py`
+			- `sampler.py`
+		- `data/`
+			- `base.py`
+			- `hepmc.py`
+			- `root.py`
 		- `writers/`
-		- `postprocessing/`
+			- `base.py`
+			- `root.py`
+		- `pythia/`
 		- `utils/`
 		- `tests/`
+	- `pretrained_models/`
+		- `cms_2011/`
+			- `metadata.yaml`
+			- `var_transform.yaml`
+			- `event.pt2`
+			- `particle.pt2`
+			- `impact.pt2`
 
 ## License
 
