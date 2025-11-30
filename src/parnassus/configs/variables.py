@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from parnassus.utils.typing import VarNameTuple
 
 if TYPE_CHECKING:
-    from parnassus.configs.model import GenerativeModelConfig
+    from parnassus.configs.generators import GeneratorConfig
 
 
 @dataclass(frozen=True, slots=True)
@@ -22,23 +22,37 @@ class VariableRequirements:
     ctxt_global_vars: VarNameTuple
 
     @classmethod
-    def from_model_config(cls, model_config: "GenerativeModelConfig") -> "VariableRequirements":
-        """Create VariableRequirements from a GenerativeModelConfig.
+    def from_model_config(cls, generator_config: "GeneratorConfig") -> "VariableRequirements":
+        """Create VariableRequirements from a GeneratorConfig.
 
         Parameters
         ----------
-        model_config : GenerativeModelConfig
-            The model configuration to extract variables from.
+        generator_config : GeneratorConfig
+            The generator configuration to extract variables from.
 
         Returns
         -------
         VariableRequirements
-            A new VariableRequirements instance with variables from the model.
+            A new VariableRequirements instance with variables from the generator.
+
+        Raises
+        ------
+        TypeError
+            If generator type doesn't support variable extraction.
         """
-        return cls(
-            truth_vars_to_load=model_config.truth_vars_to_load,
-            ctxt_vars=model_config.event_model_config.variables_config.ctxt_vars,
-            ctxt_global_vars=model_config.event_model_config.variables_config.ctxt_global_vars,
+        # For neural generators, extract from model configs
+        from parnassus.configs.generators import NeuralGeneratorConfig
+
+        if isinstance(generator_config, NeuralGeneratorConfig):
+            return cls(
+                truth_vars_to_load=generator_config.truth_vars_to_load,
+                ctxt_vars=generator_config.event_model_config.variables_config.ctxt_vars,
+                ctxt_global_vars=generator_config.event_model_config.variables_config.ctxt_global_vars,
+            )
+        # For future generator types, provide defaults or raise error
+        raise TypeError(
+            "Variable extraction not implemented for generator type: "
+            f"{type(generator_config).__name__}"
         )
 
     @property

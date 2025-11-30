@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Self
 from parnassus.configs.variables import VariableRequirements
 
 if TYPE_CHECKING:
-    from parnassus.configs.model import GenerativeModelConfig
+    from parnassus.configs.generators import GeneratorConfig
 
 
 @dataclass(kw_only=True)
@@ -64,30 +64,30 @@ class DatasetConfig:
 
     @classmethod
     def from_dict_and_model(
-        cls, config: dict[str, Any], model_config: "GenerativeModelConfig"
+        cls, config: dict[str, Any], generator_config: "GeneratorConfig"
     ) -> Self:
-        """Create DatasetConfig from dictionary and model configuration.
+        """Create DatasetConfig from dictionary and generator configuration.
 
         Parameters
         ----------
         config : dict[str, Any]
             Dictionary containing dataset configuration (file_path, num_events, etc.).
-        model_config : GenerativeModelConfig
-            Model configuration to extract variable requirements from.
+        generator_config : GeneratorConfig
+            Generator configuration to extract variable requirements from.
 
         Returns
         -------
         DatasetConfig
-            A new DatasetConfig instance with variables from the model.
+            A new DatasetConfig instance with variables from the generator.
         """
-        # Extract variable requirements from model
-        variable_requirements = VariableRequirements.from_model_config(model_config)
+        # Extract variable requirements from generator
+        variable_requirements = VariableRequirements.from_model_config(generator_config)
 
-        # Use max_particles from model config (must match training)
+        # Use max_particles from generator config (must match training for neural generators)
         return cls(
             file_path=config["file_path"],
             variable_requirements=variable_requirements,
-            max_particles=model_config.max_particles,
+            max_particles=generator_config.get_max_particles(),
             num_events=config.get("num_events", 1),
             entry_start=config.get("entry_start", 0),
             batch_loading=config.get("batch_loading", False),

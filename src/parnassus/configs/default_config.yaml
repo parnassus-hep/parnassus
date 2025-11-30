@@ -3,11 +3,20 @@ dataset:
   num_events: 1000
   entry_start: 0
 
-model:
+generator:
+  type: "neural"  # Generator type: "neural" or "parametric"
   name: "cms_2011_flow_v00"
-  num_steps: 50
-  batch_size: 2000
-  device: "cpu"
+  num_steps: 50  # Neural-specific: override default sampler steps
+  batch_size: 2000  # Shared: batch size for processing
+  device: "cpu"  # Shared: device for computation (cpu/cuda/mps)
+
+# Example parametric generator configuration:
+# generator:
+#   type: "parametric"
+#   name: "simple_parametric_v1"
+#   seed: 42  # Parametric-specific: random seed
+#   batch_size: 2000  # Shared
+#   device: "cpu"  # Shared
 
 pipelines:
    TruthJetsAntiKt05:

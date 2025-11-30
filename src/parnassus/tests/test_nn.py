@@ -14,13 +14,10 @@ import pytest
 import torch
 from torch import Tensor
 
-from parnassus.configs.model import ModelConfig, SamplerConfig, VariablesConfig
+from parnassus.configs.generators.model import ModelConfig, SamplerConfig, VariablesConfig
 from parnassus.nn.sampler import EulerSampler
 from parnassus.nn.wrapper import ModelWrapper
 from parnassus.utils.mock import get_mock_input_data, get_mock_model_file
-
-# Suppress RuntimeError for specific tests
-_ = suppress
 
 
 def _create_model_config(model_path: str, mode: str = "part") -> ModelConfig:

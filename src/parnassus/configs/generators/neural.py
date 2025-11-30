@@ -1,47 +1,29 @@
+"""Generator configuration abstractions for different event generation backends."""
+
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Self
+from typing import Self
 
 import yaml
 
 from parnassus.utils import TransformRegistry, VarTransformConfig
 from parnassus.utils.typing import VarNameTuple
 
-
-@dataclass(slots=True)
-class VariablesConfig:
-    truth_vars_to_load: VarNameTuple
-    fs_vars: VarNameTuple
-    ctxt_vars: VarNameTuple
-    ctxt_global_vars: VarNameTuple
+from .base import GeneratorConfig
+from .model import ModelConfig, SamplerConfig, VariablesConfig
 
 
 @dataclass(slots=True)
-class SamplerConfig:
-    type: Literal["euler"] = "euler"
-    num_steps: int = 50
-    reverse_time: bool = False
+class NeuralGeneratorConfig(GeneratorConfig):
+    """Configuration for neural network-based event generator.
 
-
-@dataclass(slots=True)
-class ModelConfig:
-    name: str
-    file_path: Path
-    variables_config: VariablesConfig
-    sampler_config: SamplerConfig = field(default_factory=SamplerConfig)
-
-
-@dataclass(slots=True)
-class GenerativeModelConfig:
-    """Configuration for the complete generative model pipeline.
-
-    This class manages configurations for event, particle, and optional impact models,
-    along with variable transformations and output specifications.
+    This configuration manages the complete NN-based generation pipeline,
+    including event-level, particle-level, and optional impact parameter models.
 
     Parameters
     ----------
     name : str
-        Name identifier for this model configuration.
+        Name identifier for this generator configuration.
     max_particles : int
         Maximum number of particles per event (fixed at training time).
     transform_config_path : Path
@@ -56,14 +38,14 @@ class GenerativeModelConfig:
         Configuration for the impact parameter model. Defaults to None.
     """
 
-    name: str
+    type: str = field(default="neural", init=False)
     max_particles: int
     transform_config_path: Path
     truth_vars_to_load: VarNameTuple
-
     event_model_config: ModelConfig
     particle_model_config: ModelConfig
     impact_model_config: ModelConfig | None = None
+    num_steps: int | None = None  # Override sampler steps at runtime (None = use model defaults)
 
     # Private field for lazy-loaded transform registry
     _transform_registry: TransformRegistry | None = field(
@@ -78,10 +60,24 @@ class GenerativeModelConfig:
         FileNotFoundError
             If the transform config file does not exist at the specified path.
         """
-        if not self.transform_config_path.exists():
+        if self.transform_config_path and not self.transform_config_path.exists():
             raise FileNotFoundError(
                 f"Transform config file not found: {self.transform_config_path}"
             )
+
+    def set_num_steps(self, num_steps: int) -> None:
+        """Set the number of sampler steps for all models.
+
+        Parameters
+        ----------
+        num_steps : int
+            Number of sampling steps to use for event, particle, and impact models.
+        """
+        self.num_steps = num_steps
+        self.event_model_config.sampler_config.num_steps = num_steps
+        self.particle_model_config.sampler_config.num_steps = num_steps
+        if self.impact_model_config is not None:
+            self.impact_model_config.sampler_config.num_steps = num_steps
 
     @property
     def transform_registry(self) -> TransformRegistry:
@@ -107,16 +103,20 @@ class GenerativeModelConfig:
         """
         return self.transform_registry.transforms
 
-    @property
-    def pflow_output_vars(self) -> list[str]:
-        """Particle flow output variable names (with 'pflow_' prefix removed).
+    def get_output_vars(self) -> tuple[list[str], list[str]]:
+        """Get output variable names for neural generator.
 
         Returns
         -------
-        list[str]
-            List of particle flow output variable names.
+        tuple[list[str], list[str]]
+            Tuple of (truth_output_vars, pflow_output_vars).
         """
-        return [
+        truth_vars = [
+            var.replace("truth_", "")
+            for var in self.event_model_config.variables_config.truth_vars_to_load
+        ]
+
+        pflow_vars = [
             var.replace("pflow_", "")
             for var in (
                 *self.particle_model_config.variables_config.fs_vars,
@@ -128,22 +128,59 @@ class GenerativeModelConfig:
             )
         ]
 
+        return truth_vars, pflow_vars
+
+    def get_max_particles(self) -> int:
+        """Get maximum particles for neural generator.
+
+        Returns
+        -------
+        int
+            Maximum number of particles per event.
+        """
+        return self.max_particles
+
+    @property
+    def pflow_output_vars(self) -> list[str]:
+        """Particle flow output variable names (backward compatibility).
+
+        Returns
+        -------
+        list[str]
+            List of particle flow output variable names.
+        """
+        return self.get_output_vars()[1]
+
     @property
     def truth_output_vars(self) -> list[str]:
-        """Truth-level output variable names (with 'truth_' prefix removed).
+        """Truth-level output variable names (backward compatibility).
 
         Returns
         -------
         list[str]
             List of truth-level output variable names.
         """
-        return [
-            var.replace("truth_", "")
-            for var in self.event_model_config.variables_config.truth_vars_to_load
-        ]
+        return self.get_output_vars()[0]
 
     @classmethod
     def load_from_metadata(cls, metadata_path: Path) -> Self:
+        """Load neural generator configuration from metadata file.
+
+        Parameters
+        ----------
+        metadata_path : Path
+            Path to the metadata YAML file.
+
+        Returns
+        -------
+        NeuralGeneratorConfig
+            Loaded generator configuration.
+
+        Raises
+        ------
+        ValueError
+            If required models (event, particle) are not defined in metadata.
+        """
         with open(metadata_path) as f:
             metadata = yaml.safe_load(f)
         top_path = metadata_path.parent.absolute()
@@ -193,8 +230,9 @@ class GenerativeModelConfig:
         )
 
 
-MODELS_DICT = {
-    "cms_2011_flow_v00": GenerativeModelConfig.load_from_metadata(
-        Path(__file__).parent.parent / "pretrained_models/cms_2011/metadata.yaml"
+# Registry of available generators
+NEURAL_GENERATORS_REGISTRY: dict[str, GeneratorConfig] = {
+    "cms_2011_flow_v00": NeuralGeneratorConfig.load_from_metadata(
+        Path(__file__).parent.parent.parent / "pretrained_models/cms_2011/metadata.yaml"
     )
 }

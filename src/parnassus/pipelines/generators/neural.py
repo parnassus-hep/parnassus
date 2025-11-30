@@ -8,7 +8,7 @@ import numpy as np
 import torch
 
 from parnassus.configs.accessors import ParticleAccessor
-from parnassus.configs.model import GenerativeModelConfig
+from parnassus.configs.generators import NeuralGeneratorConfig
 from parnassus.nn import ModelWrapper
 from parnassus.utils import Unscaler
 from parnassus.utils.typing import TensorDict
@@ -33,7 +33,7 @@ LEPTON_ACCESSORS = [
 class NeuralEventGenerator:
     """Neural network-based event generator implementing EventGenerator protocol."""
 
-    def __init__(self, config: GenerativeModelConfig, log):
+    def __init__(self, config: NeuralGeneratorConfig, log):
         self.config = config
         self.log = log
         self.device = torch.device("cpu")

@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from parnassus.configs import Config
 from parnassus.configs.accessors import Accessor
+from parnassus.configs.generators import NeuralGeneratorConfig, ParametricGeneratorConfig
 from parnassus.configs.scheme import GenEvent, GenParticleCollection
 from parnassus.data import build_dataset
 from parnassus.utils.logger import ProgressBar, setup_logger, update_task
@@ -96,7 +97,13 @@ class GenerationPipeline(SourcePipeline):
         BaseDataset
             Dataset instance based on configured file type.
         """
-        return build_dataset(self.config.dataset_config, self.config.model.transform_registry)
+        # Extract transform_registry if available (NN generators have it)
+        transform_registry = (
+            self.config.generator_config.transform_registry
+            if isinstance(self.config.generator_config, NeuralGeneratorConfig)
+            else None
+        )
+        return build_dataset(self.config.dataset_config, transform_registry)
 
     def _build_dataloader(self, dataset: "BaseDataset") -> DataLoader:
         """Create dataloader for batching dataset.
@@ -109,16 +116,32 @@ class GenerationPipeline(SourcePipeline):
         return DataLoader(dataset, batch_size=self.config.batch_size, num_workers=0)
 
     def _init_generator(self) -> EventGenerator:
-        """Initialize event generator (currently NN-based GenerativeModel).
+        """Initialize event generator based on configuration type.
 
         Returns
         -------
         EventGenerator
             Initialized event generator on configured device.
+
+        Raises
+        ------
+        TypeError
+            If generator configuration type is not supported.
         """
         log = setup_logger()
         device = torch.device(self.config.device)
-        return NeuralEventGenerator(self.config.model, log).to(device)
+
+        if isinstance(self.config.generator_config, NeuralGeneratorConfig):
+            return NeuralEventGenerator(self.config.generator_config, log).to(device)
+        # Placeholder for parametric generators
+        if isinstance(self.config.generator_config, ParametricGeneratorConfig):
+            raise NotImplementedError(
+                f"Parametric generator '{self.config.generator_config.name}' "
+                "is not yet implemented."
+            )
+        raise TypeError(
+            f"Unsupported generator type: {type(self.config.generator_config).__name__}"
+        )
 
     def _init_buffers(self, num_events: int) -> GenerationBuffers:
         """Allocate buffer storage for generation output.

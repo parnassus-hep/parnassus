@@ -4,7 +4,7 @@ from typing import final
 from torch import Size, Tensor, nn
 from torch.export import load
 
-from parnassus.configs.model import ModelConfig
+from parnassus.configs.generators.model import ModelConfig
 from parnassus.nn.sampler import EulerSampler
 
 

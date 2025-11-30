@@ -5,6 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from parnassus.configs import Config
+from parnassus.configs.generators import NeuralGeneratorConfig, ParametricGeneratorConfig
 from parnassus.configs.pipeline import IsolationConfig, JetClusteringConfig
 from parnassus.pipelines import GenerationPipeline, IsolationPipeline, JetClusteringPipeline
 from parnassus.utils.logger import setup_logger
@@ -40,7 +41,7 @@ def parse_args(args: Sequence[str] | None):
         "--num_steps",
         type=int,
         default=None,
-        help="Number of steps to run (overrides config)",
+        help="Number of sampler steps for neural models (overrides config)",
     )
     _ = parser_run.add_argument(
         "-ne",
@@ -85,7 +86,15 @@ def main(args: Sequence[str] | None = None) -> None:
         if parsed_args.batch_size:
             config.batch_size = parsed_args.batch_size
         if parsed_args.num_steps:
-            config.num_steps = parsed_args.num_steps
+            # Override num_steps for neural generator configs
+            if isinstance(config.generator_config, NeuralGeneratorConfig):
+                config.generator_config.set_num_steps(parsed_args.num_steps)
+            elif isinstance(config.generator_config, ParametricGeneratorConfig):
+                log.warning(
+                    f"--num_steps is ignored for parametric generator "
+                    f"'{config.generator_config.name}'. "
+                    "This parameter only applies to neural generators.",
+                )
 
         generation_pipeline = GenerationPipeline(config)
         gen_events, accessors_dict = generation_pipeline.run()
