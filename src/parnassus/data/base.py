@@ -19,18 +19,20 @@ if TYPE_CHECKING:
 
 def do_padding(tensor: Tensor, max_len: int):
     shape = tensor.shape
-    new_shape = (max_len,) + shape[1:]
+    new_shape = (max_len, *shape[1:])
     x = torch.zeros(new_shape, dtype=tensor.dtype, device=tensor.device)
     x[: shape[0]] = tensor
     return x
 
 
 class BaseDataset(Dataset[dict[str, Tensor]]):
-    def __init__(self, cfg: DatasetConfig, var_transform_dict: dict[str, VarTransform]):
+    def __init__(
+        self, cfg: DatasetConfig, var_transform_dict: dict[str, VarTransform] | None = None
+    ):
         super().__init__()
         self.cfg: DatasetConfig = cfg
 
-        self.var_transform_dict: dict[str, VarTransform] = var_transform_dict
+        self.var_transform_dict: dict[str, VarTransform] = var_transform_dict or {}
 
         # Use properties from VariableRequirements for cleaner variable access
         self.truth_vars_to_load: VarNameTuple = cfg.truth_vars_to_load
@@ -52,6 +54,11 @@ class BaseDataset(Dataset[dict[str, Tensor]]):
 
         self.n_events = len(self.n_truth_particles)
         self.scaled_ctxt_global_data: Tensor = self._prepare_ctxt_global_data()
+
+    @property
+    def apply_transforms(self) -> bool:
+        """Whether to apply variable transformations (False for parametric simulation)."""
+        return bool(self.var_transform_dict)
 
     def _validate_required_attributes(self) -> None:
         """Validate that all required attributes are set by load_data().
@@ -124,25 +131,23 @@ class BaseDataset(Dataset[dict[str, Tensor]]):
             if var == "means":
                 scaled_ctxt_global_data_list.append(torch.tensor(means, dtype=torch.float32))
             elif var.startswith("ntruth"):
-                var_transform = self.var_transform_dict["npart"]
-                scaled_ctxt_global_data_list.append(
-                    var_transform.transform(
-                        torch.tensor(
-                            self.n_truth_particles,
-                            dtype=torch.float32,
-                        ).view(-1, 1)
-                    )
-                )
+                data = torch.tensor(
+                    self.n_truth_particles,
+                    dtype=torch.float32,
+                ).view(-1, 1)
+                if self.apply_transforms:
+                    var_transform = self.var_transform_dict["npart"]
+                    data = var_transform.transform(data)
+                scaled_ctxt_global_data_list.append(data)
             else:
-                var_transform = self.var_transform_dict[var]
-                scaled_ctxt_global_data_list.append(
-                    var_transform.transform(
-                        torch.tensor(
-                            self.full_data_array[var],
-                            dtype=torch.float32,
-                        ).view(-1, 1)
-                    )
-                )
+                data = torch.tensor(
+                    self.full_data_array[var],
+                    dtype=torch.float32,
+                ).view(-1, 1)
+                if self.apply_transforms:
+                    var_transform = self.var_transform_dict[var]
+                    data = var_transform.transform(data)
+                scaled_ctxt_global_data_list.append(data)
         return torch.cat(scaled_ctxt_global_data_list, dim=-1)
 
     def _get_data(self, idx: int) -> tuple[Tensor, Tensor, Tensor]:
@@ -168,16 +173,19 @@ class BaseDataset(Dataset[dict[str, Tensor]]):
             x = torch.tensor(self.full_data_array[var][truth_start:truth_end][truth_idx]).view(
                 -1, 1
             )
-            if var == "phi":
+            if var == "phi" and self.apply_transforms:
                 ctxt_data_list.extend([
                     torch.sin(x).float(),
                     torch.cos(x).float(),
                 ])
-            elif var == "class":
+            elif var == "class" and self.apply_transforms:
                 ctxt_data_list.append(F.one_hot(x.long().squeeze(-1), num_classes=5).float())
-            else:
+            elif self.apply_transforms:
                 var_transform = self.var_transform_dict[var]
                 ctxt_data_list.append(var_transform.transform(x).float())
+            else:
+                # No transformations for parametric simulation
+                ctxt_data_list.append(x.float())
 
         ctxt_data = torch.cat(ctxt_data_list, dim=-1)
         ctxt_data = do_padding(ctxt_data, self.cfg.max_particles)
