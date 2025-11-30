@@ -48,8 +48,8 @@ class EventGenerator(Protocol):
         """Number of sampling steps for impact generation (None if no impact model)."""
         ...
 
-    def get_accessors(self) -> list:
-        """Return list of partial accessor constructors for this generator's output."""
+    def get_accessors(self) -> dict[str, list[Accessor]]:
+        """Return dictionary of accessors for generated output."""
         ...
 
     def generate_batch(

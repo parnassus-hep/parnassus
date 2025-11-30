@@ -7,7 +7,7 @@ from typing import Self, final
 import numpy as np
 import torch
 
-from parnassus.configs.accessors import ParticleAccessor
+from parnassus.configs.accessors import Accessor, ParticleAccessor
 from parnassus.configs.generators import NeuralGeneratorConfig
 from parnassus.nn import ModelWrapper
 from parnassus.utils import Unscaler
@@ -95,7 +95,7 @@ class NeuralEventGenerator:
     def impact_sampler_steps(self) -> int | None:
         return self.impact_model.sampler.n_steps if self.impact_model else None
 
-    def get_accessors(self) -> list:
+    def get_accessors(self) -> dict[str, list[Accessor]]:
         """Return list of accessor constructors for neural network output.
 
         Returns
@@ -103,11 +103,32 @@ class NeuralEventGenerator:
         list[type[Accessor]]
             List of accessor constructors for the generated output.
         """
-        accessors = PARTICLE_ACCESSORS.copy()
-        if self.has_impact_model:
-            accessors.extend(IMPACT_ACCESSORS)
-        accessors.extend(LEPTON_ACCESSORS)
-        return accessors
+        # Build pflow accessors (all particle + impact if available)
+        pflow_accessors: list[Accessor] = [
+            accessor_partial(collection="pflow_particles")
+            for accessor_partial in PARTICLE_ACCESSORS
+        ]
+        if self.impact_model is not None:
+            pflow_accessors += [
+                accessor_partial(collection="pflow_particles")
+                for accessor_partial in IMPACT_ACCESSORS
+            ]
+
+        truth_accessors: list[Accessor] = [
+            accessor_partial(collection="truth_particles")
+            for accessor_partial in PARTICLE_ACCESSORS
+        ]
+
+        return {
+            "Truth": truth_accessors,
+            "Pflow": pflow_accessors,
+            "Electrons": [
+                accessor_partial(collection="electrons") for accessor_partial in LEPTON_ACCESSORS
+            ],
+            "Muons": [
+                accessor_partial(collection="muons") for accessor_partial in LEPTON_ACCESSORS
+            ],
+        }
 
     def to(self, device: torch.device) -> Self:
         self.event_model.to(device)

@@ -315,42 +315,7 @@ class GenerationPipeline(SourcePipeline):
             Dictionary mapping categories (Truth, Pflow, Electrons, Muons) to accessor lists.
         """
         assert self.generator is not None, "Generator must be initialized before building accessors"
-
-        # Get accessor partial constructors from generator
-        accessor_partials = self.generator.get_accessors()
-
-        # Build pflow accessors (all particle + impact if available)
-        pflow_accessors: list[Accessor] = [
-            accessor_partial(collection="pflow_particles") for accessor_partial in accessor_partials
-        ]
-
-        # Filter out impact accessors for truth (check partial keywords)
-        impact_names = {"d0", "z0", "d0_error", "z0_error"}
-        truth_accessor_partials = [
-            ap for ap in accessor_partials if ap.keywords.get("name") not in impact_names
-        ]
-
-        # Lepton accessors only include pt, eta, phi
-        lepton_names = {"pt", "eta", "phi"}
-        lepton_accessor_partials = [
-            ap for ap in accessor_partials if ap.keywords.get("name") in lepton_names
-        ]
-
-        return {
-            "Truth": [
-                accessor_partial(collection="truth_particles")
-                for accessor_partial in truth_accessor_partials
-            ],
-            "Pflow": pflow_accessors,
-            "Electrons": [
-                accessor_partial(collection="electrons")
-                for accessor_partial in lepton_accessor_partials
-            ],
-            "Muons": [
-                accessor_partial(collection="muons")
-                for accessor_partial in lepton_accessor_partials
-            ],
-        }
+        return self.generator.get_accessors()
 
 
 def generate(config: Config) -> tuple[list[GenEvent], dict[str, list[Accessor]]]:
