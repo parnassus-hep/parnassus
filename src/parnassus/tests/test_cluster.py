@@ -25,7 +25,12 @@ def test_get_cluster_sequence(mock_particle_collection: GenParticleCollection):
     jetdef = fj.JetDefinition(fj.antikt_algorithm, 0.4)
     four_vectors = mock_particle_collection.get4vecs_awkward()
     user_indices = list(range(len(mock_particle_collection)))
-    cs = get_cluster_sequence(jetdef, four_vectors, user_indices)
+    # Extract numpy arrays from awkward array
+    px = np.array([v.px.item() for v in four_vectors])
+    py = np.array([v.py.item() for v in four_vectors])
+    pz = np.array([v.pz.item() for v in four_vectors])
+    E = np.array([v.E.item() for v in four_vectors])
+    cs = get_cluster_sequence(jetdef, px, py, pz, E, user_indices)
     assert len(cs.inclusive_jets(0.0)) == 1, "Expected to have one jet."
     assert len(cs.inclusive_jets(0.0)[0].constituents()) == 3, (
         "Expected to have 3 particles in jet."
@@ -39,7 +44,15 @@ def test_cluster_jets(mock_particle_collection: GenParticleCollection):
     config = JetClusteringConfig(
         name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, min_pt=0
     )
-    jets, idxs = cluster_jets(mock_particle_collection, config)
+    # Convert GenParticleCollection to particle data dictionary
+    four_vectors = mock_particle_collection.get4vecs_numpy()
+    particle_data = {
+        "px": four_vectors[..., 0],
+        "py": four_vectors[..., 1],
+        "pz": four_vectors[..., 2],
+        "e": four_vectors[..., 3],
+    }
+    jets, idxs = cluster_jets(particle_data, config)
     assert len(jets) == 1
     assert idxs.shape == (3,)
     assert jets[0].nconstituents == 3
@@ -71,14 +84,14 @@ def mock_fj_jet_cs():
 @pytest.fixture
 def mock_jet(mock_fj_jet_cs) -> Jet:
     mock_fj_jet, _ = mock_fj_jet_cs
-    return Jet(mock_fj_jet[0], R=0.4, calc_substructure=True)
+    return Jet(mock_fj_jet[0], dr=0.4, calc_substructure=True)
 
 
 def test_jet_init_basic(mock_fj_jet_cs):
     """Test basic Jet initialization without substructure calculation."""
     mock_fj_jet, _ = mock_fj_jet_cs
-    jet = Jet(mock_fj_jet[0], R=0.4, calc_substructure=False)
-    assert jet.R == 0.4
+    jet = Jet(mock_fj_jet[0], dr=0.4, calc_substructure=False)
+    assert jet.dR == 0.4
     assert jet.nconstituents == 3
     assert len(jet.constituents_pt) == 3
     assert len(jet.constituents_eta) == 3

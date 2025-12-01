@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import logging
+import os
+import sys
+from contextlib import contextmanager
 from functools import partial
+from io import TextIOWrapper
 from typing import TYPE_CHECKING
 
 from rich.console import Console
@@ -37,6 +41,21 @@ ProgressBar = partial(
 
 
 def update_task(progress_bar: Progress, task: TaskID) -> Callable[[], None]:
+    """Create a function to update a progress bar task.
+
+    Parameters
+    ----------
+    progress_bar : Progress
+        Progress bar instance.
+    task : TaskID
+        Task ID to update.
+
+    Returns
+    -------
+    Callable[[], None]
+        Function that updates the progress bar task when called.
+    """
+
     def update():
         progress_bar.update(task, advance=1)
 
@@ -44,10 +63,53 @@ def update_task(progress_bar: Progress, task: TaskID) -> Callable[[], None]:
 
 
 def setup_logger(level: str = "INFO"):
-    FORMAT = "%(message)s"
+    """Setup rich logger for pretty console output.
+
+    Parameters
+    ----------
+    level : str
+        Logging level (e.g., "INFO", "DEBUG").
+
+    Returns
+    -------
+    logging.Logger
+        Configured logger instance.
+    """
+    FORMAT = "%(message)s"  # noqa: N806
     console = None if is_terminal else Console(width=120)
     handler = RichHandler(
         show_time=False, show_path=False, markup=True, rich_tracebacks=True, console=console
     )
     logging.basicConfig(level=level, format=FORMAT, datefmt="[%X]", handlers=[handler])
     return logging
+
+
+@contextmanager
+def stdout_redirected(to: str = os.devnull):
+    """Redirect stdout to suppress C++ library output (e.g., fastjet).
+
+    Parameters
+    ----------
+    to : str
+        File path to redirect stdout to. Defaults to os.devnull.
+
+    Examples
+    --------
+    >>> with stdout_redirected(to=filename):
+    ...     print("from Python")
+    ...     os.system("echo non-Python applications are also supported")
+    """
+    fd = sys.stdout.fileno()
+
+    def _redirect_stdout(to: TextIOWrapper):
+        _ = sys.stdout.close()  # + implicit flush()
+        _ = os.dup2(to.fileno(), fd)  # fd writes to 'to' file
+        sys.stdout = os.fdopen(fd, "w")  # Python writes to fd
+
+    with os.fdopen(os.dup(fd), "w") as old_stdout:
+        with open(to, "w") as file:
+            _redirect_stdout(to=file)
+        try:
+            yield  # allow code to be run with the redirected stdout
+        finally:
+            _redirect_stdout(to=old_stdout)  # restore stdout
