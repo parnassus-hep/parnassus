@@ -1,7 +1,6 @@
-import multiprocessing as mp
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from functools import partial
-from typing import Any, final, override
+from typing import final, override
 
 import numpy as np
 
@@ -9,10 +8,9 @@ from parnassus.configs.accessors import Accessor, ParticleAccessor
 from parnassus.configs.pipeline import IsolationConfig
 from parnassus.configs.scheme import (
     GenEvent,
-    GenParticleCollection,
 )
 from parnassus.utils import calculate_dr
-from parnassus.utils.logger import ProgressBar
+from parnassus.utils.executor import process_batches
 from parnassus.utils.typing import FloatArray, IntArray
 
 from .base import GenPipeline
@@ -27,15 +25,33 @@ ISOLATION_ACESSORS = [
 
 def calculate_photon_isolation(
     pt: FloatArray,
-    dR_matrix: FloatArray,
+    dR_matrix: FloatArray,  # noqa: N803
     class_id: IntArray,
     dr_cut: float = 0.4,
 ) -> FloatArray:
+    """Calculate photon isolation scores.
+
+    Parameters
+    ----------
+    pt : FloatArray
+        Particle transverse momenta.
+    dR_matrix : FloatArray
+        Delta-R distance matrix between particles.
+    class_id : IntArray
+        Particle class IDs.
+    dr_cut : float, optional
+        Delta-R cut for isolation calculation, by default 0.4.
+
+    Returns
+    -------
+    FloatArray
+        Isolation scores for photons; non-photons get a score of 1000.
+    """
     ch_hadron_mask = class_id == 0
     neut_mask = class_id == 3
     phot_mask = class_id == 4
 
-    dR_mask_phot = dR_matrix < dr_cut
+    dR_mask_phot = dR_matrix < dr_cut  # noqa: N806
     ch_pt_sum_phot = ((pt * dR_mask_phot) * ch_hadron_mask).sum(-1)
     neut_pt_sum_phot = ((pt * dR_mask_phot) * neut_mask).sum(-1)
     iso_score_phot = (ch_pt_sum_phot + np.maximum(0, neut_pt_sum_phot)) / pt
@@ -47,10 +63,30 @@ def calculate_photon_isolation(
 def calculate_lepton_isolation(
     lepton_id: int,
     pt: FloatArray,
-    dR_matrix: FloatArray,
+    dR_matrix: FloatArray,  # noqa: N803
     class_id: IntArray,
     dr_cut: float = 0.4,
 ) -> IsolationData:
+    """Calculate lepton isolation variables.
+
+    Parameters
+    ----------
+    lepton_id : int
+        Particle class ID for the lepton type (1=electron, 2=muon).
+    pt : FloatArray
+        Particle transverse momenta.
+    dR_matrix : FloatArray
+        Delta-R distance matrix between particles.
+    class_id : IntArray
+        Particle class IDs.
+    dr_cut : float, optional
+        Delta-R cut for isolation calculation, by default 0.4.
+
+    Returns
+    -------
+    IsolationData
+        Array of shape (n_leptons, 4) with columns: pt_sum, pt_sum_ch, pt_sum_neut, iso_score.
+    """
     ch_hadron_mask = class_id == 0
     neut_mask = class_id == 3
     phot_mask = class_id == 4
@@ -61,7 +97,7 @@ def calculate_lepton_isolation(
     iso_phot_mask = iso_score_phot < 1
     iso_phot_mask_close = ~(iso_phot_mask & (pt > 2) & (dR_matrix < 0.07))
     iso_phot_mask_far = ~(iso_phot_mask & (pt > 4) & (dR_matrix >= 0.07) & (dR_matrix < 0.5))
-    dR_mask = dR_matrix < dr_cut
+    dR_mask = dR_matrix < dr_cut  # noqa: N806
 
     masked_pt = pt * dR_mask
     pt_sum = masked_pt.sum(-1)
@@ -76,42 +112,104 @@ def calculate_lepton_isolation(
 
 
 def calculate_isolation(
-    lepton_id: int, particles: GenParticleCollection, config: IsolationConfig
+    lepton_id: int, particle_data: dict[str, FloatArray | IntArray], config: IsolationConfig
 ) -> IsolationData:
-    assert particles.class_id is not None, "Can't calculate isolation without particle classes."
-    dR_matrix = calculate_dr(
-        particles.eta[:, None],
-        particles.phi[:, None],
-        particles.eta[None, :],
-        particles.phi[None, :],
+    """Calculate isolation variables for leptons.
+
+    Parameters
+    ----------
+    lepton_id : int
+        Particle class ID for the lepton type (1=electron, 2=muon).
+    particle_data : dict[str, FloatArray | IntArray]
+        Dictionary with keys: pt, eta, phi, class_id.
+    config : IsolationConfig
+        Isolation configuration.
+
+    Returns
+    -------
+    IsolationData
+        Array of shape (n_leptons, 4) with columns: pt_sum, pt_sum_ch, pt_sum_neut, iso_score.
+    """
+    pt: FloatArray = particle_data["pt"]  # pyright: ignore[reportAssignmentType]
+    eta: FloatArray = particle_data["eta"]  # pyright: ignore[reportAssignmentType]
+    phi: FloatArray = particle_data["phi"]  # pyright: ignore[reportAssignmentType]
+    class_id: IntArray = particle_data["class_id"]  # pyright: ignore[reportAssignmentType]
+
+    dR_matrix = calculate_dr(  # noqa: N806
+        eta[:, None],
+        phi[:, None],
+        eta[None, :],
+        phi[None, :],
     )
-    return calculate_lepton_isolation(
-        lepton_id, particles.pt, dR_matrix, particles.class_id, dr_cut=config.dr
-    )
+    return calculate_lepton_isolation(lepton_id, pt, dR_matrix, class_id, dr_cut=config.dr)
 
 
-def process_events(
-    event_list: list[GenEvent], config: IsolationConfig
+def calculate_isolation_batch(
+    particle_data_batch: list[dict[str, FloatArray | IntArray]], config: IsolationConfig
 ) -> tuple[list[IsolationData], list[IsolationData]]:
+    """Worker function to calculate isolation for a batch of events.
+
+    Parameters
+    ----------
+    particle_data_batch : list[dict[str, FloatArray | IntArray]]
+        List of particle data dictionaries (one per event), each with keys: pt, eta, phi, class_id.
+    config : IsolationConfig
+        Isolation configuration.
+
+    Returns
+    -------
+    tuple[list[IsolationData], list[IsolationData]]
+        Tuple of (electrons_data, muons_data) lists, one entry per event in batch.
+    """
     assert config.collection in {"electrons", "muons", "all"}, (
         f"Can't calculate isolation for {config.collection}"
     )
     electrons_data: list[IsolationData] = []
     muons_data: list[IsolationData] = []
-    for event in event_list:
+    for particle_data in particle_data_batch:
         if config.collection in {"electrons", "all"}:
-            electrons_data.append(calculate_isolation(1, event.pflow_particles, config))
+            electrons_data.append(calculate_isolation(1, particle_data, config))
         if config.collection in {"muons", "all"}:
-            muons_data.append(calculate_isolation(2, event.pflow_particles, config))
+            muons_data.append(calculate_isolation(2, particle_data, config))
     return electrons_data, muons_data
 
 
-def process_events_wrapper(args: Iterable[Any]):
-    return process_events(*args)
+def extract_isolation_data(
+    events: Sequence[GenEvent], batch_indices: range, _: IsolationConfig
+) -> list[dict[str, FloatArray | IntArray]]:
+    """Extract particle data for isolation calculation from events.
+
+    Parameters
+    ----------
+    events : Sequence[GenEvent]
+        All events being processed.
+    batch_indices : range
+        Indices of events in this batch.
+    _ : IsolationConfig
+        Isolation configuration (not used but required by executor interface).
+
+    Returns
+    -------
+    list[dict[str, FloatArray | IntArray]]
+        List of particle data dicts (one per event), each with keys: pt, eta, phi, class_id.
+    """
+    particle_data_batch: list[dict[str, FloatArray | IntArray]] = []
+    for i in batch_indices:
+        particles = events[i].pflow_particles
+        assert particles.class_id is not None, "Can't calculate isolation without particle classes."
+        particle_data_batch.append({
+            "pt": particles.pt,
+            "eta": particles.eta,
+            "phi": particles.phi,
+            "class_id": particles.class_id,
+        })
+    return particle_data_batch
 
 
 @final
 class IsolationPipeline(GenPipeline):
+    """Pipeline to calculate lepton isolation variables from particle collections."""
+
     @override
     def __init__(self, config: IsolationConfig):
         self.config = config
@@ -133,26 +231,24 @@ class IsolationPipeline(GenPipeline):
 
     @override
     def process(self, events: Sequence[GenEvent]):
-        n_events = len(events)
-        batch_size = 2000
-        n_batches = n_events // batch_size
-        n_batches += 1 if n_events % batch_size != 0 else 0
+        # Use the shared executor utility for batch processing
+        batch_results = process_batches(
+            events=events,
+            config=self.config,
+            worker_fn=calculate_isolation_batch,
+            extract_fn=extract_isolation_data,
+            description=f"Calculating isolation for {self.config.collection}",
+        )
 
-        input_batched_data = [
-            (events[i * batch_size : (i + 1) * batch_size], self.config) for i in range(n_batches)
-        ]
-        n_events_in_batch = (len(data[0]) for data in input_batched_data)
+        # Flatten batch results into per-event lists
         electrons_data: list[IsolationData] = []
         muons_data: list[IsolationData] = []
-        with mp.Pool(processes=self.config.num_processes) as pool, ProgressBar() as progress:
-            task = progress.add_task(
-                f"[green]Calculating isolation for {self.config.collection}", total=n_events
-            )
-            for data_ in pool.imap(process_events_wrapper, input_batched_data):
-                electrons_data.extend(data_[0])
-                muons_data.extend(data_[1])
-                progress.update(task, advance=next(n_events_in_batch))
-        for i in range(n_events):
+        for batch_electrons, batch_muons in batch_results:
+            electrons_data.extend(batch_electrons)
+            muons_data.extend(batch_muons)
+
+        # Assign results back to events
+        for i in range(len(events)):
             if self.config.collection in {"electrons", "all"}:
                 events[i].electrons.sum_pt = electrons_data[i][:, 0]
                 events[i].electrons.sum_pt_ch = electrons_data[i][:, 1]

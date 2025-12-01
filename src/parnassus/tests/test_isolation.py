@@ -10,7 +10,6 @@ from parnassus.pipelines.isolation import (
     calculate_isolation,
     calculate_lepton_isolation,
     calculate_photon_isolation,
-    process_events,
 )
 from parnassus.utils import calculate_dr
 from parnassus.utils.typing import FloatArray, IntArray
@@ -81,7 +80,14 @@ def test_calculate_isolation(lepton_id: int, dr_cut: float):
 
     config = IsolationConfig(name="test_iso", dr=dr_cut, collection="all", num_processes=1)
 
-    iso_data = calculate_isolation(lepton_id, particles, config)
+    # Convert GenParticleCollection to particle data dictionary
+    particle_data = {
+        "pt": particles.pt,
+        "eta": particles.eta,
+        "phi": particles.phi,
+        "class_id": particles.class_id,
+    }
+    iso_data = calculate_isolation(lepton_id, particle_data, config)
 
     assert isinstance(iso_data, np.ndarray)
     # (n_leptons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
@@ -151,45 +157,46 @@ def test_calculate_isolation_scores():
 
     config = IsolationConfig(name="test_iso", dr=0.4, collection="all", num_processes=1)
 
-    iso_data = calculate_isolation(2, particles, config)
+    # Convert GenParticleCollection to particle data dictionary
+    particle_data = {
+        "pt": particles.pt,
+        "eta": particles.eta,
+        "phi": particles.phi,
+        "class_id": particles.class_id,
+    }
+    iso_data = calculate_isolation(2, particle_data, config)
     np.testing.assert_allclose(iso_data[:, 0], np.array([35.80151, 30.221874, 8.374317]))
     np.testing.assert_allclose(iso_data[:, 1], np.array([1.0821273, 0.0, 0.0]))
     np.testing.assert_allclose(iso_data[:, 2], np.array([0.0, 0.0, 0.0]))
     np.testing.assert_allclose(iso_data[:, 3], np.array([0.0311678148, 0.0, 0.0]))
 
 
-def test_process_events():
-    # Create test events
-    pflow_particles = GenParticleCollection(
-        name="pflow",
-        pt=np.array([10.0, 20.0, 5.0, 15.0, 8.0, 12.0]),
-        eta=np.array([0.1, 1.1, 0.2, -0.5, 0.3, 0.4]),
-        phi=np.array([0.1, 2.1, 0.3, -1.0, 0.5, 1.5]),
-        class_id=np.array([
-            0,  # charged hadron
-            1,  # electron
-            3,  # neutral hadron
-            2,  # muon
-            4,  # photon
-            2,  # muon
-        ]),
-    )
+def test_calculate_isolation_batch():
+    # Create test particle data for a batch
+    from parnassus.pipelines.isolation import calculate_isolation_batch
 
-    truth_particles = GenParticleCollection(
-        name="truth", pt=np.array([]), eta=np.array([]), phi=np.array([]), class_id=np.array([])
-    )
+    particle_data_batch = [
+        {
+            "pt": np.array([10.0, 20.0, 5.0, 15.0, 8.0, 12.0]),
+            "eta": np.array([0.1, 1.1, 0.2, -0.5, 0.3, 0.4]),
+            "phi": np.array([0.1, 2.1, 0.3, -1.0, 0.5, 1.5]),
+            "class_id": np.array([
+                0,  # charged hadron
+                1,  # electron
+                3,  # neutral hadron
+                2,  # muon
+                4,  # photon
+                2,  # muon
+            ]),
+        }
+    ]
 
-    event1 = GenEvent(
-        event_number=1, truth_particles=truth_particles, pflow_particles=pflow_particles
-    )
-
-    events = [event1]
     config = IsolationConfig(name="test_iso", dr=0.4, collection="all", num_processes=1)
 
-    electrons_data, muons_data = process_events(events, config)
+    electrons_data, muons_data = calculate_isolation_batch(particle_data_batch, config)
 
-    assert len(electrons_data) == len(events)
-    assert len(muons_data) == len(events)
+    assert len(electrons_data) == len(particle_data_batch)
+    assert len(muons_data) == len(particle_data_batch)
     # (n_electrons/muons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
     assert electrons_data[0].shape == (1, 4)
     assert muons_data[0].shape == (2, 4)
