@@ -4,10 +4,32 @@ from __future__ import annotations
 
 import multiprocessing as mp
 from collections.abc import Callable, Sequence
+from functools import partial
 from typing import Any
 
 from parnassus.configs.scheme import GenEvent
 from parnassus.utils.logger import ProgressBar
+
+
+def _worker_wrapper[T](worker_fn: Callable[[list[Any], Any], T], args: tuple[list[Any], Any]) -> T:
+    """Module-level wrapper to unpack arguments for pool.imap.
+
+    This must be at module level to be picklable by multiprocessing.
+
+    Parameters
+    ----------
+    worker_fn : Callable[[list[Any], Any], T]
+        The worker function to call.
+    args : tuple[list[Any], Any]
+        Tuple of (batch_input, config) to unpack.
+
+    Returns
+    -------
+    T
+        Result from worker function.
+    """
+    batch_input, cfg = args
+    return worker_fn(batch_input, cfg)
 
 
 def process_batches[T](
@@ -94,20 +116,12 @@ def process_batches[T](
                     ) from e
     else:
         # Parallel execution using multiprocessing
-        def worker_wrapper(args: tuple[list[Any], Any]) -> T:
-            """Wrapper to unpack arguments for pool.imap.
-
-            Returns
-            -------
-            T
-                Result from worker function.
-            """
-            batch_input, cfg = args
-            return worker_fn(batch_input, cfg)
+        # Use partial to bind worker_fn to the module-level wrapper
+        wrapper = partial(_worker_wrapper, worker_fn)
 
         with mp.Pool(processes=num_processes) as pool, ProgressBar() as progress:
             task = progress.add_task(f"[green]{description}", total=n_events)
-            for i, result in enumerate(pool.imap(worker_wrapper, batched_data)):
+            for i, result in enumerate(pool.imap(wrapper, batched_data)):
                 results.append(result)
                 batch_start = i * batch_size
                 batch_end = min((i + 1) * batch_size, n_events)
