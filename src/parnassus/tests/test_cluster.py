@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from parnassus.configs.pipeline import JetClusteringConfig
-from parnassus.configs.scheme import GenParticleCollection
+from parnassus.configs.scheme import GenEvent, GenParticleCollection
 from parnassus.pipelines.cluster import Jet
 
 
@@ -147,3 +147,65 @@ def test_convert_to_jet_collection(mock_jet: Jet):
     np.testing.assert_allclose(
         jet_collection.eta, np.array([0.48344593734981606, 0.48344593734981606])
     )
+
+
+def test_jet_clustering_batch(mock_particle_collection: GenParticleCollection):
+    """Test jet clustering in batch mode."""
+    from parnassus.pipelines.cluster import cluster_jets_batch
+
+    config = JetClusteringConfig(
+        name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, min_pt=0
+    )
+    # Convert GenParticleCollection to particle data dictionary
+    four_vectors = mock_particle_collection.get4vecs_numpy()
+    particle_data = {
+        "px": four_vectors[..., 0],
+        "py": four_vectors[..., 1],
+        "pz": four_vectors[..., 2],
+        "e": four_vectors[..., 3],
+    }
+    jets_collection_batch, idxs_batch = cluster_jets_batch(
+        [particle_data, particle_data, particle_data], config, redirect_stdout=False
+    )
+    assert len(jets_collection_batch) == 3
+    for jets, idxs in zip(jets_collection_batch, idxs_batch, strict=True):
+        assert idxs.shape == (3,)
+        assert jets.num_jets == 1
+
+
+@pytest.mark.parametrize("num_processes", [1, 2])
+def test_jet_clustering_pipeline(
+    mock_particle_collection: GenParticleCollection, num_processes: int
+):
+    """Test the full jet clustering pipeline."""
+    from parnassus.pipelines.cluster import JetClusteringPipeline
+
+    config = JetClusteringConfig(
+        name="test_cluster",
+        algorithm="antikt",
+        dr=0.4,
+        nconst_min=2,
+        min_pt=0,
+        redirect_stdout=False,
+        batch_size=50,
+        num_processes=num_processes,
+    )
+    pipeline = JetClusteringPipeline(config)
+    event_list = [
+        GenEvent(
+            event_number=i,
+            pflow_particles=mock_particle_collection,
+            truth_particles=mock_particle_collection,
+        )
+        for i in range(200)
+    ]
+
+    pipeline.process(event_list)
+
+    idx = np.random.randint(0, len(event_list))
+    assert "test_cluster" in event_list[idx].jets
+    jets = event_list[idx].jets["test_cluster"]
+    assert jets.num_jets == 1
+    np.testing.assert_allclose(jets.pt, np.array([99.62034462103314]))
+    np.testing.assert_allclose(jets.eta, np.array([0.48344593734981606]))
+    np.testing.assert_allclose(jets.phi, np.array([0.9799558810407399]))

@@ -1,4 +1,6 @@
 from collections.abc import Sequence
+from contextlib import nullcontext
+from functools import partial
 from typing import final, override
 
 import energyflow as ef
@@ -192,7 +194,9 @@ def convert_to_jet_collection(name: str, jets: list[Jet]) -> GenJetCollection:
 
 
 def cluster_jets_batch(
-    particle_data_batch: list[dict[str, FloatArray]], config: JetClusteringConfig
+    particle_data_batch: list[dict[str, FloatArray]],
+    config: JetClusteringConfig,
+    redirect_stdout: bool = False,
 ) -> tuple[list[GenJetCollection], list[IntArray]]:
     """Worker function to cluster jets for a batch of events.
 
@@ -202,15 +206,18 @@ def cluster_jets_batch(
         List of particle data dictionaries (one per event), each with keys: px, py, pz, e.
     config : JetClusteringConfig
         Jet clustering configuration.
+    redirect_stdout : bool, optional
+        Whether to redirect stdout during clustering, by default False.
 
     Returns
     -------
     tuple[list[GenJetCollection], list[IntArray]]
-        Lists of jet collections and jet indices (one per event in batch).
+        Lists of jet collections and particle indices (one per event in batch).
     """
     jets: list[GenJetCollection] = []
     idxs: list[IntArray] = []
-    with stdout_redirected():
+    context_manager = stdout_redirected() if redirect_stdout else nullcontext()
+    with context_manager:
         for particle_data in particle_data_batch:
             evt_jets, jet_idxs = cluster_jets(particle_data, config)
             jets.append(convert_to_jet_collection(config.name, evt_jets))
@@ -288,7 +295,7 @@ class JetClusteringPipeline(GenPipeline):
         batch_results = process_batches(
             events=events,
             config=self.config,
-            worker_fn=cluster_jets_batch,
+            worker_fn=partial(cluster_jets_batch, redirect_stdout=self.config.redirect_stdout),
             extract_fn=extract_clustering_data,
             description=f"Cluster {self.config.name} jets",
         )

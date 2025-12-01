@@ -44,6 +44,9 @@ class JetClusteringConfig(GenPipelineConfig):
         Minimum jet transverse momentum to be kept, by default 0.
     num_processes : int, optional
         Number of processes for parallel execution, by default 1.
+    redirect_stdout : bool, optional
+        Whether to redirect stdout during clustering, by default True.
+        Used to suppress FastJet output.
     """
 
     algorithm: str = "antikt"
@@ -52,6 +55,8 @@ class JetClusteringConfig(GenPipelineConfig):
     nconst_min: int = 2
     min_pt: float = 0
     num_processes: int = 1
+
+    redirect_stdout: bool = True
 
     jet_definition: JetDefinition = field(init=False)
 
