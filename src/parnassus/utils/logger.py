@@ -102,8 +102,8 @@ def stdout_redirected(to: str = os.devnull):
     fd = sys.stdout.fileno()
 
     def _redirect_stdout(to: TextIOWrapper):
-        _ = sys.stdout.close()  # + implicit flush()
-        _ = os.dup2(to.fileno(), fd)  # fd writes to 'to' file
+        sys.stdout.close()  # + implicit flush()
+        os.dup2(to.fileno(), fd)  # fd writes to 'to' file
         sys.stdout = os.fdopen(fd, "w")  # Python writes to fd
 
     with os.fdopen(os.dup(fd), "w") as old_stdout:

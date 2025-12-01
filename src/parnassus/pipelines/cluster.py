@@ -153,7 +153,7 @@ def cluster_jets(
     )
     jets = cs.inclusive_jets(config.min_pt)
     jets = fj.sorted_by_pt(jets)
-    jets = [Jet(j, 0.5, calc_substructure=True) for j in jets]
+    jets = [Jet(j, config.dr, calc_substructure=True) for j in jets]
 
     used_indices: set[int] = set()
     jet_idxs = np.zeros(n_particles, dtype=int)

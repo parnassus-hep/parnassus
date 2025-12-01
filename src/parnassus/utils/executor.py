@@ -14,7 +14,7 @@ from parnassus.utils.logger import ProgressBar
 def _worker_wrapper[T](worker_fn: Callable[[list[Any], Any], T], args: tuple[list[Any], Any]) -> T:
     """Module-level wrapper to unpack arguments for pool.imap.
 
-    This must be at module level to be picklable by multiprocessing.
+    This must be at module level (not nested) to be picklable by multiprocessing.
 
     Parameters
     ----------
