@@ -165,7 +165,7 @@ def test_jet_clustering_batch(mock_particle_collection: GenParticleCollection):
         "e": four_vectors[..., 3],
     }
     jets_collection_batch, idxs_batch = cluster_jets_batch(
-        [particle_data, particle_data, particle_data], config, redirect_stdout=False
+        [particle_data, particle_data, particle_data], config
     )
     assert len(jets_collection_batch) == 3
     for jets, idxs in zip(jets_collection_batch, idxs_batch, strict=True):
@@ -186,7 +186,7 @@ def test_jet_clustering_pipeline(
         dr=0.4,
         nconst_min=2,
         min_pt=0,
-        redirect_stdout=False,
+        redirect_stdout=True,
         batch_size=50,
         num_processes=num_processes,
     )

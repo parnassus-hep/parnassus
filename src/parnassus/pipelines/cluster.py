@@ -1,6 +1,5 @@
 from collections.abc import Sequence
 from contextlib import nullcontext
-from functools import partial
 from typing import final, override
 
 import energyflow as ef
@@ -116,7 +115,7 @@ def get_cluster_sequence(
     pj_array: list[fj.PseudoJet] = []
 
     for i in range(len(px)):
-        pj = fj.PseudoJet(px[i], py[i], pz[i], e[i])
+        pj = fj.PseudoJet(float(px[i]), float(py[i]), float(pz[i]), float(e[i]))
         if user_indices is not None:
             pj.set_user_index(user_indices[i])
         else:
@@ -196,7 +195,6 @@ def convert_to_jet_collection(name: str, jets: list[Jet]) -> GenJetCollection:
 def cluster_jets_batch(
     particle_data_batch: list[dict[str, FloatArray]],
     config: JetClusteringConfig,
-    redirect_stdout: bool = False,
 ) -> tuple[list[GenJetCollection], list[IntArray]]:
     """Worker function to cluster jets for a batch of events.
 
@@ -206,8 +204,6 @@ def cluster_jets_batch(
         List of particle data dictionaries (one per event), each with keys: px, py, pz, e.
     config : JetClusteringConfig
         Jet clustering configuration.
-    redirect_stdout : bool, optional
-        Whether to redirect stdout during clustering, by default False.
 
     Returns
     -------
@@ -216,7 +212,13 @@ def cluster_jets_batch(
     """
     jets: list[GenJetCollection] = []
     idxs: list[IntArray] = []
-    context_manager = stdout_redirected() if redirect_stdout else nullcontext()
+
+    # Redirect stdout if configured (only safe in multiprocessing workers)
+    context_manager = (
+        stdout_redirected()
+        if (config.redirect_stdout and config.num_processes > 1)
+        else nullcontext()
+    )
     with context_manager:
         for particle_data in particle_data_batch:
             evt_jets, jet_idxs = cluster_jets(particle_data, config)
@@ -292,10 +294,12 @@ class JetClusteringPipeline(GenPipeline):
     @override
     def process(self, events: Sequence[GenEvent]):
         # Use the shared executor utility for batch processing
+        # Note: stdout redirection only happens in multiprocessing workers,
+        # not in synchronous execution to avoid conflicts with progress bar
         batch_results = process_batches(
             events=events,
             config=self.config,
-            worker_fn=partial(cluster_jets_batch, redirect_stdout=self.config.redirect_stdout),
+            worker_fn=cluster_jets_batch,
             extract_fn=extract_clustering_data,
             description=f"Cluster {self.config.name} jets",
         )
