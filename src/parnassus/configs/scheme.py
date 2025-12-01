@@ -232,7 +232,31 @@ class GenLeptonCollection:
 
 @dataclass(slots=True)
 class GenJetCollection:
-    """Class storing information about generic jet collection."""
+    """Class storing information about generic jet collection.
+
+    We use it to store information about jets inside an event.
+
+    Parameters
+    ----------
+    name : str
+        Name identifier for the jet collection.
+    num_jets : int
+        Total number of jets in the collection (automatically computed).
+    pt : FloatArray
+        Transverse momentum of jets.
+    eta : FloatArray
+        Pseudorapidity of jets.
+    phi : FloatArray
+        Azimuthal angle of jets.
+    mass : FloatArray | None, optional
+        Mass of jets.
+    jec : FloatArray | None, optional
+        Jet energy correction factors.
+    d2 : FloatArray | None, optional
+        D2 substructure variable.
+    c2 : FloatArray | None, optional
+        C2 substructure variable.
+    """
 
     # Jet properties
     name: str
@@ -241,7 +265,6 @@ class GenJetCollection:
     eta: FloatArray
     phi: FloatArray
     mass: FloatArray | None = None
-    particle_idx: list[IntArray] | None = None
 
     jec: FloatArray | None = None
     d2: FloatArray | None = None
