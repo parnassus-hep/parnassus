@@ -202,9 +202,12 @@ def test_calculate_isolation_batch():
     assert muons_data[0].shape == (2, 4)
 
 
-def test_isolation_pipeline():
+@pytest.mark.parametrize("num_processes", [1, 2])
+def test_isolation_pipeline(num_processes: int):
     # Test the full pipeline
-    config = IsolationConfig(name="test_iso", dr=0.4, collection="all", num_processes=1)
+    config = IsolationConfig(
+        name="test_iso", dr=0.4, collection="all", num_processes=num_processes, batch_size=50
+    )
     pipeline = IsolationPipeline(config)
 
     # Check accessors
@@ -231,17 +234,19 @@ def test_isolation_pipeline():
         event_number=1, truth_particles=truth_particles, pflow_particles=pflow_particles
     )
 
-    pipeline.process([event])
+    event_list = [event for _ in range(200)]
+    pipeline.process(event_list)
 
     # Check that isolation variables were added to the event
-    assert hasattr(event.electrons, "iso_var")
-    assert hasattr(event.electrons, "sum_pt")
-    assert hasattr(event.electrons, "sum_pt_ch")
-    assert hasattr(event.electrons, "sum_pt_neut")
-    assert hasattr(event.muons, "iso_var")
-    assert hasattr(event.muons, "sum_pt")
-    assert hasattr(event.muons, "sum_pt_ch")
-    assert hasattr(event.muons, "sum_pt_neut")
+    for event in event_list:
+        assert hasattr(event.electrons, "iso_var")
+        assert hasattr(event.electrons, "sum_pt")
+        assert hasattr(event.electrons, "sum_pt_ch")
+        assert hasattr(event.electrons, "sum_pt_neut")
+        assert hasattr(event.muons, "iso_var")
+        assert hasattr(event.muons, "sum_pt")
+        assert hasattr(event.muons, "sum_pt_ch")
+        assert hasattr(event.muons, "sum_pt_neut")
 
 
 def test_invalid_collection():
