@@ -176,6 +176,13 @@ class GenLeptonCollection:
     eta: FloatArray
     phi: FloatArray
 
+    # Impact parameters
+    d0: FloatArray | None = None
+    z0: FloatArray | None = None
+    d0_error: FloatArray | None = None
+    z0_error: FloatArray | None = None
+
+    # Isolation variables
     iso_var: FloatArray | None = None
     sum_pt: FloatArray | None = None
     sum_pt_ch: FloatArray | None = None
@@ -198,11 +205,19 @@ class GenLeptonCollection:
         assert particles.class_id is not None, "Expect particles to have class"
 
         class_mask = cls.get_class_id(name) == particles.class_id
+
+        impact_attrs = {}
+        for key in ["d0", "z0", "d0_error", "z0_error"]:
+            attr = getattr(particles, key)
+            if attr is not None:
+                impact_attrs[key] = attr[class_mask]
+
         return cls(
             name=name,
             pt=particles.pt[class_mask],
             eta=particles.eta[class_mask],
             phi=particles.phi[class_mask],
+            **impact_attrs,
         )
 
     def __post_init__(self):
