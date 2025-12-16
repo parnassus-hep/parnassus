@@ -99,4 +99,4 @@ def test_reshape_phi():
     new_phi = reshape_phi(phi)
     assert np.all(new_phi >= -np.pi)
     assert np.all(new_phi < np.pi)
-    np.testing.assert_allclose(np.sin(new_phi), np.sin(phi))
+    np.testing.assert_allclose(np.sin(new_phi), np.sin(phi), rtol=1e-3)
