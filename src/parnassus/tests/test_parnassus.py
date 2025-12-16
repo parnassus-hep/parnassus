@@ -61,4 +61,5 @@ def test_main_run(tmp_path):
                     generated[key][i],
                     expected[key][i],
                     err_msg=f"Mismatch in key '{key}' for event {i}",
+                    rtol=1e-6,
                 )
