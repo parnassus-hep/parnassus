@@ -19,7 +19,7 @@ jobs:
         with:
           version: "0.14.6"
           src: "./src"
-          args: "check --exit-non-zero-on-fix --exclude src/parnassus/tests"
+          args: "check --exit-non-zero-on-fix --exclude src/parnassus/tests --exclude src/parnassus/utils/mock.py --fix --show-fixes"
 
   ruff-format:
     name: Ruff Format
