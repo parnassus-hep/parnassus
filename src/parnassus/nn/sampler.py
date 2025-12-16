@@ -11,6 +11,8 @@ default_device = torch.device("cpu")
 
 
 class Sampler(ABC):
+    """Base class for samplers."""
+
     def __init__(
         self,
         n_steps: int,
@@ -123,6 +125,8 @@ class Sampler(ABC):
 
 @final
 class EulerSampler(Sampler):
+    """Euler sampler implementation."""
+
     @override
     def sample(
         self,

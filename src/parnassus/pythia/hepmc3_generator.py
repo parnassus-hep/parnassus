@@ -161,7 +161,7 @@ class HepMC3Generator:
         while len(all_files) > 1:
             LOG.info(f"HepMC3Generator: len(files) = {len(all_files)}")
             if len(all_files) % 2 != 0:
-                all_files = [self._append_hepmc_file(all_files[0], all_files[1])] + all_files[2:]
+                all_files = [self._append_hepmc_file(all_files[0], all_files[1]), *all_files[2:]]
             assert len(all_files) % 2 == 0
 
             all_files = Parallel(min(max_workers, len(all_files) // 2), backend="multiprocessing")(

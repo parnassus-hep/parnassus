@@ -28,6 +28,26 @@ TRANSFORM_FUNCTIONS = {
 
 @dataclass(kw_only=True)
 class VarTransformConfig:
+    """Configuration for variable transformation.
+
+    Parameters
+    ----------
+    name : str
+        Name of the variable.
+    transform_type : str, optional
+        Type of transformation ('std', 'min_max', 'min_max_sym'), by default 'std'.
+    transform_fn : str | None, optional
+        Function to apply ('log', 'log1p', 'sqrt', 'tanh', 'asinh', 'atan', 'pow'), by default None.
+    mean : float | None, optional
+        Mean value for 'std' transformation, by default None.
+    std : float | None, optional
+        Standard deviation for 'std' transformation, by default None.
+    min : float | None, optional
+        Minimum value for 'min_max' and 'min_max_sym' transformations, by default None.
+    max : float | None, optional
+        Maximum value for 'min_max' and 'min_max_sym' transformations, by default None
+    """
+
     name: str
     transform_type: str = "std"
     transform_fn: str | None = None
@@ -79,6 +99,8 @@ class VarTransformConfig:
 
 @final
 class VarTransform:
+    """Class to handle variable transformations for scaling and unscaling."""
+
     def __init__(self, cfg: VarTransformConfig):
         self.config = cfg
         self.name = cfg.name
@@ -140,6 +162,8 @@ class VarTransform:
 
 @final
 class Unscaler:
+    """Class to unscale model outputs back to original variable space."""
+
     def __init__(
         self,
         transform_dict: dict[str, VarTransform],

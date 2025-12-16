@@ -1,3 +1,5 @@
+"""Utility functions and classes for Parnassus."""
+
 import numpy as np
 from particle import PDGID
 
@@ -6,6 +8,18 @@ from .typing import FloatArray, IntArray
 
 
 def reshape_phi(phi: FloatArray | IntArray) -> FloatArray:
+    """Reshape phi angles to be within the range [-pi, pi].
+
+    Parameters
+    ----------
+    phi : FloatArray | IntArray
+        Input array of phi angles.
+
+    Returns
+    -------
+    FloatArray
+        Reshaped array of phi angles within [-pi, pi].
+    """
     return np.arctan2(np.sin(phi), np.cos(phi))
 
 

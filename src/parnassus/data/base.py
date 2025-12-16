@@ -17,7 +17,21 @@ if TYPE_CHECKING:
     from parnassus.utils.typing import BoolArray, IntArray, LongArray
 
 
-def do_padding(tensor: Tensor, max_len: int):
+def do_padding(tensor: Tensor, max_len: int) -> Tensor:
+    """Pad a tensor to the specified maximum length along the first dimension.
+
+    Parameters
+    ----------
+    tensor : Tensor
+        The input tensor to be padded.
+    max_len : int
+        The desired maximum length along the first dimension.
+
+    Returns
+    -------
+    Tensor
+        The padded tensor with shape (max_len, ...).
+    """
     shape = tensor.shape
     new_shape = (max_len, *shape[1:])
     x = torch.zeros(new_shape, dtype=tensor.dtype, device=tensor.device)
@@ -26,6 +40,8 @@ def do_padding(tensor: Tensor, max_len: int):
 
 
 class BaseDataset(Dataset[dict[str, Tensor]]):
+    """Base dataset class for loading event data."""
+
     def __init__(
         self, cfg: DatasetConfig, var_transform_dict: dict[str, VarTransform] | None = None
     ):

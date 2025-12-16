@@ -74,10 +74,10 @@ class ParametricGeneratorConfig(GeneratorConfig):
 
 
 # Registry of available parametric generators
-PARAMETRIC_GENERATORS_REGISTRY: dict[str, GeneratorConfig] = {
-    # Example placeholder - to be implemented
-    # "simple_parametric_v1": ParametricGeneratorConfig(
-    #     name="simple_parametric_v1",
-    #     max_particles=100,
-    # )
-}
+# Example placeholder - to be implemented
+# >>> "simple_parametric_v1": ParametricGeneratorConfig(
+# ...     name="simple_parametric_v1",
+# ...     max_particles=100,
+# ...     seed=42,
+# ... ),
+PARAMETRIC_GENERATORS_REGISTRY: dict[str, GeneratorConfig] = {}

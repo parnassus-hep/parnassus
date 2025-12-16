@@ -16,6 +16,7 @@ BATCH_SIZE = 100
 
 
 def clear_dicts(data: dict[Any, Any]):
+    """Recursively clear lists in a nested dictionary."""
     for value in data.values():
         if isinstance(value, dict):
             clear_dicts(value)
@@ -23,18 +24,21 @@ def clear_dicts(data: dict[Any, Any]):
             value.clear()
 
 
-def custom_counter_name(counted: str) -> str:
-    if not counted:
-        return "n"
-    return counted
-
-
 def custom_field_name(outer: str, inner: str) -> str:
+    """Custom field name for the ROOT file.
+
+    Returns
+    -------
+    str
+        The field name to use in the ROOT file.
+    """
     return inner if not outer else outer + "." + inner
 
 
 @final
 class RootWriter(BaseWriter):
+    """Writer class for outputting generated events to a ROOT file."""
+
     def write_to_tree(self, tree: WritableTree, data: dict[str, dict[str, Any]]):
         extend_data = {
             collection: ak.zip({
@@ -53,7 +57,6 @@ class RootWriter(BaseWriter):
             f.mktree(
                 "Parnassus",
                 branch_types=accessor_store.get_branch_types(),
-                # counter_name=custom_counter_name,
                 field_name=custom_field_name,
             )
 

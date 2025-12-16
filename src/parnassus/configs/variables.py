@@ -41,7 +41,7 @@ class VariableRequirements:
             If generator type doesn't support variable extraction.
         """
         # For neural generators, extract from model configs
-        from parnassus.configs.generators import NeuralGeneratorConfig
+        from parnassus.configs.generators import NeuralGeneratorConfig  # noqa: PLC0415
 
         if isinstance(generator_config, NeuralGeneratorConfig):
             return cls(

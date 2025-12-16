@@ -7,6 +7,18 @@ from parnassus.configs.accessors import AccessorStore
 
 @dataclass(kw_only=True)
 class WriterConfig:
+    """Configuration for data writers.
+
+    Parameters
+    ----------
+    file_path : Path | str
+        Path to the output file.
+    format : str, optional
+        Output file format, by default "default".
+    accessor_store : AccessorStore, optional
+        Store of accessors for data writing, by default empty AccessorStore.
+    """
+
     # Data writer configs
     file_path: Path | str
 

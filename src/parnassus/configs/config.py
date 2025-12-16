@@ -17,6 +17,26 @@ DEFAULT_GENERATOR = "cms_2011_flow_v00"
 
 @dataclass(slots=True)
 class Config:
+    """Main configuration class for Parnassus.
+
+    Parameters
+    ----------
+    writer_config : WriterConfig
+        Configuration for the output writer.
+    pipeline_configs : list[GenPipelineConfig]
+        List of pipeline configurations to execute.
+    dataset_config : DatasetConfig
+        Configuration for the dataset.
+    generator_name : str
+        Name of the event generator to use.
+    batch_size : int
+        Batch size for event generation.
+    device : str
+        Device to use for computation (e.g., "cpu", "cuda", "mps").
+    gpu_id : int
+        GPU ID to use if applicable.
+    """
+
     # Writer config
     writer_config: WriterConfig
 
@@ -114,7 +134,7 @@ class Config:
             )
 
         # Override generator config parameters from YAML if provided (type-specific)
-        from .generators import NeuralGeneratorConfig, ParametricGeneratorConfig
+        from .generators import NeuralGeneratorConfig, ParametricGeneratorConfig  # noqa: PLC0415
 
         if isinstance(gen_config, NeuralGeneratorConfig):
             num_steps = gen_config_dict.get("num_steps")

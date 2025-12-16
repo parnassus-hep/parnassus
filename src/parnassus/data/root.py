@@ -11,6 +11,8 @@ from .base import BaseDataset
 
 @final
 class RootDataset(BaseDataset):
+    """Dataset class for loading events from a ROOT file."""
+
     def __init__(self, cfg: DatasetConfig, var_transform_dict: dict[str, VarTransform]):
         super().__init__(cfg=cfg, var_transform_dict=var_transform_dict)
 

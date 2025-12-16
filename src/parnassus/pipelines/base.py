@@ -82,6 +82,8 @@ class EventGenerator(Protocol):
 
 
 class GenPipeline(ABC):
+    """Abstract base class for general pipelines."""
+
     @abstractmethod
     def process(self, events: list[GenEvent]):
         pass
@@ -92,6 +94,8 @@ class GenPipeline(ABC):
 
 
 class SourcePipeline(ABC):
+    """Abstract base class for event source pipelines."""
+
     @abstractmethod
     def run(self) -> tuple[list[GenEvent], dict[str, list[Accessor]]]:
         """Generate events from an external source."""

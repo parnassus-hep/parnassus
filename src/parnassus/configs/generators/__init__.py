@@ -1,3 +1,5 @@
+"""Generator configurations and registries."""
+
 from .base import GeneratorConfig
 from .neural import NEURAL_GENERATORS_REGISTRY, NeuralGeneratorConfig
 from .parametric import PARAMETRIC_GENERATORS_REGISTRY, ParametricGeneratorConfig
