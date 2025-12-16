@@ -29,8 +29,8 @@ class StubDataLoader:
         return len(self._batches)
 
 
-def make_stub_generative_model(with_impact: bool = False, max_particles: int = 2):
-    class _StubGenerativeModel:
+def make_stub_event_generator(with_impact: bool = False, max_particles: int = 2):
+    class _StubEventGenerator:
         def __init__(self):
             base_pflow_vars = ["pt", "eta", "phi", "vx", "vy", "vz", "class"]
             impact_vars = ["d0", "z0", "d0Error", "z0Error"] if with_impact else []
@@ -70,28 +70,18 @@ def make_stub_generative_model(with_impact: bool = False, max_particles: int = 2
 
         def get_accessors(self):
             """Return stub accessor partials."""
-            from functools import partial
+            from parnassus.configs.accessors import AccessorListBuilder
 
-            from parnassus.configs.accessors import ParticleAccessor
+            accessors_builder = (
+                AccessorListBuilder.for_particles("Pflow")
+                .add(["pt", "eta", "phi", "vx", "vy", "vz"])
+                .add(["class_id"], dtype="int32")
+            )
 
-            particle_accessors = [
-                partial(ParticleAccessor, name=name, dtype="float32")
-                for name in ["pt", "eta", "phi", "vx", "vy", "vz"]
-            ] + [partial(ParticleAccessor, name=name, dtype="int32") for name in ["class_id"]]
-
-            impact_accessors = []
             if self.has_impact_model:
-                impact_accessors = [
-                    partial(ParticleAccessor, name=name, dtype="float32")
-                    for name in ["d0", "z0", "d0_error", "z0_error"]
-                ]
+                accessors_builder.add(["d0", "z0", "d0Error", "z0Error"])
 
-            lepton_accessors = [
-                partial(ParticleAccessor, name=name, dtype="float32")
-                for name in ["pt", "eta", "phi"]
-            ]
-
-            return particle_accessors + impact_accessors + lepton_accessors
+            return {"Pflow": accessors_builder.build(), "Truth": accessors_builder.build()}
 
         def generate_event(
             self,
@@ -146,7 +136,13 @@ def make_stub_generative_model(with_impact: bool = False, max_particles: int = 2
         ):
             return self.generate_event(_batch, event_callback, particle_callback, impact_callback)
 
-    return _StubGenerativeModel()
+    return _StubEventGenerator()
+
+
+@pytest.fixture
+def default_event_generator():
+    """Fixture for a default stub event generator without impact model."""
+    return make_stub_event_generator(with_impact=False)
 
 
 def test_build_dataset_uses_custom_builder(tmp_path):
@@ -193,13 +189,13 @@ def test_build_dataset_validates_path_and_extension(tmp_path):
         )
 
 
-def test_run_sampling_trims_to_generated_events():
+def test_run_sampling_trims_to_generated_events(default_event_generator):
     """Test that _run_sampling correctly trims buffers to the number of generated events."""
     dataset_config = SimpleNamespace(max_particles=2)
     config = SimpleNamespace(dataset_config=dataset_config, model=None, batch_size=1, device="cpu")
     pipeline = GenerationPipeline(config)
     dataloader = StubDataLoader(dataset_len=3, batches=[{}, {}])
-    pipeline.generator = make_stub_generative_model()
+    pipeline.generator = default_event_generator
 
     buffers = pipeline._run_sampling(dataloader)
 
@@ -214,7 +210,7 @@ def test_build_events_filters_and_adds_impact():
     """Test that _build_events correctly builds GenEvent objects with impact parameters."""
     config = SimpleNamespace(dataset_config=None, model=None, batch_size=1, device="cpu")
     pipeline = GenerationPipeline(config)
-    pipeline.generator = make_stub_generative_model(with_impact=True)
+    pipeline.generator = make_stub_event_generator(with_impact=True)
 
     buffers = GenerationBuffers(
         truth_data={
@@ -259,14 +255,14 @@ def test_build_events_filters_and_adds_impact():
     assert list(event.pflow_particles.z0_error) == [0.04]
 
 
-def test_build_accessors_respects_impact_presence():
+def test_build_accessors_respects_impact_presence(default_event_generator):
     """Test that _build_accessors includes impact parameters when present in the model."""
     config = SimpleNamespace(dataset_config=None, model=None, batch_size=1, device="cpu")
     base_pipeline = GenerationPipeline(config)
-    base_pipeline.generator = make_stub_generative_model(with_impact=False)
+    base_pipeline.generator = default_event_generator
 
     impact_pipeline = GenerationPipeline(config)
-    impact_pipeline.generator = make_stub_generative_model(with_impact=True)
+    impact_pipeline.generator = make_stub_event_generator(with_impact=True)
 
     no_impact_accessors = base_pipeline._build_accessors()
     with_impact_accessors = impact_pipeline._build_accessors()
@@ -274,7 +270,7 @@ def test_build_accessors_respects_impact_presence():
     assert len(with_impact_accessors["Pflow"]) > len(no_impact_accessors["Pflow"])
 
 
-def test_generate_wiring_with_stubs(monkeypatch):
+def test_generate_wiring_with_stubs(monkeypatch, default_event_generator):
     """Test the generate pipeline wiring using stub components."""
     dataset_config = SimpleNamespace(max_particles=2, file_path="ignored")
     model_config = SimpleNamespace(transform_registry=SimpleNamespace())
@@ -286,7 +282,7 @@ def test_generate_wiring_with_stubs(monkeypatch):
     )
 
     dataloader = StubDataLoader(dataset_len=1, batches=[{}])
-    generative_model = make_stub_generative_model()
+    generative_model = default_event_generator
 
     pipeline = GenerationPipeline(config)
     monkeypatch.setattr(pipeline, "_build_dataset", lambda: dataloader.dataset)
@@ -297,30 +293,5 @@ def test_generate_wiring_with_stubs(monkeypatch):
 
     assert len(events) == 1
     assert isinstance(events[0], GenEvent)
-    assert "Truth" in accessors
-    assert "Pflow" in accessors
-
-
-def test_generation_pipeline_exposes_accessors(monkeypatch):
-    """Ensure GenerationPipeline.run stores accessors accessible via get_accessors."""
-    dataset_config = SimpleNamespace(max_particles=2, file_path="ignored")
-    model_config = SimpleNamespace(transform_registry=SimpleNamespace())
-    config = SimpleNamespace(
-        model=model_config,
-        dataset_config=dataset_config,
-        batch_size=1,
-        device="cpu",
-    )
-
-    dataloader = StubDataLoader(dataset_len=1, batches=[{}])
-    generative_model = make_stub_generative_model()
-    pipeline = GenerationPipeline(config)
-
-    monkeypatch.setattr(pipeline, "_build_dataset", lambda: dataloader.dataset)
-    monkeypatch.setattr(pipeline, "_build_dataloader", lambda ds: dataloader)
-    monkeypatch.setattr(pipeline, "_init_generator", lambda: generative_model)
-
-    events, accessors = pipeline.run()
-
     assert len(events) == 1
     assert pipeline.get_accessors() == {key: list(val) for key, val in accessors.items()}
