@@ -1,0 +1,98 @@
+name: Lint
+
+on:
+  pull_request:
+    branches:
+      - "*"
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+
+jobs:
+  ruff:
+    name: Ruff Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chartboost/ruff-action@v1
+        with:
+          src: "./src"
+          args: "check --exit-non-zero-on-fix"
+
+  ruff-format:
+    name: Ruff Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: chartboost/ruff-action@v1
+        with:
+          src: "./src"
+          args: "format --check"
+
+  mypy:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install mypy types-pyyaml
+
+      - name: Run mypy
+        run: |
+          source .venv/bin/activate
+          mypy src/parnassus --ignore-missing-imports --implicit-optional
+
+  pre-commit:
+    name: Pre-commit Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check trailing whitespace
+        run: |
+          if git grep -In '[[:blank:]]$' -- '*.py' '*.yml' '*.yaml' '*.md' '*.toml'; then
+            echo "Error: Trailing whitespace found"
+            exit 1
+          fi
+
+      - name: Check Python AST
+        run: python -m compileall -q src/
+
+      - name: Check end-of-file newline
+        run: |
+          status=0
+          for file in $(git ls-files '*.py' '*.yml' '*.yaml' '*.md' '*.toml'); do
+            if [ -n "$(tail -c 1 "$file")" ]; then
+              echo "Missing newline at end of: $file"
+              status=1
+            fi
+          done
+          exit $status
+
+  yamllint:
+    name: YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ibiqlik/action-yamllint@v3
+        with:
+          config_data: |
+            extends: relaxed
+            rules:
+              line-length: disable
