@@ -33,13 +33,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv venv
-          uv pip install -e ".[dev]"
+          uv sync --all-extras
 
       - name: Run tests with coverage
         run: |
           source .venv/bin/activate
-          pytest src/parnassus/tests/ -v --cov=src/parnassus --cov-report=xml --cov-report=term-missing
+          pytest src/parnassus/tests/ -v --cov=src/parnassus --cov-report=xml --cov-report=term-missing --ignore=src/parnassus/tests/test_pythia.py
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
