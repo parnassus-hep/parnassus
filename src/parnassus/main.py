@@ -14,13 +14,34 @@ from parnassus.writers import RootWriter
 DEFAULT_CONFIG_PATH = Path(__file__).parent.joinpath("configs/default_config.yaml")
 
 
-def parse_args(args: Sequence[str] | None):
+def parse_args(args: Sequence[str] | None) -> argparse.Namespace:
+    """Parse command-line arguments for Parnassus.
+
+    Parameters
+    ----------
+    args : Sequence[str] | None
+        List of command-line arguments. If None, defaults to sys.argv.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments namespace.
+
+    """
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(
         dest="cli",
     )
-    _ = subparsers.add_parser(
-        "init", help="Initialize a default configuration file in the current directory"
+    parser_init = subparsers.add_parser(
+        "init",
+        help="Initialize a default configuration file in the provided path (or current directory)",
+    )
+    _ = parser_init.add_argument(
+        "dir",
+        nargs="?",
+        type=str,
+        default=".",
+        help="Path to directory to save the default configuration file",
     )
     parser_run = subparsers.add_parser("run", help="Execute the Parnassus pipeline")
     _ = parser_run.add_argument(
@@ -60,14 +81,17 @@ def parse_args(args: Sequence[str] | None):
     return parser.parse_args(args)
 
 
-def copy_default_config(dest: Path):
-    shutil.copy(DEFAULT_CONFIG_PATH, dest)
-
-
 def main(args: Sequence[str] | None = None) -> None:
+    """Main function to run Parnassus CLI.
+
+    Parameters
+    ----------
+    args : Sequence[str] | None
+        List of command-line arguments. If None, defaults to sys.argv.
+    """
     parsed_args = parse_args(args)
     if parsed_args.cli == "init":
-        copy_default_config(Path.cwd())
+        shutil.copy(DEFAULT_CONFIG_PATH, Path(parsed_args.dir).absolute())
     elif parsed_args.cli == "run":
         log = setup_logger()
         title = " Starting Parnassus "
