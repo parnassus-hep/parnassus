@@ -34,7 +34,7 @@ class Accessor(ABC):
 
     @override
     def __repr__(self) -> str:
-        return f"{self.collection} '{self.name}' accessor, ouput_name: {self.output_name}"
+        return f"{self.collection} '{self.name}' accessor, output_name: {self.output_name}"
 
 
 @final
@@ -171,7 +171,7 @@ class AccessorListBuilder:
 
         Parameters
         ----------
-            *names: Sequence[str]
+            names: Sequence[str]
                 Variable names to create accessors for
             dtype: str | Sequence[str]
                 Data type for all these accessors (default: "float32")
@@ -262,6 +262,8 @@ class AccessorTemplates:
         AccessorSpec("vx"),
         AccessorSpec("vy"),
         AccessorSpec("vz"),
+        AccessorSpec("class_id", dtype="int32"),
+        AccessorSpec("pdg_id", dtype="int32"),
     ]
 
     # Isolation variables
