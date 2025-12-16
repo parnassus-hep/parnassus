@@ -1,81 +1,295 @@
 from abc import ABC, abstractmethod
 from collections.abc import Mapping, Sequence
-from typing import Any, final, override
+from dataclasses import dataclass, field
+from typing import Any, ClassVar, final, override
 
 from .scheme import GenEvent
 
 
+class AccessorError(Exception):
+    """Raised when accessor cannot retrieve data from event."""
+
+
+@dataclass(frozen=True)
 class Accessor(ABC):
-    def __init__(
-        self, name: str, collection: str, output_name: str | None = None, dtype: str | None = None
-    ):
-        self._name: str = name
-        self._collection: str = collection
-        self._output_name: str = output_name or name
-        self._dtype: str = dtype or "float32"
+    """Abstract base class for accessors."""
+
+    name: str
+    collection: str
+    output_name: str = ""
+    dtype: str = "float32"
+
+    def __post_init__(self):
+        # Validate dtype
+        valid_dtypes = {"float32", "float64", "int32", "int64", "bool"}
+        if self.dtype not in valid_dtypes:
+            raise ValueError(f"Invalid dtype: {self.dtype}")
+        # Set output_name if not provided by user
+        if not self.output_name:
+            object.__setattr__(self, "output_name", self.name)
 
     @abstractmethod
     def get(self, event: GenEvent) -> Any:
         pass
 
-    @property
-    def collection(self) -> str:
-        return self._collection
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def output_name(self) -> str:
-        return self._output_name
-
-    @property
-    def dtype(self) -> str:
-        return self._dtype
-
-    @override
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Accessor):
-            return NotImplemented
-        return self._name == other._name and self._collection == other._collection
-
-    @override
-    def __hash__(self) -> int:
-        return hash(self._name + self._collection + self._output_name + self._dtype)
-
     @override
     def __repr__(self) -> str:
-        return f"{self._collection} '{self.name}' accessor, ouput_name: {self._output_name}"
+        return f"{self.collection} '{self.name}' accessor, ouput_name: {self.output_name}"
 
 
 @final
+@dataclass(frozen=True)
 class ParticleAccessor(Accessor):
+    """Accessor for particle collections."""
+
     @override
     def get(self, event: GenEvent):
-        collection = getattr(event, self._collection)
-        if "/" in self._name:
-            assert self._name.count("/") == 1, "Nested dicts are not supported in ParticleAccessor"
-            data_dict_name, feature_name = self._name.split("/")
-            data_dict: dict[str, Any] | Any = getattr(collection, data_dict_name)
+        try:
+            collection = getattr(event, self.collection)
+        except AttributeError as e:
+            raise AccessorError(f"Event has no collection '{self.collection}'") from e
+
+        if "/" in self.name:
+            dict_name, field = self.name.split("/", 1)
             try:
-                return data_dict[feature_name]
-            except TypeError:
-                print(f"Trying to read {self._name} variable, but {data_dict_name} is not a dict.")
-                raise
-        return getattr(getattr(event, self._collection), self._name)
+                data_dict = getattr(collection, dict_name)
+                return data_dict[field]
+            except (AttributeError, KeyError, TypeError) as e:
+                raise AccessorError(f"Cannot access {self.name} from {self.collection}") from e
+
+        try:
+            return getattr(collection, self.name)
+        except AttributeError as e:
+            raise AccessorError(
+                f"Collection {self.collection} has no attribute '{self.name}'"
+            ) from e
 
 
 @final
+@dataclass(frozen=True)
 class JetAccessor(Accessor):
+    """Accessor for jet collections."""
+
     @override
     def get(self, event: GenEvent):
-        return getattr(event.jets[self._collection], self._name)
+        return getattr(event.jets[self.collection], self.name)
 
 
+# Accessor creation #
+@dataclass
+class AccessorSpec:
+    """Specification for creating an accessor (without collection)."""
+
+    name: str
+    output_name: str = ""
+    dtype: str = "float32"
+
+
+class AccessorListBuilder:
+    """Fluent builder for creating lists of accessors.
+
+    Examples
+    --------
+    Simple case:
+
+    >>> accessors = (
+    ...     AccessorListBuilder.for_particles("electrons")
+    ...     .add(["pt", "eta", "phi"])
+    ...     .build()
+    ... )
+
+    With custom dtypes:
+
+    >>> accessors = (
+    ...     AccessorListBuilder.for_particles("pflow_particles")
+    ...     .add(["pt", "eta", "phi"], dtype="float32")
+    ...     .add(["class_id"], dtype="int32")
+    ...     .build()
+    ... )
+
+    With output names:
+
+    >>> accessors = (
+    ...     AccessorListBuilder.for_particles("electrons")
+    ...     .add_with_output("iso_var", "electron_iso")
+    ...     .add(["sum_pt", "sum_pt_ch"])
+    ...     .build()
+    ... )
+
+    From specs (for reusable templates):
+
+    >>> specs = [
+    ...     AccessorSpec("pt"),
+    ...     AccessorSpec("eta"),
+    ...     AccessorSpec("phi"),
+    ... ]
+    >>> accessors = (
+    ...     AccessorListBuilder.for_particles("electrons")
+    ...     .add_from_specs(specs)
+    ...     .build()
+    ... )
+
+    """
+
+    def __init__(self, collection: str, accessor_type: type[Accessor]):
+        self._collection = collection
+        self._accessor_type = accessor_type
+        self._specs: list[AccessorSpec] = []
+
+    @classmethod
+    def for_particles(cls, collection: str) -> "AccessorListBuilder":
+        """Create builder for particle accessors.
+
+        Parameters
+        ----------
+            collection: Name of the particle collection
+
+        Returns
+        -------
+            AccessorListBuilder for chaining
+        """
+        return cls(collection, ParticleAccessor)
+
+    @classmethod
+    def for_jets(cls, collection: str) -> "AccessorListBuilder":
+        """Create builder for jet accessors.
+
+        Parameters
+        ----------
+            collection: Name of the jet collection
+
+        Returns
+        -------
+            AccessorListBuilder for chaining
+        """
+        return cls(collection, JetAccessor)
+
+    def add(
+        self, names: Sequence[str], dtype: str | Sequence[str] = "float32"
+    ) -> "AccessorListBuilder":
+        """Add accessors by name with optional dtype.
+
+        Parameters
+        ----------
+            *names: Sequence[str]
+                Variable names to create accessors for
+            dtype: str | Sequence[str]
+                Data type for all these accessors (default: "float32")
+                If a sequence is provided, it must match the length of `names`.
+
+        Returns
+        -------
+            AccessorListBuilder for chaining
+        """
+        if isinstance(dtype, str):
+            dtype = [dtype] * len(names)
+        if len(dtype) != len(names):
+            raise ValueError("Length of dtype list must match length of names list.")
+        for name, dtype_ in zip(names, dtype, strict=False):
+            self._specs.append(AccessorSpec(name=name, dtype=dtype_))
+        return self
+
+    def add_with_output(
+        self, name: str, output_name: str, dtype: str = "float32"
+    ) -> "AccessorListBuilder":
+        """Add accessor with custom output name.
+
+        Parameters
+        ----------
+            name: Variable name in event
+            output_name: Name to use in output file
+            dtype: Data type (default: "float32")
+
+        Returns
+        -------
+            AccessorListBuilder for chaining
+        """
+        self._specs.append(AccessorSpec(name=name, output_name=output_name, dtype=dtype))
+        return self
+
+    def add_from_specs(self, specs: Sequence[AccessorSpec]) -> "AccessorListBuilder":
+        """Add accessors from pre-defined specs.
+
+        Parameters
+        ----------
+            specs: Sequence of AccessorSpec objects
+
+        Returns
+        -------
+            Self for chaining
+        """
+        self._specs.extend(specs)
+        return self
+
+    def build(self) -> list[Accessor]:
+        """Build the final list of accessors.
+
+        Returns
+        -------
+            List of configured accessor instances
+        """
+        return [
+            self._accessor_type(
+                name=spec.name,
+                collection=self._collection,
+                output_name=spec.output_name,
+                dtype=spec.dtype,
+            )
+            for spec in self._specs
+        ]
+
+
+class AccessorTemplates:
+    """Common accessor specifications for reuse across pipelines."""
+
+    # Particle kinematics
+    KINEMATICS: ClassVar = [
+        AccessorSpec("pt"),
+        AccessorSpec("eta"),
+        AccessorSpec("phi"),
+    ]
+
+    IMPACT_PARAMETERS: ClassVar = [
+        AccessorSpec("d0"),
+        AccessorSpec("z0"),
+        AccessorSpec("d0_error"),
+        AccessorSpec("z0_error"),
+    ]
+
+    # Full particle info
+    FULL_PARTICLE: ClassVar = [
+        *KINEMATICS,
+        AccessorSpec("vx"),
+        AccessorSpec("vy"),
+        AccessorSpec("vz"),
+    ]
+
+    # Isolation variables
+    ISOLATION: ClassVar = [
+        AccessorSpec("iso_var"),
+        AccessorSpec("sum_pt"),
+        AccessorSpec("sum_pt_ch"),
+        AccessorSpec("sum_pt_neut"),
+    ]
+
+    # Jet substructure
+    JET_SUBSTRUCTURE: ClassVar = [
+        AccessorSpec("d2"),
+        AccessorSpec("c2"),
+    ]
+
+    # Particle classification
+    CLASSIFICATION: ClassVar = [
+        AccessorSpec("class_id", dtype="int32"),
+        AccessorSpec("charge", dtype="int32"),
+    ]
+
+
+@dataclass(slots=True)
 class AccessorStore:
-    def __init__(self):
-        self.accessors_dict: dict[str, list[Accessor]] = {}
+    """Store for accessors grouped by collection name."""
+
+    accessors_dict: dict[str, list[Accessor]] = field(default_factory=dict)
 
     @override
     def __repr__(self) -> str:
@@ -93,6 +307,11 @@ class AccessorStore:
                 )
             repr_string += "=" * 126 + "\n\n"
         return repr_string
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Sequence[Accessor]]) -> "AccessorStore":
+        accessors_dict = {key: list(accessors) for key, accessors in data.items()}
+        return cls(accessors_dict)
 
     def update_from_dict(self, data: Mapping[str, Sequence[Accessor]]):
         for key, accessors in data.items():

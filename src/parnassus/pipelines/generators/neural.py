@@ -1,32 +1,21 @@
 """Neural network-based event generator implementation."""
 
-from collections.abc import Callable
-from functools import partial
+from collections.abc import Callable, Sequence
 from typing import Self, final
 
 import numpy as np
 import torch
 
-from parnassus.configs.accessors import Accessor, ParticleAccessor
+from parnassus.configs.accessors import (
+    Accessor,
+    AccessorListBuilder,
+    AccessorSpec,
+    AccessorTemplates,
+)
 from parnassus.configs.generators import NeuralGeneratorConfig
 from parnassus.nn import ModelWrapper
 from parnassus.utils import Unscaler
 from parnassus.utils.typing import TensorDict
-
-# NN-specific accessor definitions
-PARTICLE_ACCESSORS = [
-    partial(ParticleAccessor, name=name, dtype="float32")
-    for name in ["pt", "eta", "phi", "vx", "vy", "vz"]
-] + [partial(ParticleAccessor, name=name, dtype="int32") for name in ["class_id", "pdg_id"]]
-
-IMPACT_ACCESSORS = [
-    partial(ParticleAccessor, name=name, dtype="float32")
-    for name in ["d0", "z0", "d0_error", "z0_error"]
-]
-
-LEPTON_ACCESSORS = [
-    partial(ParticleAccessor, name=name, dtype="float32") for name in ["pt", "eta", "phi"]
-]
 
 
 @final
@@ -95,39 +84,44 @@ class NeuralEventGenerator:
     def impact_sampler_steps(self) -> int | None:
         return self.impact_model.sampler.n_steps if self.impact_model else None
 
+    def _get_accessors_builder(
+        self, collection: str, specs: Sequence[AccessorSpec], use_impact: bool = False
+    ) -> AccessorListBuilder:
+        builder = AccessorListBuilder.for_particles(collection).add_from_specs(specs)
+        if use_impact:
+            builder.add_from_specs(AccessorTemplates.IMPACT_PARAMETERS)
+        return builder
+
     def get_accessors(self) -> dict[str, list[Accessor]]:
         """Return list of accessor constructors for neural network output.
 
         Returns
         -------
-        list[type[Accessor]]
-            List of accessor constructors for the generated output.
+        dict[str, list[Accessor]]
+            Dictionary mapping collection names to lists of accessors.
         """
-        # Build pflow accessors (all particle + impact if available)
-        pflow_accessors: list[Accessor] = [
-            accessor_partial(collection="pflow_particles")
-            for accessor_partial in PARTICLE_ACCESSORS
-        ]
-        if self.impact_model is not None:
-            pflow_accessors += [
-                accessor_partial(collection="pflow_particles")
-                for accessor_partial in IMPACT_ACCESSORS
-            ]
-
-        truth_accessors: list[Accessor] = [
-            accessor_partial(collection="truth_particles")
-            for accessor_partial in PARTICLE_ACCESSORS
-        ]
-
         return {
-            "Truth": truth_accessors,
-            "Pflow": pflow_accessors,
-            "Electrons": [
-                accessor_partial(collection="electrons") for accessor_partial in LEPTON_ACCESSORS
-            ],
-            "Muons": [
-                accessor_partial(collection="muons") for accessor_partial in LEPTON_ACCESSORS
-            ],
+            # Truth accessors (all particle information)
+            "Truth": self._get_accessors_builder(
+                collection="truth_particles", specs=AccessorTemplates.FULL_PARTICLE
+            ).build(),
+            # Pflow accessors (may include impact parameters)
+            "Pflow": self._get_accessors_builder(
+                collection="pflow_particles",
+                specs=AccessorTemplates.FULL_PARTICLE,
+                use_impact=self.has_impact_model,
+            ).build(),
+            # Kinematics accessors for electrons and muons (may include impact parameters)
+            "Electrons": self._get_accessors_builder(
+                collection="electrons",
+                specs=AccessorTemplates.KINEMATICS,
+                use_impact=self.has_impact_model,
+            ).build(),
+            "Muons": self._get_accessors_builder(
+                collection="muons",
+                specs=AccessorTemplates.KINEMATICS,
+                use_impact=self.has_impact_model,
+            ).build(),
         }
 
     def to(self, device: torch.device) -> Self:

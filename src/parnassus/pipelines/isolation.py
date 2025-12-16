@@ -1,10 +1,13 @@
 from collections.abc import Sequence
-from functools import partial
 from typing import final, override
 
 import numpy as np
 
-from parnassus.configs.accessors import Accessor, ParticleAccessor
+from parnassus.configs.accessors import (
+    Accessor,
+    AccessorListBuilder,
+    AccessorTemplates,
+)
 from parnassus.configs.pipeline import IsolationConfig
 from parnassus.configs.scheme import (
     GenEvent,
@@ -16,11 +19,6 @@ from parnassus.utils.typing import FloatArray, IntArray
 from .base import GenPipeline
 
 type IsolationData = FloatArray
-
-ISOLATION_ACESSORS = [
-    partial(ParticleAccessor, name=name, dtype="float32")
-    for name in ["iso_var", "sum_pt", "sum_pt_ch", "sum_pt_neut"]
-]
 
 
 def calculate_photon_isolation(
@@ -214,19 +212,38 @@ class IsolationPipeline(GenPipeline):
     def __init__(self, config: IsolationConfig):
         self.config = config
 
+    def _make_isolation_accessors(self, collection: str) -> list[Accessor]:
+        """Create isolation accessors for a given collection.
+
+        Parameters
+        ----------
+        collection : str
+            Particle collection name (e.g., "electrons" or "muons").
+
+        Returns
+        -------
+        list[Accessor]
+            List of accessors for isolation variables.
+        """
+        return (
+            AccessorListBuilder.for_particles(collection)
+            .add_from_specs(AccessorTemplates.ISOLATION)
+            .build()
+        )
+
     @override
     def get_accessors(self) -> dict[str, list[Accessor]]:
         if self.config.collection == "all":
             # If collection is "all", we return accessors for both electrons and muons
             return {
-                "Electrons": [accessor(collection="electrons") for accessor in ISOLATION_ACESSORS],
-                "Muons": [accessor(collection="muons") for accessor in ISOLATION_ACESSORS],
+                "Electrons": self._make_isolation_accessors("electrons"),
+                "Muons": self._make_isolation_accessors("muons"),
             }
         # Otherwise, we return accessors for the specified collection
         return {
-            self.config.collection.capitalize(): [
-                accessor(collection=self.config.collection) for accessor in ISOLATION_ACESSORS
-            ],
+            self.config.collection.capitalize(): self._make_isolation_accessors(
+                self.config.collection
+            )
         }
 
     @override

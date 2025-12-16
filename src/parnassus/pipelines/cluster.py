@@ -6,7 +6,12 @@ import energyflow as ef
 import fastjet as fj
 import numpy as np
 
-from parnassus.configs.accessors import Accessor, JetAccessor, ParticleAccessor
+from parnassus.configs.accessors import (
+    Accessor,
+    AccessorListBuilder,
+    AccessorTemplates,
+    ParticleAccessor,
+)
 from parnassus.configs.pipeline import JetClusteringConfig
 from parnassus.configs.scheme import (
     GenEvent,
@@ -274,13 +279,12 @@ class JetClusteringPipeline(GenPipeline):
     @override
     def get_accessors(self) -> dict[str, list[Accessor]]:
         return {
-            self.config.name: [
-                JetAccessor("pt", self.config.name),
-                JetAccessor("eta", self.config.name),
-                JetAccessor("phi", self.config.name),
-                JetAccessor("d2", self.config.name),
-                JetAccessor("c2", self.config.name),
-            ],
+            self.config.name: (
+                AccessorListBuilder.for_jets(self.config.name)
+                .add_from_specs(AccessorTemplates.KINEMATICS)
+                .add_from_specs(AccessorTemplates.JET_SUBSTRUCTURE)
+                .build()
+            ),
             self.config.collection.capitalize(): [
                 ParticleAccessor(
                     f"jet_idx/{self.config.name}",
