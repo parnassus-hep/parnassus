@@ -87,4 +87,5 @@ dev = [
     "tqdm",
     "scipy",
     "gdown",
+    "pytest-cov>=6.3.0",
 ]
