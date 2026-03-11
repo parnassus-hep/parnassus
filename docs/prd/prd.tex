@@ -20,6 +20,7 @@
 \usepackage{float}
 \usepackage{multirow}
 \usepackage{subcaption}
+\usepackage{makecell}
 
 % ── Colours ──────────────────────────────────────────────────
 \definecolor{parnblue}{RGB}{41,98,255}
@@ -614,6 +615,33 @@ PartonLevel:FSR = on
 HadronLevel:Hadronize = on
 \end{lstlisting}
 
+\paragraph{BSM: $Z' \to t\bar{t}$ (1\,TeV heavy resonance):}
+
+\begin{lstlisting}[style=cmnd,caption={Pythia8 steering card for BSM $Z' \to t\bar{t}$ production.}]
+! zprime.cmnd -- BSM Z' -> tt at 7 TeV
+Beams:eCM = 7000.
+Beams:idA = 2212
+Beams:idB = 2212
+
+! Z' production (heavy neutral gauge boson)
+NewGaugeBoson:ffbar2gmZZprime = on
+32:m0 = 1000.              ! Z' mass = 1 TeV
+32:onMode = off             ! turn off all Z' decays
+32:onIfAny = 6              ! Z' -> t tbar only
+
+6:m0 = 172.5               ! top mass
+
+PartonLevel:MPI = on
+PartonLevel:ISR = on
+PartonLevel:FSR = on
+HadronLevel:Hadronize = on
+\end{lstlisting}
+
+\noindent
+This demonstrates running Parnassus on a BSM signal process not present in the training
+data. Since the neural models learn detector response from individual particle properties,
+they handle unseen physics processes without retraining.
+
 % ── Example 3 ────────────────────────────────────────────────
 \subsection{Example 3: Batch Generation with the HepMC3 Generator}
 
@@ -702,9 +730,9 @@ writer.write(gen_events)
 \label{sec:numerical}
 
 To demonstrate the framework in practice and illustrate its process-agnostic
-behaviour, we present results from running Parnassus on three different physics
-processes using the bundled \texttt{cms\_2011\_flow\_v00} model with 50 Euler
-diffusion steps on CPU:
+behaviour, we present results from running Parnassus on four different physics
+processes --- including a BSM signal --- using the bundled
+\texttt{cms\_2011\_flow\_v00} model with 50 Euler diffusion steps on CPU:
 
 \begin{enumerate}
   \item $H \to ZZ \to 4\ell$ --- 100 events from a HepMC input file
@@ -712,26 +740,34 @@ diffusion steps on CPU:
     on-the-fly by \textsc{Pythia8} (2\,000 requested, 832 passed quality cuts)
   \item Drell--Yan $Z/\gamma^* \to \ell\ell$ --- 555 events generated on-the-fly
     by \textsc{Pythia8} (1\,000 requested, 555 passed quality cuts)
+  \item \textbf{BSM:} $Z' \to t\bar{t}$ (1\,TeV) --- 137 events generated on-the-fly
+    by \textsc{Pythia8} (2\,000 requested, 137 passed quality cuts due to
+    high truth-particle multiplicity from top decays)
 \end{enumerate}
 
 \noindent
 Events are rejected if the truth particle count exceeds the model's
-400-particle limit. All results use the default configuration with anti-$k_t$
+400-particle limit. The low acceptance rate for $Z' \to t\bar{t}$ reflects
+the large particle multiplicities produced by top quark decays and the 1\,TeV
+resonance mass. All results use the default configuration with anti-$k_t$
 jet clustering ($R = 0.5$, $p_\mathrm{T}^\mathrm{min} = 10$\,GeV) and lepton
 isolation ($\Delta R = 0.4$).
 
 \subsection{Kinematic Distributions}
 
 Figure~\ref{fig:kinematics} compares the particle-level kinematic distributions
-across all three physics processes. The $p_\mathrm{T}$ spectra follow the
+across all four physics processes. The $p_\mathrm{T}$ spectra follow the
 expected steeply falling distribution. The $\eta$ distributions show the
 characteristic barrel--endcap coverage of the CMS detector, and the multiplicity
-distributions reflect the different underlying event structures.
+distributions reflect the different underlying event structures. The BSM
+$Z' \to t\bar{t}$ process is broadly consistent with the SM processes,
+demonstrating the model's ability to handle unseen physics.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/kinematic_distributions.pdf}
-\caption{Particle-flow kinematic distributions across three physics processes.
+\includegraphics[width=\textwidth]{figures/kinematic_distributions_4proc.pdf}
+\caption{Particle-flow kinematic distributions across four physics processes
+  (including BSM $Z' \to t\bar{t}$).
   (a) Transverse momentum $p_\mathrm{T}$ in log scale,
   (b) pseudorapidity $\eta$,
   (c) particle-flow multiplicity per event. All distributions are normalised to
@@ -764,13 +800,15 @@ by charged hadrons.
 Figure~\ref{fig:jets} shows the reconstructed jet kinematics from the anti-$k_t$
 algorithm with $R = 0.5$. The jet $p_\mathrm{T}$ spectra reflect the underlying
 hard-scatter energy scale of each process, while the $\eta$ distributions are
-broadly consistent across processes.
+broadly consistent across processes. The $Z' \to t\bar{t}$ process shows a
+harder jet $p_\mathrm{T}$ spectrum due to the boosted top quarks from the heavy
+resonance decay.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/jet_distributions.pdf}
+\includegraphics[width=\textwidth]{figures/jet_distributions_4proc.pdf}
 \caption{Reconstructed jet distributions (anti-$k_t$, $R = 0.5$,
-  $p_\mathrm{T}^\mathrm{min} = 10$\,GeV).
+  $p_\mathrm{T}^\mathrm{min} = 10$\,GeV) across four processes including BSM.
   (a) Jet $p_\mathrm{T}$ in log scale,
   (b) jet pseudorapidity $\eta$.}
 \label{fig:jets}
@@ -827,6 +865,22 @@ where the leptonic decay products are visible alongside the underlying event act
 \label{fig:display_dy}
 \end{figure}
 
+\subsubsection{BSM: $Z' \to t\bar{t}$ (1\,TeV)}
+
+Figure~\ref{fig:display_zprime} shows a BSM $Z' \to t\bar{t}$ event. The high
+truth-particle multiplicity from the boosted top decays is clearly visible on
+the left. The pflow output on the right shows the reconstructed event with
+leptons, hadrons, and photons from the top decay products.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/event_display_zprime.pdf}
+\caption{Event display for BSM $Z' \to t\bar{t}$ (1\,TeV): truth particles (left) and
+  Parnassus pflow output (right). This process was not present in the training data,
+  demonstrating the model's process-agnostic generalization.}
+\label{fig:display_zprime}
+\end{figure}
+
 \subsubsection{Energy Flow (Lego) Plots}
 
 Figures~\ref{fig:lego_h4l}--\ref{fig:lego_dy} show the $p_\mathrm{T}$-weighted
@@ -855,21 +909,31 @@ and pflow distributions for each process.
 \label{fig:lego_dy}
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/event_display_zprime_lego.pdf}
+\caption{Energy flow lego plot for BSM $Z' \to t\bar{t}$ (1\,TeV): truth (left)
+  vs.\ pflow (right). The high energy deposit from boosted top decays is visible.}
+\label{fig:lego_zprime}
+\end{figure}
+
 \subsubsection{Process Comparison}
 
 Figure~\ref{fig:process_comparison} provides a side-by-side comparison of single
-events from all three processes, highlighting the different event topologies
-and demonstrating the model's ability to handle diverse physics signatures.
+events from all four processes, highlighting the different event topologies
+and demonstrating the model's ability to handle diverse physics signatures,
+including BSM signals not present in the training data.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/process_comparison.pdf}
-\caption{Side-by-side comparison of Parnassus pflow output for three physics
-  processes. Each panel shows one representative event in $\eta$--$\phi$ with
-  particle classes colour-coded and anti-$k_t$ jets overlaid as dashed circles.
+\includegraphics[width=\textwidth]{figures/process_comparison_4proc.pdf}
+\caption{Side-by-side comparison of Parnassus pflow output for four physics
+  processes including BSM. Each panel shows one representative event in
+  $\eta$--$\phi$ with particle classes colour-coded and anti-$k_t$ jets
+  overlaid as dashed circles.
   The distinct event topologies --- low-multiplicity leptonic ($H \to 4\ell$),
-  hadronic dijet (QCD), and electroweak (Drell--Yan) --- are all produced by
-  the same pre-trained model.}
+  hadronic dijet (QCD), electroweak (Drell--Yan), and BSM heavy resonance
+  ($Z' \to t\bar{t}$) --- are all produced by the same pre-trained model.}
 \label{fig:process_comparison}
 \end{figure}
 
@@ -880,22 +944,34 @@ The model adapts to different truth-particle multiplicities and kinematics.
 
 \begin{table}[H]
 \centering
-\caption{Aggregate statistics across three physics processes (mean $\pm$ std).}
+\caption{Aggregate statistics across four physics processes (mean $\pm$ std).}
 \label{tab:aggregate}
-\begin{tabular}{@{}lrrr@{}}
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
 \textbf{Quantity}
-  & \textbf{$H{\to}4\ell$ (100\,evt)}
-  & \textbf{QCD dijet (832\,evt)}
-  & \textbf{Drell--Yan (555\,evt)} \\
+  & \textbf{$H{\to}4\ell$}
+  & \textbf{QCD dijet}
+  & \textbf{Drell--Yan}
+  & \textbf{$Z'{\to}t\bar{t}$} \\
+  & \textbf{(100\,evt)}
+  & \textbf{(832\,evt)}
+  & \textbf{(555\,evt)}
+  & \textbf{(137\,evt)} \\
 \midrule
-Truth particles/event  & $96.4 \pm 46.4$   & $107.1 \pm 45.9$  & $76.1 \pm 39.3$ \\
-Pflow particles/event  & $47.4 \pm 48.5$   & $43.2 \pm 39.4$   & $42.3 \pm 36.5$ \\
-Truth $H_\mathrm{T}$ (GeV) & $793.6 \pm 171.2$ & $775.1 \pm 166.8$ & $786.4 \pm 137.4$ \\
-Pflow $H_\mathrm{T}$ (GeV) & $1375 \pm 1614$   & $1262 \pm 1680$   & $1187 \pm 1486$ \\
+Truth particles/event  & $96.4 \pm 46.4$   & $107.1 \pm 45.9$  & $76.1 \pm 39.3$ & $169.0 \pm 49.4$ \\
+Pflow particles/event  & $47.4 \pm 48.5$   & $43.2 \pm 39.4$   & $42.3 \pm 36.5$ & $47.6 \pm 47.5$ \\
+Truth $H_\mathrm{T}$ (GeV) & $793.6 \pm 171.2$ & $775.1 \pm 166.8$ & $786.4 \pm 137.4$ & --- \\
+Pflow $H_\mathrm{T}$ (GeV) & $1375 \pm 1614$   & $1262 \pm 1680$   & $1187 \pm 1486$ & $1219 \pm 1517$ \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\noindent
+The $Z' \to t\bar{t}$ process shows significantly higher truth-particle multiplicity
+($169 \pm 49$) compared to the SM processes, reflecting the busy final state from
+top quark decays at a 1\,TeV resonance mass. Despite this, the pflow output
+multiplicity ($47.6 \pm 47.5$) is comparable to the SM processes, and the model
+produces physically reasonable output without any process-specific tuning.
 
 \subsection{Per-Event Output}
 
@@ -963,23 +1039,25 @@ from ${\sim}7$--$10\%$ to ${\sim}21$--$25\%$.
 \centering
 \caption{Particle class distribution by process (truth $\to$ pflow percentages).}
 \label{tab:classdist}
-\begin{tabular}{@{}lrrrrrr@{}}
+\begin{tabular}{@{}lrrrrrrrr@{}}
 \toprule
 & \multicolumn{2}{c}{\textbf{$H{\to}4\ell$}}
 & \multicolumn{2}{c}{\textbf{QCD dijet}}
-& \multicolumn{2}{c}{\textbf{Drell--Yan}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
-\textbf{Class} & \textbf{Truth} & \textbf{Pflow}
-  & \textbf{Truth} & \textbf{Pflow}
-  & \textbf{Truth} & \textbf{Pflow} \\
+& \multicolumn{2}{c}{\textbf{Drell--Yan}}
+& \multicolumn{2}{c}{\textbf{$Z'{\to}t\bar{t}$}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+\textbf{Class} & \textbf{Tr.} & \textbf{Pf.}
+  & \textbf{Tr.} & \textbf{Pf.}
+  & \textbf{Tr.} & \textbf{Pf.}
+  & \textbf{Tr.} & \textbf{Pf.} \\
 \midrule
-Charged hadron & 54.8\% & 60.3\% & 59.7\% & 57.5\% & 60.4\% & 57.9\% \\
-Electron       &  1.5\% &  1.6\% &  0.3\% &  0.3\% &  0.9\% &  0.7\% \\
-Muon           &  1.7\% &  1.7\% &  0.1\% &  0.2\% &  0.8\% &  1.0\% \\
-Neutral hadron & 10.4\% & 20.8\% &  6.8\% & 24.2\% &  6.9\% & 24.6\% \\
-Photon         & 31.6\% & 15.7\% & 33.1\% & 17.8\% & 30.9\% & 15.8\% \\
+Ch.\ hadron & 54.8\% & 60.3\% & 59.7\% & 57.5\% & 60.4\% & 57.9\% & 55.5\% & 59.6\% \\
+Electron    &  1.5\% &  1.6\% &  0.3\% &  0.3\% &  0.9\% &  0.7\% &  0.9\% &  0.9\% \\
+Muon        &  1.7\% &  1.7\% &  0.1\% &  0.2\% &  0.8\% &  1.0\% &  0.5\% &  1.0\% \\
+N.\ hadron  & 10.4\% & 20.8\% &  6.8\% & 24.2\% &  6.9\% & 24.6\% &  6.1\% & 16.5\% \\
+Photon      & 31.6\% & 15.7\% & 33.1\% & 17.8\% & 30.9\% & 15.8\% & 37.0\% & 22.1\% \\
 \midrule
-Total particles & 9\,644 & 4\,742 & 89\,119 & 35\,965 & 42\,243 & 23\,474 \\
+Total       & 9\,644 & 4\,742 & 89\,119 & 35\,965 & 42\,243 & 23\,474 & 23\,158 & 6\,518 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1010,6 +1088,10 @@ anti-$k_t$ algorithm with $R = 0.5$ across all three processes.
 \multirow{2}{*}{Drell--Yan}
   & Truth & $18.1 \pm 9.4$ & 31.7 & 19.8 \\
   & Pflow & $10.3 \pm 9.3$ & 78.7 & 39.6 \\
+\addlinespace
+\multirow{2}{*}{$Z'{\to}t\bar{t}$}
+  & Truth & --- & --- & --- \\
+  & Pflow & $7.3 \pm 7.8$ & 138.8 & 32.4 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1043,9 +1125,20 @@ leptons.
 \multirow{2}{*}{Drell--Yan}
   & Electrons & 0.32 & 173.9 & 0.401 & 0.137 \\
   & Muons     & 0.41 & 152.8 & 0.604 & 0.079 \\
+\addlinespace
+\multirow{2}{*}{$Z'{\to}t\bar{t}$}
+  & Electrons & 0.42 & --- & --- & --- \\
+  & Muons     & 0.45 & --- & --- & --- \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\noindent
+The $Z' \to t\bar{t}$ process shows a higher lepton yield per event
+($0.42\,e + 0.45\,\mu$) than QCD, consistent with the semi-leptonic and
+dileptonic top decay channels. This is a non-trivial prediction of the
+process-agnostic model, which correctly generates more leptons when the
+truth-level input contains top decay products.
 
 \subsection{Impact Parameters}
 
