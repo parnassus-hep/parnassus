@@ -449,7 +449,104 @@ writer.write(gen_events)
 
 ---
 
-## 8. Configuration Reference
+## 8. Numerical Results
+
+To demonstrate the framework in practice, we present results from running Parnassus on
+100 H -> ZZ -> 4l events from a HepMC input file, using the bundled `cms_2011_flow_v00`
+model with 50 Euler diffusion steps on CPU. Total processing time was approximately 3
+minutes.
+
+### Per-Event Output (first 10 events)
+
+| Event | n_truth | n_pflow | Truth HT (GeV) | Pflow HT (GeV) |
+|------:|--------:|--------:|----------------:|----------------:|
+| 0 | 105 | 86 | 723.2 | 2165.2 |
+| 1 | 143 | 63 | 788.5 | 2430.9 |
+| 2 | 26 | 0 | 1188.9 | 0.0 |
+| 3 | 126 | 0 | 832.0 | 0.0 |
+| 4 | 174 | 11 | 805.3 | 53.6 |
+| 5 | 60 | 177 | 843.3 | 683.5 |
+| 6 | 132 | 47 | 820.0 | 2550.4 |
+| 7 | 71 | 64 | 1150.4 | 439.1 |
+| 8 | 37 | 0 | 637.7 | 0.0 |
+| 9 | 89 | 116 | 831.0 | 951.8 |
+
+### Aggregate Statistics (100 events)
+
+| Quantity | Truth | Pflow |
+|---|---|---|
+| Particles per event | 96.4 +/- 46.4 | 47.4 +/- 48.5 |
+| HT (GeV) | 793.6 +/- 171.2 | 1375.4 +/- 1614.1 |
+
+### Particle Class Distribution
+
+| Class | Truth | % | Pflow | % |
+|---|---:|---:|---:|---:|
+| Charged hadron | 5,285 | 54.8 | 2,858 | 60.3 |
+| Electron | 145 | 1.5 | 76 | 1.6 |
+| Muon | 163 | 1.7 | 79 | 1.7 |
+| Neutral hadron | 999 | 10.4 | 986 | 20.8 |
+| Photon | 3,052 | 31.6 | 743 | 15.7 |
+| **Total** | **9,644** | | **4,742** | |
+
+### Jet Reconstruction (anti-kT, R=0.5, pT_min=10 GeV)
+
+| Collection | Jets/event | Mean pT (GeV) | Median pT (GeV) | Max pT (GeV) |
+|---|---|---|---|---|
+| Truth | 20.8 +/- 9.4 | 31.5 | 10.6 | 648.1 |
+| Pflow | 10.9 +/- 11.1 | 100.3 | 39.3 | 1875.1 |
+
+### Reconstructed Leptons (isolation cone dR=0.4)
+
+| Lepton | Per event | Mean pT (GeV) | Mean isolation | Median isolation |
+|---|---|---|---|---|
+| Electrons | 0.8 | 284.5 | 0.782 | 0.055 |
+| Muons | 0.8 | 272.1 | 0.195 | 0.055 |
+
+### Impact Parameters (pflow particles)
+
+| Variable | Mean | Std. dev. |
+|---|---|---|
+| d0 | -0.036 | 1.055 |
+| z0 | -1.336 | 34.769 |
+| sigma(d0) | 0.046 | -- |
+
+### Pythia8 Input (VBF H -> ZZ -> 4l)
+
+We also ran the same model on Pythia8 events generated from the `HZZ4l.cmnd` card. Of 20
+requested events, 6 passed quality filters:
+
+| Event | n_truth | n_pflow | Truth HT (GeV) | Pflow HT (GeV) |
+|------:|--------:|--------:|----------------:|----------------:|
+| 0 | 123 | 47 | 1035.7 | 7641.6 |
+| 1 | 122 | 0 | 869.6 | 0.0 |
+| 2 | 117 | 0 | 638.5 | 0.0 |
+| 3 | 181 | 0 | 1004.2 | 0.0 |
+| 4 | 216 | 0 | 932.9 | 0.0 |
+| 5 | 215 | 0 | 820.8 | 0.0 |
+
+### Output File Structure
+
+The generated ROOT file contains 67 branches organised into 7 collections (Truth, Pflow,
+Electrons, Muons, TruthJetsAntiKt05, TruthJetsAntiKt08, PflowJetsAntiKt05). The output
+for 100 events occupies approximately 486 KB on disk.
+
+```python
+import uproot
+import numpy as np
+
+f = uproot.open("h4lep_100.root")
+tree = f["Parnassus"]
+
+# 67 branches across 7 collections
+jet_pt = tree["PflowJetsAntiKt05.pt"].array()
+e_iso = tree["Electrons.iso_var"].array()
+d0 = tree["Pflow.d0"].array()
+```
+
+---
+
+## 9. Configuration Reference
 
 The YAML configuration file has four top-level sections:
 
@@ -518,7 +615,7 @@ output:
 
 ---
 
-## 9. Extending Parnassus
+## 10. Extending Parnassus
 
 ### Registering a New Pre-trained Model
 
@@ -586,7 +683,7 @@ Implement the pipeline protocol and register it in the configuration parser. See
 
 ---
 
-## 10. Particle Classification
+## 11. Particle Classification
 
 Parnassus maps PDG particle IDs to 5 detector-level classes:
 
@@ -607,7 +704,7 @@ to the detector. The selection cuts applied to all input particles are:
 
 ---
 
-## 11. Output Format
+## 12. Output Format
 
 The ROOT output file contains a flat TTree with branches for each physics object collection.
 The accessor system provides a declarative way to define which variables are written for
@@ -633,7 +730,7 @@ jet_pt = tree["PflowJetsAntiKt05_pt"].array()
 
 ---
 
-## 12. Dependencies and Ecosystem
+## 13. Dependencies and Ecosystem
 
 | Package | Role |
 |---|---|

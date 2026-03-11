@@ -119,7 +119,7 @@ class BaseDataset(Dataset[dict[str, Tensor]]):
                 if "eta" in var:
                     value = np.clip(value, -3, 3)
                 elif "phi" in var:
-                    value = np.atan2(np.sin(value), np.cos(value))
+                    value = np.arctan2(np.sin(value), np.cos(value))
                 self.full_data_array[var] = value
                 progress.update(task, advance=1)
 

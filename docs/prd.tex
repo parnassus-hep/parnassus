@@ -689,6 +689,204 @@ writer.write(gen_events)
 \end{lstlisting}
 
 % ══════════════════════════════════════════════════════════════
+\section{Numerical Results}
+\label{sec:numerical}
+
+To demonstrate the framework in practice, we present results from running
+Parnassus on 100 $H \to ZZ \to 4\ell$ events from a HepMC input file, using the
+bundled \texttt{cms\_2011\_flow\_v00} model with 50 Euler diffusion steps on CPU.
+Total processing time was approximately 3 minutes.
+
+\subsection{Per-Event Output}
+
+Table~\ref{tab:perevt} shows the per-event truth and pflow particle counts and
+$H_\mathrm{T}$ for the first 10 events.
+
+\begin{table}[H]
+\centering
+\caption{Per-event summary for the first 10 generated events ($H \to ZZ \to 4\ell$,
+  HepMC input, 50 diffusion steps).}
+\label{tab:perevt}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+\textbf{Event} & \textbf{$n_\mathrm{truth}$} & \textbf{$n_\mathrm{pflow}$}
+  & \textbf{Truth $H_\mathrm{T}$ (GeV)} & \textbf{Pflow $H_\mathrm{T}$ (GeV)} \\
+\midrule
+0  & 105 &  86 &  723.2 & 2165.2 \\
+1  & 143 &  63 &  788.5 & 2430.9 \\
+2  &  26 &   0 & 1188.9 &    0.0 \\
+3  & 126 &   0 &  832.0 &    0.0 \\
+4  & 174 &  11 &  805.3 &   53.6 \\
+5  &  60 & 177 &  843.3 &  683.5 \\
+6  & 132 &  47 &  820.0 & 2550.4 \\
+7  &  71 &  64 & 1150.4 &  439.1 \\
+8  &  37 &   0 &  637.7 &    0.0 \\
+9  &  89 & 116 &  831.0 &  951.8 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Aggregate Statistics}
+
+Table~\ref{tab:aggregate} summarises the aggregate statistics over all 100 events.
+
+\begin{table}[H]
+\centering
+\caption{Aggregate statistics over 100 $H \to ZZ \to 4\ell$ events.}
+\label{tab:aggregate}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Quantity} & \textbf{Truth} & \textbf{Pflow} \\
+\midrule
+Particles per event        & $96.4 \pm 46.4$   & $47.4 \pm 48.5$ \\
+$H_\mathrm{T}$ (GeV)      & $793.6 \pm 171.2$ & $1375.4 \pm 1614.1$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Particle Class Distribution}
+
+Table~\ref{tab:classdist} compares the particle class composition between truth and
+generated pflow particles across all 100 events.
+
+\begin{table}[H]
+\centering
+\caption{Particle class distribution across 100 events (9\,644 truth particles,
+  4\,742 pflow particles).}
+\label{tab:classdist}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Class} & \textbf{Truth} & \textbf{\%} & \textbf{Pflow} & \textbf{\%} \\
+\midrule
+Charged hadron & 5\,285 & 54.8 & 2\,858 & 60.3 \\
+Electron       &   145  &  1.5 &    76  &  1.6 \\
+Muon           &   163  &  1.7 &    79  &  1.7 \\
+Neutral hadron &   999  & 10.4 &   986  & 20.8 \\
+Photon         & 3\,052 & 31.6 &   743  & 15.7 \\
+\midrule
+\textbf{Total} & \textbf{9\,644} & & \textbf{4\,742} & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Jet Reconstruction}
+
+Table~\ref{tab:jets} summarises the jet reconstruction results for truth and pflow
+collections using the anti-$k_t$ algorithm with $R = 0.5$.
+
+\begin{table}[H]
+\centering
+\caption{Jet reconstruction summary (anti-$k_t$, $R = 0.5$, $p_\mathrm{T}^\mathrm{min} = 10$\,GeV).}
+\label{tab:jets}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Collection} & \textbf{Jets/event} & \textbf{Mean $p_\mathrm{T}$ (GeV)}
+  & \textbf{Median $p_\mathrm{T}$ (GeV)} & \textbf{Max $p_\mathrm{T}$ (GeV)} \\
+\midrule
+Truth anti-$k_t$ $R{=}0.5$ & $20.8 \pm 9.4$  & 31.5  & 10.6  & 648.1  \\
+Pflow anti-$k_t$ $R{=}0.5$ & $10.9 \pm 11.1$ & 100.3 & 39.3  & 1875.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Reconstructed Leptons}
+
+Table~\ref{tab:leptons} shows the lepton reconstruction and isolation results.
+The $H \to ZZ \to 4\ell$ process provides a clean test case with
+well-identified electrons and muons.
+
+\begin{table}[H]
+\centering
+\caption{Reconstructed lepton summary (100 events, isolation cone $\Delta R = 0.4$).}
+\label{tab:leptons}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Lepton} & \textbf{Per event} & \textbf{Mean $p_\mathrm{T}$ (GeV)}
+  & \textbf{Mean iso.} & \textbf{Median iso.} \\
+\midrule
+Electrons & 0.8 & 284.5 & 0.782 & 0.055 \\
+Muons     & 0.8 & 272.1 & 0.195 & 0.055 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Impact Parameters}
+
+The impact parameter model generates tracking-level quantities for pflow particles.
+Table~\ref{tab:impact} shows the distributions across all generated pflow particles.
+
+\begin{table}[H]
+\centering
+\caption{Impact parameter distributions across all pflow particles (100 events).}
+\label{tab:impact}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Variable} & \textbf{Mean} & \textbf{Std.\ dev.} \\
+\midrule
+$d_0$                & $-0.036$  & $1.055$ \\
+$z_0$                & $-1.336$  & $34.769$ \\
+$\sigma_{d_0}$       & $0.046$   & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Pythia8 Input}
+
+We also ran the same pre-trained model on events generated on-the-fly by
+\textsc{Pythia8} using the bundled \texttt{HZZ4l.cmnd} steering card. Of
+20 requested events, 6 passed quality filters (the VBF $H \to ZZ \to 4\ell$
+process has a small cross section, and many events exceed the 400-particle
+limit). Table~\ref{tab:pythia} shows the results.
+
+\begin{table}[H]
+\centering
+\caption{Per-event summary from \textsc{Pythia8} input (VBF $H \to ZZ \to 4\ell$,
+  6 events passing quality cuts).}
+\label{tab:pythia}
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+\textbf{Event} & \textbf{$n_\mathrm{truth}$} & \textbf{$n_\mathrm{pflow}$}
+  & \textbf{Truth $H_\mathrm{T}$ (GeV)} & \textbf{Pflow $H_\mathrm{T}$ (GeV)} \\
+\midrule
+0 & 123 &  47 & 1035.7 & 7641.6 \\
+1 & 122 &   0 &  869.6 &    0.0 \\
+2 & 117 &   0 &  638.5 &    0.0 \\
+3 & 181 &   0 & 1004.2 &    0.0 \\
+4 & 216 &   0 &  932.9 &    0.0 \\
+5 & 215 &   0 &  820.8 &    0.0 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Output File Structure}
+
+The generated ROOT file contains 67 branches organised into collections.
+The output for 100 events occupies approximately 486\,KB on disk.
+
+\begin{lstlisting}[style=bash,caption={Reading the output ROOT file with \texttt{uproot}.},label=lst:readroot]
+import uproot
+import numpy as np
+
+f = uproot.open("h4lep_100.root")
+tree = f["Parnassus"]
+
+# 67 branches across 7 collections:
+#   Truth, Pflow, Electrons, Muons,
+#   TruthJetsAntiKt05, TruthJetsAntiKt08,
+#   PflowJetsAntiKt05
+
+# Access pflow jet pT
+jet_pt = tree["PflowJetsAntiKt05.pt"].array()
+
+# Access electron isolation
+e_iso = tree["Electrons.iso_var"].array()
+
+# Access impact parameters
+d0 = tree["Pflow.d0"].array()
+z0 = tree["Pflow.z0"].array()
+\end{lstlisting}
+
+% ══════════════════════════════════════════════════════════════
 \section{Configuration Reference}
 \label{sec:config}
 
