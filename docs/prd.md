@@ -451,59 +451,110 @@ writer.write(gen_events)
 
 ## 8. Numerical Results
 
-To demonstrate the framework in practice, we present results from running Parnassus on
-100 H -> ZZ -> 4l events from a HepMC input file, using the bundled `cms_2011_flow_v00`
-model with 50 Euler diffusion steps on CPU. Total processing time was approximately 3
-minutes.
+To demonstrate the framework and its process-agnostic behaviour, we present results
+from running Parnassus on three different physics processes using the bundled
+`cms_2011_flow_v00` model with 50 Euler diffusion steps on CPU:
 
-### Per-Event Output (first 10 events)
+1. **H -> ZZ -> 4l** -- 100 events from a HepMC input file
+2. **QCD dijets** (pT_hat > 20 GeV) -- 832 events from Pythia8 (2,000 requested)
+3. **Drell-Yan Z/gamma* -> ll** -- 555 events from Pythia8 (1,000 requested)
 
-| Event | n_truth | n_pflow | Truth HT (GeV) | Pflow HT (GeV) |
-|------:|--------:|--------:|----------------:|----------------:|
-| 0 | 105 | 86 | 723.2 | 2165.2 |
-| 1 | 143 | 63 | 788.5 | 2430.9 |
-| 2 | 26 | 0 | 1188.9 | 0.0 |
-| 3 | 126 | 0 | 832.0 | 0.0 |
-| 4 | 174 | 11 | 805.3 | 53.6 |
-| 5 | 60 | 177 | 843.3 | 683.5 |
-| 6 | 132 | 47 | 820.0 | 2550.4 |
-| 7 | 71 | 64 | 1150.4 | 439.1 |
-| 8 | 37 | 0 | 637.7 | 0.0 |
-| 9 | 89 | 116 | 831.0 | 951.8 |
+Events are rejected if the truth particle count exceeds the model's 400-particle limit.
 
-### Aggregate Statistics (100 events)
+### Aggregate Statistics Across Processes
 
-| Quantity | Truth | Pflow |
-|---|---|---|
-| Particles per event | 96.4 +/- 46.4 | 47.4 +/- 48.5 |
-| HT (GeV) | 793.6 +/- 171.2 | 1375.4 +/- 1614.1 |
+| Quantity | H->4l (100 evt) | QCD dijet (832 evt) | Drell-Yan (555 evt) |
+|---|---|---|---|
+| Truth particles/event | 96.4 +/- 46.4 | 107.1 +/- 45.9 | 76.1 +/- 39.3 |
+| Pflow particles/event | 47.4 +/- 48.5 | 43.2 +/- 39.4 | 42.3 +/- 36.5 |
+| Truth HT (GeV) | 793.6 +/- 171.2 | 775.1 +/- 166.8 | 786.4 +/- 137.4 |
+| Pflow HT (GeV) | 1375 +/- 1614 | 1262 +/- 1680 | 1187 +/- 1486 |
+
+### Per-Event Output (first 10 events per process)
+
+**H -> ZZ -> 4l (HepMC input):**
+
+| Evt | n_truth | n_pflow | Truth HT | Pflow HT |
+|----:|--------:|--------:|---------:|---------:|
+| 0 | 105 | 86 | 723 | 2165 |
+| 1 | 143 | 63 | 789 | 2431 |
+| 2 | 26 | 0 | 1189 | 0 |
+| 3 | 126 | 0 | 832 | 0 |
+| 4 | 174 | 11 | 805 | 54 |
+| 5 | 60 | 177 | 843 | 684 |
+| 6 | 132 | 47 | 820 | 2550 |
+| 7 | 71 | 64 | 1150 | 439 |
+| 8 | 37 | 0 | 638 | 0 |
+| 9 | 89 | 116 | 831 | 952 |
+
+**QCD dijets (Pythia8):**
+
+| Evt | n_truth | n_pflow | Truth HT | Pflow HT |
+|----:|--------:|--------:|---------:|---------:|
+| 0 | 110 | 109 | 717 | 1564 |
+| 1 | 38 | 0 | 966 | 0 |
+| 2 | 102 | 95 | 693 | 992 |
+| 3 | 230 | 24 | 817 | 42 |
+| 4 | 81 | 69 | 819 | 4175 |
+| 5 | 61 | 111 | 537 | 462 |
+| 6 | 106 | 0 | 694 | 0 |
+| 7 | 109 | 0 | 778 | 0 |
+| 8 | 92 | 0 | 945 | 0 |
+| 9 | 70 | 54 | 780 | 1860 |
+
+**Drell-Yan (Pythia8):**
+
+| Evt | n_truth | n_pflow | Truth HT | Pflow HT |
+|----:|--------:|--------:|---------:|---------:|
+| 0 | 114 | 14 | 856 | 3822 |
+| 1 | 83 | 99 | 738 | 1968 |
+| 2 | 16 | 36 | 498 | 817 |
+| 3 | 90 | 0 | 783 | 0 |
+| 4 | 48 | 59 | 665 | 681 |
+| 5 | 101 | 46 | 772 | 735 |
+| 6 | 146 | 131 | 803 | 863 |
+| 7 | 60 | 36 | 848 | 1763 |
+| 8 | 89 | 66 | 833 | 5109 |
+| 9 | 61 | 48 | 978 | 1744 |
 
 ### Particle Class Distribution
 
-| Class | Truth | % | Pflow | % |
-|---|---:|---:|---:|---:|
-| Charged hadron | 5,285 | 54.8 | 2,858 | 60.3 |
-| Electron | 145 | 1.5 | 76 | 1.6 |
-| Muon | 163 | 1.7 | 79 | 1.7 |
-| Neutral hadron | 999 | 10.4 | 986 | 20.8 |
-| Photon | 3,052 | 31.6 | 743 | 15.7 |
-| **Total** | **9,644** | | **4,742** | |
+Class fractions are broadly consistent across processes: charged hadrons dominate
+at ~55-60%, photons decrease from ~31% (truth) to ~16% (pflow), and neutral hadrons
+increase from ~7-10% to ~21-25%.
+
+| Class | H->4l Truth/Pflow | QCD Truth/Pflow | DY Truth/Pflow |
+|---|---|---|---|
+| Charged hadron | 54.8% / 60.3% | 59.7% / 57.5% | 60.4% / 57.9% |
+| Electron | 1.5% / 1.6% | 0.3% / 0.3% | 0.9% / 0.7% |
+| Muon | 1.7% / 1.7% | 0.1% / 0.2% | 0.8% / 1.0% |
+| Neutral hadron | 10.4% / 20.8% | 6.8% / 24.2% | 6.9% / 24.6% |
+| Photon | 31.6% / 15.7% | 33.1% / 17.8% | 30.9% / 15.8% |
+| **Total particles** | **9,644 / 4,742** | **89,119 / 35,965** | **42,243 / 23,474** |
 
 ### Jet Reconstruction (anti-kT, R=0.5, pT_min=10 GeV)
 
-| Collection | Jets/event | Mean pT (GeV) | Median pT (GeV) | Max pT (GeV) |
+| Process | Collection | Jets/event | Mean pT (GeV) | Median pT (GeV) |
 |---|---|---|---|---|
-| Truth | 20.8 +/- 9.4 | 31.5 | 10.6 | 648.1 |
-| Pflow | 10.9 +/- 11.1 | 100.3 | 39.3 | 1875.1 |
+| H->4l | Truth | 20.8 +/- 9.4 | 31.5 | 10.6 |
+| H->4l | Pflow | 10.9 +/- 11.1 | 100.3 | 39.3 |
+| QCD dijet | Truth | 22.6 +/- 9.7 | 29.9 | 14.4 |
+| QCD dijet | Pflow | 9.6 +/- 9.1 | 97.5 | 39.5 |
+| Drell-Yan | Truth | 18.1 +/- 9.4 | 31.7 | 19.8 |
+| Drell-Yan | Pflow | 10.3 +/- 9.3 | 78.7 | 39.6 |
 
 ### Reconstructed Leptons (isolation cone dR=0.4)
 
-| Lepton | Per event | Mean pT (GeV) | Mean isolation | Median isolation |
-|---|---|---|---|---|
-| Electrons | 0.8 | 284.5 | 0.782 | 0.055 |
-| Muons | 0.8 | 272.1 | 0.195 | 0.055 |
+| Process | Lepton | Per event | Mean pT (GeV) | Mean iso. | Median iso. |
+|---|---|---|---|---|---|
+| H->4l | Electrons | 0.76 | 284.5 | 0.782 | 0.055 |
+| H->4l | Muons | 0.79 | 272.1 | 0.195 | 0.055 |
+| QCD dijet | Electrons | 0.12 | 154.4 | 1.691 | 1.086 |
+| QCD dijet | Muons | 0.08 | 80.4 | 2.903 | 1.001 |
+| Drell-Yan | Electrons | 0.32 | 173.9 | 0.401 | 0.137 |
+| Drell-Yan | Muons | 0.41 | 152.8 | 0.604 | 0.079 |
 
-### Impact Parameters (pflow particles)
+### Impact Parameters (H->4l, 4,742 pflow particles)
 
 | Variable | Mean | Std. dev. |
 |---|---|---|
@@ -511,34 +562,18 @@ minutes.
 | z0 | -1.336 | 34.769 |
 | sigma(d0) | 0.046 | -- |
 
-### Pythia8 Input (VBF H -> ZZ -> 4l)
-
-We also ran the same model on Pythia8 events generated from the `HZZ4l.cmnd` card. Of 20
-requested events, 6 passed quality filters:
-
-| Event | n_truth | n_pflow | Truth HT (GeV) | Pflow HT (GeV) |
-|------:|--------:|--------:|----------------:|----------------:|
-| 0 | 123 | 47 | 1035.7 | 7641.6 |
-| 1 | 122 | 0 | 869.6 | 0.0 |
-| 2 | 117 | 0 | 638.5 | 0.0 |
-| 3 | 181 | 0 | 1004.2 | 0.0 |
-| 4 | 216 | 0 | 932.9 | 0.0 |
-| 5 | 215 | 0 | 820.8 | 0.0 |
-
 ### Output File Structure
 
-The generated ROOT file contains 67 branches organised into 7 collections (Truth, Pflow,
-Electrons, Muons, TruthJetsAntiKt05, TruthJetsAntiKt08, PflowJetsAntiKt05). The output
-for 100 events occupies approximately 486 KB on disk.
+The ROOT output files contain 67 branches in 7 collections (Truth, Pflow, Electrons,
+Muons, TruthJetsAntiKt05, TruthJetsAntiKt08, PflowJetsAntiKt05). Sizes scale linearly:
+100 events ~ 486 KB, 555 events ~ 2.1 MB, 832 events ~ 3.7 MB.
 
 ```python
 import uproot
-import numpy as np
 
-f = uproot.open("h4lep_100.root")
+f = uproot.open("output.root")
 tree = f["Parnassus"]
 
-# 67 branches across 7 collections
 jet_pt = tree["PflowJetsAntiKt05.pt"].array()
 e_iso = tree["Electrons.iso_var"].array()
 d0 = tree["Pflow.d0"].array()

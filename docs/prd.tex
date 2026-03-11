@@ -18,6 +18,7 @@
 \usepackage{titlesec}
 \usepackage[labelfont=bf]{caption}
 \usepackage{float}
+\usepackage{multirow}
 
 % ── Colours ──────────────────────────────────────────────────
 \definecolor{parnblue}{RGB}{41,98,255}
@@ -692,120 +693,195 @@ writer.write(gen_events)
 \section{Numerical Results}
 \label{sec:numerical}
 
-To demonstrate the framework in practice, we present results from running
-Parnassus on 100 $H \to ZZ \to 4\ell$ events from a HepMC input file, using the
-bundled \texttt{cms\_2011\_flow\_v00} model with 50 Euler diffusion steps on CPU.
-Total processing time was approximately 3 minutes.
+To demonstrate the framework in practice and illustrate its process-agnostic
+behaviour, we present results from running Parnassus on three different physics
+processes using the bundled \texttt{cms\_2011\_flow\_v00} model with 50 Euler
+diffusion steps on CPU:
 
-\subsection{Per-Event Output}
+\begin{enumerate}
+  \item $H \to ZZ \to 4\ell$ --- 100 events from a HepMC input file
+  \item QCD dijets ($\hat{p}_\mathrm{T} > 20$\,GeV) --- 832 events generated
+    on-the-fly by \textsc{Pythia8} (2\,000 requested, 832 passed quality cuts)
+  \item Drell--Yan $Z/\gamma^* \to \ell\ell$ --- 555 events generated on-the-fly
+    by \textsc{Pythia8} (1\,000 requested, 555 passed quality cuts)
+\end{enumerate}
 
-Table~\ref{tab:perevt} shows the per-event truth and pflow particle counts and
-$H_\mathrm{T}$ for the first 10 events.
+\noindent
+Events are rejected if the truth particle count exceeds the model's
+400-particle limit. All results use the default configuration with anti-$k_t$
+jet clustering ($R = 0.5$, $p_\mathrm{T}^\mathrm{min} = 10$\,GeV) and lepton
+isolation ($\Delta R = 0.4$).
+
+\subsection{Aggregate Statistics Across Processes}
+
+Table~\ref{tab:aggregate} compares the aggregate statistics across the three processes.
+The model adapts to different truth-particle multiplicities and kinematics.
 
 \begin{table}[H]
 \centering
-\caption{Per-event summary for the first 10 generated events ($H \to ZZ \to 4\ell$,
-  HepMC input, 50 diffusion steps).}
-\label{tab:perevt}
-\begin{tabular}{@{}rrrrr@{}}
+\caption{Aggregate statistics across three physics processes (mean $\pm$ std).}
+\label{tab:aggregate}
+\begin{tabular}{@{}lrrr@{}}
 \toprule
-\textbf{Event} & \textbf{$n_\mathrm{truth}$} & \textbf{$n_\mathrm{pflow}$}
-  & \textbf{Truth $H_\mathrm{T}$ (GeV)} & \textbf{Pflow $H_\mathrm{T}$ (GeV)} \\
+\textbf{Quantity}
+  & \textbf{$H{\to}4\ell$ (100\,evt)}
+  & \textbf{QCD dijet (832\,evt)}
+  & \textbf{Drell--Yan (555\,evt)} \\
 \midrule
-0  & 105 &  86 &  723.2 & 2165.2 \\
-1  & 143 &  63 &  788.5 & 2430.9 \\
-2  &  26 &   0 & 1188.9 &    0.0 \\
-3  & 126 &   0 &  832.0 &    0.0 \\
-4  & 174 &  11 &  805.3 &   53.6 \\
-5  &  60 & 177 &  843.3 &  683.5 \\
-6  & 132 &  47 &  820.0 & 2550.4 \\
-7  &  71 &  64 & 1150.4 &  439.1 \\
-8  &  37 &   0 &  637.7 &    0.0 \\
-9  &  89 & 116 &  831.0 &  951.8 \\
+Truth particles/event  & $96.4 \pm 46.4$   & $107.1 \pm 45.9$  & $76.1 \pm 39.3$ \\
+Pflow particles/event  & $47.4 \pm 48.5$   & $43.2 \pm 39.4$   & $42.3 \pm 36.5$ \\
+Truth $H_\mathrm{T}$ (GeV) & $793.6 \pm 171.2$ & $775.1 \pm 166.8$ & $786.4 \pm 137.4$ \\
+Pflow $H_\mathrm{T}$ (GeV) & $1375 \pm 1614$   & $1262 \pm 1680$   & $1187 \pm 1486$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Aggregate Statistics}
+\subsection{Per-Event Output}
 
-Table~\ref{tab:aggregate} summarises the aggregate statistics over all 100 events.
+Table~\ref{tab:perevt} shows the first 10 events from each process to illustrate
+event-by-event variation.
 
 \begin{table}[H]
 \centering
-\caption{Aggregate statistics over 100 $H \to ZZ \to 4\ell$ events.}
-\label{tab:aggregate}
-\begin{tabular}{@{}lrr@{}}
+\caption{Per-event summary: first 10 events from each process (50 diffusion steps).}
+\label{tab:perevt}
+\small
+\begin{tabular}{@{}clrrrr@{}}
 \toprule
-\textbf{Quantity} & \textbf{Truth} & \textbf{Pflow} \\
+\textbf{Process} & \textbf{Evt} & \textbf{$n_\mathrm{truth}$} & \textbf{$n_\mathrm{pflow}$}
+  & \textbf{Truth $H_\mathrm{T}$} & \textbf{Pflow $H_\mathrm{T}$} \\
 \midrule
-Particles per event        & $96.4 \pm 46.4$   & $47.4 \pm 48.5$ \\
-$H_\mathrm{T}$ (GeV)      & $793.6 \pm 171.2$ & $1375.4 \pm 1614.1$ \\
+\multirow{10}{*}{\rotatebox{90}{\small$H{\to}4\ell$}}
+  & 0  & 105 &  86 &  723 & 2165 \\
+  & 1  & 143 &  63 &  789 & 2431 \\
+  & 2  &  26 &   0 & 1189 &    0 \\
+  & 3  & 126 &   0 &  832 &    0 \\
+  & 4  & 174 &  11 &  805 &   54 \\
+  & 5  &  60 & 177 &  843 &  684 \\
+  & 6  & 132 &  47 &  820 & 2550 \\
+  & 7  &  71 &  64 & 1150 &  439 \\
+  & 8  &  37 &   0 &  638 &    0 \\
+  & 9  &  89 & 116 &  831 &  952 \\
+\midrule
+\multirow{10}{*}{\rotatebox{90}{\small QCD dijet}}
+  & 0  & 110 & 109 &  717 & 1564 \\
+  & 1  &  38 &   0 &  966 &    0 \\
+  & 2  & 102 &  95 &  693 &  992 \\
+  & 3  & 230 &  24 &  817 &   42 \\
+  & 4  &  81 &  69 &  819 & 4175 \\
+  & 5  &  61 & 111 &  537 &  462 \\
+  & 6  & 106 &   0 &  694 &    0 \\
+  & 7  & 109 &   0 &  778 &    0 \\
+  & 8  &  92 &   0 &  945 &    0 \\
+  & 9  &  70 &  54 &  780 & 1860 \\
+\midrule
+\multirow{10}{*}{\rotatebox{90}{\small Drell--Yan}}
+  & 0  & 114 &  14 &  856 & 3822 \\
+  & 1  &  83 &  99 &  738 & 1968 \\
+  & 2  &  16 &  36 &  498 &  817 \\
+  & 3  &  90 &   0 &  783 &    0 \\
+  & 4  &  48 &  59 &  665 &  681 \\
+  & 5  & 101 &  46 &  772 &  735 \\
+  & 6  & 146 & 131 &  803 &  863 \\
+  & 7  &  60 &  36 &  848 & 1763 \\
+  & 8  &  89 &  66 &  833 & 5109 \\
+  & 9  &  61 &  48 &  978 & 1744 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Particle Class Distribution}
 
-Table~\ref{tab:classdist} compares the particle class composition between truth and
-generated pflow particles across all 100 events.
+Table~\ref{tab:classdist} compares the particle class composition between truth
+and pflow particles for all three processes. The class fractions are broadly
+consistent: charged hadrons dominate at ${\sim}55$--$60\%$, photons decrease
+from ${\sim}31\%$ (truth) to ${\sim}16\%$ (pflow), and neutral hadrons increase
+from ${\sim}7$--$10\%$ to ${\sim}21$--$25\%$.
 
 \begin{table}[H]
 \centering
-\caption{Particle class distribution across 100 events (9\,644 truth particles,
-  4\,742 pflow particles).}
+\caption{Particle class distribution by process (truth $\to$ pflow percentages).}
 \label{tab:classdist}
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}lrrrrrr@{}}
 \toprule
-\textbf{Class} & \textbf{Truth} & \textbf{\%} & \textbf{Pflow} & \textbf{\%} \\
+& \multicolumn{2}{c}{\textbf{$H{\to}4\ell$}}
+& \multicolumn{2}{c}{\textbf{QCD dijet}}
+& \multicolumn{2}{c}{\textbf{Drell--Yan}} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+\textbf{Class} & \textbf{Truth} & \textbf{Pflow}
+  & \textbf{Truth} & \textbf{Pflow}
+  & \textbf{Truth} & \textbf{Pflow} \\
 \midrule
-Charged hadron & 5\,285 & 54.8 & 2\,858 & 60.3 \\
-Electron       &   145  &  1.5 &    76  &  1.6 \\
-Muon           &   163  &  1.7 &    79  &  1.7 \\
-Neutral hadron &   999  & 10.4 &   986  & 20.8 \\
-Photon         & 3\,052 & 31.6 &   743  & 15.7 \\
+Charged hadron & 54.8\% & 60.3\% & 59.7\% & 57.5\% & 60.4\% & 57.9\% \\
+Electron       &  1.5\% &  1.6\% &  0.3\% &  0.3\% &  0.9\% &  0.7\% \\
+Muon           &  1.7\% &  1.7\% &  0.1\% &  0.2\% &  0.8\% &  1.0\% \\
+Neutral hadron & 10.4\% & 20.8\% &  6.8\% & 24.2\% &  6.9\% & 24.6\% \\
+Photon         & 31.6\% & 15.7\% & 33.1\% & 17.8\% & 30.9\% & 15.8\% \\
 \midrule
-\textbf{Total} & \textbf{9\,644} & & \textbf{4\,742} & \\
+Total particles & 9\,644 & 4\,742 & 89\,119 & 35\,965 & 42\,243 & 23\,474 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Jet Reconstruction}
 
-Table~\ref{tab:jets} summarises the jet reconstruction results for truth and pflow
-collections using the anti-$k_t$ algorithm with $R = 0.5$.
+Table~\ref{tab:jets} summarises the jet reconstruction results using the
+anti-$k_t$ algorithm with $R = 0.5$ across all three processes.
 
 \begin{table}[H]
 \centering
-\caption{Jet reconstruction summary (anti-$k_t$, $R = 0.5$, $p_\mathrm{T}^\mathrm{min} = 10$\,GeV).}
+\caption{Jet reconstruction summary (anti-$k_t$, $R = 0.5$,
+  $p_\mathrm{T}^\mathrm{min} = 10$\,GeV).}
 \label{tab:jets}
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}llrrr@{}}
 \toprule
-\textbf{Collection} & \textbf{Jets/event} & \textbf{Mean $p_\mathrm{T}$ (GeV)}
-  & \textbf{Median $p_\mathrm{T}$ (GeV)} & \textbf{Max $p_\mathrm{T}$ (GeV)} \\
+\textbf{Process} & \textbf{Collection} & \textbf{Jets/event}
+  & \textbf{Mean $p_\mathrm{T}$} & \textbf{Median $p_\mathrm{T}$} \\
 \midrule
-Truth anti-$k_t$ $R{=}0.5$ & $20.8 \pm 9.4$  & 31.5  & 10.6  & 648.1  \\
-Pflow anti-$k_t$ $R{=}0.5$ & $10.9 \pm 11.1$ & 100.3 & 39.3  & 1875.1 \\
+\multirow{2}{*}{$H{\to}4\ell$}
+  & Truth & $20.8 \pm 9.4$ & 31.5 & 10.6 \\
+  & Pflow & $10.9 \pm 11.1$ & 100.3 & 39.3 \\
+\addlinespace
+\multirow{2}{*}{QCD dijet}
+  & Truth & $22.6 \pm 9.7$ & 29.9 & 14.4 \\
+  & Pflow & $9.6 \pm 9.1$ & 97.5 & 39.5 \\
+\addlinespace
+\multirow{2}{*}{Drell--Yan}
+  & Truth & $18.1 \pm 9.4$ & 31.7 & 19.8 \\
+  & Pflow & $10.3 \pm 9.3$ & 78.7 & 39.6 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Reconstructed Leptons}
 
-Table~\ref{tab:leptons} shows the lepton reconstruction and isolation results.
-The $H \to ZZ \to 4\ell$ process provides a clean test case with
-well-identified electrons and muons.
+Table~\ref{tab:leptons} compares lepton yields and isolation across processes.
+The $H \to ZZ \to 4\ell$ sample has the highest lepton yield per event as
+expected, while QCD has the lowest (non-prompt leptons from heavy flavour
+decays). Drell--Yan shows an intermediate rate, dominated by the $Z$ decay
+leptons.
 
 \begin{table}[H]
 \centering
-\caption{Reconstructed lepton summary (100 events, isolation cone $\Delta R = 0.4$).}
+\caption{Reconstructed lepton summary across processes (isolation cone
+  $\Delta R = 0.4$).}
 \label{tab:leptons}
-\begin{tabular}{@{}lrrrr@{}}
+\begin{tabular}{@{}llrrrr@{}}
 \toprule
-\textbf{Lepton} & \textbf{Per event} & \textbf{Mean $p_\mathrm{T}$ (GeV)}
-  & \textbf{Mean iso.} & \textbf{Median iso.} \\
+\textbf{Process} & \textbf{Lepton} & \textbf{Per event}
+  & \textbf{Mean $p_\mathrm{T}$} & \textbf{Mean iso.} & \textbf{Median iso.} \\
 \midrule
-Electrons & 0.8 & 284.5 & 0.782 & 0.055 \\
-Muons     & 0.8 & 272.1 & 0.195 & 0.055 \\
+\multirow{2}{*}{$H{\to}4\ell$}
+  & Electrons & 0.76 & 284.5 & 0.782 & 0.055 \\
+  & Muons     & 0.79 & 272.1 & 0.195 & 0.055 \\
+\addlinespace
+\multirow{2}{*}{QCD dijet}
+  & Electrons & 0.12 & 154.4 & 1.691 & 1.086 \\
+  & Muons     & 0.08 &  80.4 & 2.903 & 1.001 \\
+\addlinespace
+\multirow{2}{*}{Drell--Yan}
+  & Electrons & 0.32 & 173.9 & 0.401 & 0.137 \\
+  & Muons     & 0.41 & 152.8 & 0.604 & 0.079 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -813,11 +889,12 @@ Muons     & 0.8 & 272.1 & 0.195 & 0.055 \\
 \subsection{Impact Parameters}
 
 The impact parameter model generates tracking-level quantities for pflow particles.
-Table~\ref{tab:impact} shows the distributions across all generated pflow particles.
+Table~\ref{tab:impact} shows the distributions for the $H \to 4\ell$ sample
+(100 events, 4\,742 pflow particles).
 
 \begin{table}[H]
 \centering
-\caption{Impact parameter distributions across all pflow particles (100 events).}
+\caption{Impact parameter distributions ($H{\to}4\ell$, 4\,742 pflow particles).}
 \label{tab:impact}
 \begin{tabular}{@{}lrr@{}}
 \toprule
@@ -830,50 +907,21 @@ $\sigma_{d_0}$       & $0.046$   & --- \\
 \end{tabular}
 \end{table}
 
-\subsection{Pythia8 Input}
-
-We also ran the same pre-trained model on events generated on-the-fly by
-\textsc{Pythia8} using the bundled \texttt{HZZ4l.cmnd} steering card. Of
-20 requested events, 6 passed quality filters (the VBF $H \to ZZ \to 4\ell$
-process has a small cross section, and many events exceed the 400-particle
-limit). Table~\ref{tab:pythia} shows the results.
-
-\begin{table}[H]
-\centering
-\caption{Per-event summary from \textsc{Pythia8} input (VBF $H \to ZZ \to 4\ell$,
-  6 events passing quality cuts).}
-\label{tab:pythia}
-\begin{tabular}{@{}rrrrr@{}}
-\toprule
-\textbf{Event} & \textbf{$n_\mathrm{truth}$} & \textbf{$n_\mathrm{pflow}$}
-  & \textbf{Truth $H_\mathrm{T}$ (GeV)} & \textbf{Pflow $H_\mathrm{T}$ (GeV)} \\
-\midrule
-0 & 123 &  47 & 1035.7 & 7641.6 \\
-1 & 122 &   0 &  869.6 &    0.0 \\
-2 & 117 &   0 &  638.5 &    0.0 \\
-3 & 181 &   0 & 1004.2 &    0.0 \\
-4 & 216 &   0 &  932.9 &    0.0 \\
-5 & 215 &   0 &  820.8 &    0.0 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
 \subsection{Output File Structure}
 
-The generated ROOT file contains 67 branches organised into collections.
-The output for 100 events occupies approximately 486\,KB on disk.
+The generated ROOT output files contain 67 branches organised into 7 collections:
+\texttt{Truth}, \texttt{Pflow}, \texttt{Electrons}, \texttt{Muons},
+\texttt{TruthJetsAntiKt05}, \texttt{TruthJetsAntiKt08}, and
+\texttt{PflowJetsAntiKt05}. Output sizes scale linearly with event count:
+100 events $\approx$ 486\,KB, 555 events $\approx$ 2.1\,MB,
+832 events $\approx$ 3.7\,MB.
 
-\begin{lstlisting}[style=bash,caption={Reading the output ROOT file with \texttt{uproot}.},label=lst:readroot]
+\begin{lstlisting}[style=python,caption={Reading the output ROOT file with \texttt{uproot}.},label=lst:readroot]
 import uproot
 import numpy as np
 
-f = uproot.open("h4lep_100.root")
+f = uproot.open("output.root")
 tree = f["Parnassus"]
-
-# 67 branches across 7 collections:
-#   Truth, Pflow, Electrons, Muons,
-#   TruthJetsAntiKt05, TruthJetsAntiKt08,
-#   PflowJetsAntiKt05
 
 # Access pflow jet pT
 jet_pt = tree["PflowJetsAntiKt05.pt"].array()
