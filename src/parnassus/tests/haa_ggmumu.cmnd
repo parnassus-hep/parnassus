@@ -1,0 +1,40 @@
+! haa_ggmumu.cmnd
+! BSM: H -> aa -> gg mumu (exotic Higgs to light pseudoscalars)
+! a has mass 20 GeV; one decays to gg, the other to mumu
+
+! Beam settings
+Beams:idA = 2212                    ! proton
+Beams:idB = 2212                    ! proton
+Beams:eCM = 13000.                  ! 13 TeV
+
+! SM Higgs production via gluon fusion
+HiggsSM:gg2H = on
+
+! Force H -> a a (using PDG ID 36 for light pseudoscalar)
+25:onMode = off
+25:oneChannel = 1 1.0 100 36 36
+
+! Light pseudoscalar properties
+36:m0 = 20.0                        ! mass = 20 GeV
+36:mWidth = 0.01                    ! narrow width
+36:mMin = 19.0
+36:mMax = 21.0
+36:mayDecay = true
+36:isResonance = true
+
+! a decays: 50% to gg, 50% to mumu
+! This gives 25% gggg, 50% ggmumu, 25% mumumumu
+36:onMode = off
+36:addChannel = 1 0.5 91 21 21      ! a -> g g
+36:addChannel = 1 0.5 91 13 -13     ! a -> mu+ mu-
+
+! Parton shower / hadronisation
+PartonLevel:MPI = on
+PartonLevel:ISR = on
+PartonLevel:FSR = on
+HadronLevel:Hadronize = on
+
+! Suppress output
+Next:numberShowInfo = 0
+Next:numberShowProcess = 0
+Next:numberShowEvent = 0

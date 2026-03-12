@@ -74,7 +74,9 @@ class HepMCDataset(BaseDataset):
                         pt_vals = self.full_data_array["pt"][sl]
                         keep = np.argsort(pt_vals)[::-1][: self.cfg.max_particles]
                         keep.sort()  # preserve original ordering
-                        for key in self.ctxt_vars:
+                        for key in self.full_data_array:
+                            if key in ("ht", "met_x", "met_y"):
+                                continue
                             kept = self.full_data_array[key][sl][keep]
                             new_start = event_start_particle_idx
                             new_end = new_start + len(kept)
