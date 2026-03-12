@@ -142,10 +142,21 @@ class PythiaDataset(BaseDataset):
                     num_particles += 1
                     curr_particle_idx += 1
 
-                # If this event has too many truth particles, drop it
+                # If this event has too many truth particles, truncate to highest-pT
                 if num_particles >= self.cfg.max_particles:
-                    curr_particle_idx -= num_particles
-                    continue
+                    sl = slice(event_start_particle_idx, curr_particle_idx)
+                    pt_vals = self.full_data_array["pt"][sl]
+                    keep = np.argsort(pt_vals)[::-1][: self.cfg.max_particles]
+                    keep.sort()  # preserve original ordering
+                    for key in self.full_data_array:
+                        if key in ("ht", "met_x", "met_y"):
+                            continue
+                        kept = self.full_data_array[key][sl][keep]
+                        new_start = event_start_particle_idx
+                        new_end = new_start + len(kept)
+                        self.full_data_array[key][new_start:new_end] = kept
+                    curr_particle_idx = event_start_particle_idx + self.cfg.max_particles
+                    num_particles = self.cfg.max_particles
 
                 # Event-level quantities from the particles we just filled
                 pt_slice = slice(event_start_particle_idx, curr_particle_idx)

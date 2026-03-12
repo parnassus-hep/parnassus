@@ -413,7 +413,11 @@ process itself. We have previously demonstrated~\cite{parnassus_v1,parnassus_v2}
 that Parnassus reproduces full CMS simulation and reconstruction across a wide
 range of SM and BSM processes. Here we show two representative examples to
 illustrate the API in action: a Standard Model process ($H \to ZZ \to 4\ell$)
-and a BSM signal ($Z' \to t\bar{t}$, $m_{Z'} = 1$\,TeV).
+and a BSM exotic Higgs decay ($H \to aa \to gg\mu\mu$).
+
+The current pre-trained model supports up to 400 truth particles per event.
+For events exceeding this limit, Parnassus retains the 400 highest-$p_\mathrm{T}$
+particles so that no events are discarded.
 
 \subsection{Standard Model: $H \to ZZ \to 4\ell$}
 
@@ -428,24 +432,38 @@ parnassus run \
   -o h4l_output.root
 \end{lstlisting}
 
-\subsection{BSM: $Z' \to t\bar{t}$ (1\,TeV)}
+\subsection{BSM: $H \to aa \to gg\mu\mu$}
 
-For the BSM example, we generate events on-the-fly with \textsc{Pythia8}
-using a custom steering card:
+For the BSM example, we generate exotic Higgs decays on-the-fly with
+\textsc{Pythia8}. The Higgs decays to a pair of light pseudoscalars $a$
+($m_a = 20$\,GeV), each decaying to either $gg$ or $\mu^+\mu^-$, producing
+a mixed final state of jets and muon pairs:
 
-\begin{lstlisting}[style=cmnd,caption={Pythia8 steering card for BSM $Z' \to t\bar{t}$ production.}]
-! zprime.cmnd -- BSM Z' -> tt at 7 TeV
-Beams:eCM = 7000.
+\begin{lstlisting}[style=cmnd,caption={Pythia8 steering card for BSM $H \to aa \to gg\mu\mu$.}]
+! haa_ggmumu.cmnd -- BSM exotic Higgs decay
+Beams:eCM = 13000.
 Beams:idA = 2212
 Beams:idB = 2212
 
-! Z' production (heavy neutral gauge boson)
-NewGaugeBoson:ffbar2gmZZprime = on
-32:m0 = 1000.              ! Z' mass = 1 TeV
-32:onMode = off             ! turn off all Z' decays
-32:onIfAny = 6              ! Z' -> t tbar only
+! SM Higgs production via gluon fusion
+HiggsSM:gg2H = on
 
-6:m0 = 172.5               ! top mass
+! Force H -> a a (PDG ID 36: light pseudoscalar)
+25:onMode = off
+25:oneChannel = 1 1.0 100 36 36
+
+! Light pseudoscalar a properties
+36:m0 = 20.0                        ! mass = 20 GeV
+36:mWidth = 0.01
+36:mMin = 19.0
+36:mMax = 21.0
+36:mayDecay = true
+36:isResonance = true
+
+! a decays: 50% gg, 50% mumu
+36:onMode = off
+36:addChannel = 1 0.5 91 21 21      ! a -> g g
+36:addChannel = 1 0.5 91 13 -13     ! a -> mu+ mu-
 
 PartonLevel:MPI = on
 PartonLevel:ISR = on
@@ -456,41 +474,39 @@ HadronLevel:Hadronize = on
 \begin{lstlisting}[style=bash]
 parnassus run \
   -c default_config.yaml \
-  -i zprime.cmnd \
-  -ne 2000 \
-  -o zprime_output.root
+  -i haa_ggmumu.cmnd \
+  -ne 1000 \
+  -o haa_ggmumu_output.root
 \end{lstlisting}
 
 \noindent
-Note that the current pre-trained model supports up to 400 truth particles per
-event. Events exceeding this limit (common for high-multiplicity BSM processes
-such as $Z' \to t\bar{t}$) are skipped. Of 2\,000 requested events, 137 passed
-this selection. Future model versions will raise this limit.
+This demonstrates running Parnassus on a BSM signal process not present in the
+training data. The mixed $gg\mu\mu$ final state probes the model's ability to
+simultaneously generate hadronic jets and isolated muons within the same event.
 
 \subsection{Kinematic Distributions}
 
-Figure~\ref{fig:kinematics} compares the particle-flow kinematic distributions
-for both processes. The $p_\mathrm{T}$ spectra follow the expected steeply
-falling shape, the $\eta$ distributions show the CMS barrel--endcap coverage,
-and the multiplicity distributions reflect the different underlying event
-structures.
+Figure~\ref{fig:kinematics} shows the particle-flow kinematic distributions
+for the $H \to 4\ell$ sample. The $p_\mathrm{T}$ spectrum follows the expected
+steeply falling shape, the $\eta$ distribution shows the CMS barrel--endcap
+coverage, and the multiplicity distribution reflects the underlying event
+structure.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/kinematic_distributions_4proc.pdf}
-\caption{Particle-flow kinematic distributions for SM ($H{\to}4\ell$) and BSM
-  ($Z'{\to}t\bar{t}$) processes.
+\includegraphics[width=\textwidth]{figures/kinematic_distributions.pdf}
+\caption{Particle-flow kinematic distributions for $H{\to}ZZ{\to}4\ell$
+  (100 events, 50 diffusion steps).
   (a)~$p_\mathrm{T}$ in log scale,
   (b)~pseudorapidity $\eta$,
-  (c)~particle-flow multiplicity per event. All distributions are normalised
-  to unit area.}
+  (c)~particle-flow multiplicity per event.}
 \label{fig:kinematics}
 \end{figure}
 
-\subsection{Event Displays}
+\subsection{Event Display}
 
-Figures~\ref{fig:display_h4l} and~\ref{fig:display_zprime} show representative
-events in the $\eta$--$\phi$ plane, illustrating how Parnassus transforms
+Figure~\ref{fig:display_h4l} shows a representative $H \to 4\ell$ event
+in the $\eta$--$\phi$ plane, illustrating how Parnassus transforms
 truth-level particles into detector-level pflow objects.
 
 \begin{figure}[H]
@@ -504,67 +520,6 @@ truth-level particles into detector-level pflow objects.
   photons (green stars).}
 \label{fig:display_h4l}
 \end{figure}
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=\textwidth]{figures/event_display_zprime.pdf}
-\caption{Event display for BSM $Z' \to t\bar{t}$ (1\,TeV): truth particles
-  (left) and Parnassus pflow output (right). This process was not present in
-  the training data, demonstrating the model's process-agnostic generalization.}
-\label{fig:display_zprime}
-\end{figure}
-
-\subsection{Aggregate Statistics}
-
-Table~\ref{tab:aggregate} compares the aggregate statistics for both processes.
-
-\begin{table}[H]
-\centering
-\caption{Aggregate statistics for SM and BSM processes (mean $\pm$ std).}
-\label{tab:aggregate}
-\begin{tabular}{@{}lrr@{}}
-\toprule
-\textbf{Quantity}
-  & \textbf{$H{\to}4\ell$}
-  & \textbf{$Z'{\to}t\bar{t}$} \\
-  & \textbf{(100\,evt)}
-  & \textbf{(137\,evt)} \\
-\midrule
-Truth particles/event  & $96.4 \pm 46.4$   & $169.0 \pm 49.4$ \\
-Pflow particles/event  & $47.4 \pm 48.5$   & $47.6 \pm 47.5$ \\
-Pflow $H_\mathrm{T}$ (GeV) & $1375 \pm 1614$ & $1219 \pm 1517$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Particle Class Distribution}
-
-Table~\ref{tab:classdist} compares the particle class composition between truth
-and pflow particles. The class fractions are broadly consistent: charged hadrons
-dominate at ${\sim}55$--$60\%$, followed by photons and neutral hadrons.
-
-\begin{table}[H]
-\centering
-\caption{Particle class distribution (truth $\to$ pflow percentages).}
-\label{tab:classdist}
-\begin{tabular}{@{}lrrrr@{}}
-\toprule
-& \multicolumn{2}{c}{\textbf{$H{\to}4\ell$}}
-& \multicolumn{2}{c}{\textbf{$Z'{\to}t\bar{t}$}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}
-\textbf{Class} & \textbf{Truth} & \textbf{Pflow}
-  & \textbf{Truth} & \textbf{Pflow} \\
-\midrule
-Ch.\ hadron & 54.8\% & 60.3\% & 55.5\% & 59.6\% \\
-Electron    &  1.5\% &  1.6\% &  0.9\% &  0.9\% \\
-Muon        &  1.7\% &  1.7\% &  0.5\% &  1.0\% \\
-N.\ hadron  & 10.4\% & 20.8\% &  6.1\% & 16.5\% \\
-Photon      & 31.6\% & 15.7\% & 37.0\% & 22.1\% \\
-\midrule
-Total       & 9\,644 & 4\,742 & 23\,158 & 6\,518 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 % ══════════════════════════════════════════════════════════════
 \section{Diffusion Steps Convergence}

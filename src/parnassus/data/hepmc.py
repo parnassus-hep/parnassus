@@ -69,8 +69,18 @@ class HepMCDataset(BaseDataset):
                             num_particles += 1
                             curr_particle_idx += 1
                     if num_particles >= self.cfg.max_particles:
-                        curr_particle_idx -= num_particles
-                        continue
+                        # Truncate to highest-pT particles instead of dropping
+                        sl = slice(event_start_particle_idx, curr_particle_idx)
+                        pt_vals = self.full_data_array["pt"][sl]
+                        keep = np.argsort(pt_vals)[::-1][: self.cfg.max_particles]
+                        keep.sort()  # preserve original ordering
+                        for key in self.ctxt_vars:
+                            kept = self.full_data_array[key][sl][keep]
+                            new_start = event_start_particle_idx
+                            new_end = new_start + len(kept)
+                            self.full_data_array[key][new_start:new_end] = kept
+                        curr_particle_idx = event_start_particle_idx + self.cfg.max_particles
+                        num_particles = self.cfg.max_particles
 
                     self.full_data_array["ht"][curr_event_idx] = self.full_data_array["pt"][
                         event_start_particle_idx:curr_particle_idx
