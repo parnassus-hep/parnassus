@@ -153,16 +153,33 @@
 \section{Introduction}
 \label{sec:introduction}
 
-Parnassus is a Python framework for \textbf{fast detector simulation and
-reconstruction} in High Energy Physics (HEP). It replaces the computationally
-expensive full \textsc{Geant4}~\cite{geant4} simulation and reconstruction chain
-with neural network-based generative models that learn the mapping from
-truth-level (generator-level) particles directly to detector-level
+Parnassus is a \textbf{pure-Python}, \textbf{fully GPU-compatible} framework for
+\textbf{fast detector simulation and reconstruction} in High Energy Physics
+(HEP). It replaces the computationally expensive full
+\textsc{Geant4}~\cite{geant4} simulation and reconstruction chain with neural
+network-based generative models that learn the mapping from truth-level
+(generator-level) particles directly to detector-level
 particle-flow~\cite{CMS-PRF-14-001,PERF-2015-09} (pflow) objects, bypassing
 intermediate steps such as hit simulation, digitisation, and track
-reconstruction. The framework is \textbf{process-agnostic}: the same pre-trained
-models can be applied to arbitrary physics processes by simply providing
-different input truth events.
+reconstruction. The framework is both \textbf{process-agnostic} and
+\textbf{detector-agnostic}: the same architecture supports multiple detector
+models, and for each detector the pre-trained model can be applied to arbitrary
+physics processes by simply providing different input truth events.
+
+Unlike traditional fast simulation tools such as
+\textsc{Delphes}~\cite{delphes}, which are written in C++, require the ROOT
+framework~\cite{root}, and run only on CPU, Parnassus is implemented entirely
+in Python with PyTorch~\cite{pytorch} and runs natively on GPU (CUDA and Apple
+MPS), enabling seamless integration into modern Python-based analysis workflows
+and significant acceleration on GPU hardware. ROOT I/O is supported via
+\texttt{uproot}~\cite{uproot} for writing output files, but is entirely
+optional --- Parnassus has no dependency on ROOT itself.
+
+Users select a \textbf{detector model} --- analogous to choosing a detector card
+in \textsc{Delphes} --- to target a specific experiment. The current release
+ships with a CMS detector model trained on 2011 open data~\cite{cms_opendata};
+additional detector models for other experiments will be added in future
+releases.
 
 The physics methodology underlying Parnassus has been described in detail in
 Refs.~\cite{parnassus_v1,parnassus_v2}, where we demonstrated that the approach
@@ -184,20 +201,29 @@ scenarios.
 \begin{description}[style=nextline,leftmargin=2.5cm]
   \item[\textbf{Speed}] Orders of magnitude faster than full simulation and
     reconstruction by replacing the detector response with neural diffusion
-    models.
-  \item[\textbf{Fidelity}] Trained on CMS 2011 open data~\cite{cms_opendata} to
-    reproduce realistic detector-level distributions including particle
-    kinematics, vertex positions, impact parameters, and particle
-    identification. Previous work~\cite{parnassus_v1,parnassus_v2} has shown
-    excellent agreement with full CMS simulation across diverse processes.
+    models. Fully GPU-compatible for additional acceleration.
+  \item[\textbf{Pure Python}] Implemented entirely in Python with no compiled
+    dependencies beyond PyTorch. Unlike C++/ROOT-based tools such as
+    \textsc{Delphes}~\cite{delphes}, Parnassus integrates naturally into
+    modern Python analysis ecosystems. ROOT output is available via
+    \texttt{uproot} but is not required.
+  \item[\textbf{Fidelity}] Detector models are trained on full simulation and
+    reconstruction data to reproduce realistic detector-level distributions
+    including particle kinematics, vertex positions, impact parameters, and
+    particle identification. The current CMS detector model, trained on 2011
+    open data~\cite{cms_opendata}, shows excellent agreement with full CMS
+    simulation across diverse
+    processes~\cite{parnassus_v1,parnassus_v2}.
   \item[\textbf{Flexibility}] Accept truth-level input from any source ---
     \textsc{Pythia8}~\cite{pythia8} on-the-fly generation, HepMC~\cite{hepmc3}
     files from external generators (\textsc{MadGraph5\_aMC@NLO}~\cite{madgraph},
     \textsc{Sherpa}~\cite{sherpa}, \textsc{Herwig}~\cite{herwig},
-    \textsc{Powheg}~\cite{powheg}), or custom formats.
+    \textsc{Powheg}~\cite{powheg}), or custom formats. Users select a detector
+    model to target a specific experiment, analogous to choosing a detector card
+    in \textsc{Delphes}.
   \item[\textbf{Completeness}] Full post-processing pipeline including jet
     clustering (\textsc{FastJet}~\cite{fastjet}) and lepton isolation, with
-    output to ROOT~\cite{root} format.
+    optional output to ROOT format via \texttt{uproot}~\cite{uproot}.
 \end{description}
 
 \subsection{What Parnassus Produces}
@@ -290,7 +316,7 @@ specifications.
 
 \begin{table}[H]
 \centering
-\caption{Neural model specifications for the CMS\,2011\,Flow\,v1 generator.}
+\caption{Neural model specifications (shown for the CMS\,2011 detector model). The same architecture applies to all detector models.}
 \label{tab:models}
 \begin{tabular}{@{}llll@{}}
 \toprule
@@ -343,7 +369,7 @@ pip install -e ".[dev]"
   \item PyHepMC~\cite{hepmc3} $\geq$ 2.14.0
   \item FastJet~\cite{fastjet} $\geq$ 3.4.3.1
   \item EnergyFlow~\cite{energyflow} $\geq$ 1.4.0
-  \item Uproot~\cite{uproot} $\geq$ 5.5.2
+  \item Uproot~\cite{uproot} $\geq$ 5.5.2 \emph{(optional, for ROOT output)}
 \end{itemize}
 
 \subsection{Initialise a Configuration File}
@@ -353,8 +379,9 @@ parnassus init .
 \end{lstlisting}
 
 This copies the default \texttt{default\_config.yaml} to the current directory.
-The default configuration uses the \texttt{cms\_2011\_flow\_v00} neural generator
-with anti-$k_t$ jet clustering and lepton isolation.
+The default configuration uses the \texttt{cms\_2011\_flow\_v00} detector model
+with anti-$k_t$ jet clustering and lepton isolation. To target a different
+detector, change the \texttt{generator.name} field to the desired detector model.
 
 \subsection{Run with a HepMC Input File}
 
@@ -410,12 +437,14 @@ parnassus run \
 The neural models are \textbf{process-agnostic} --- they learn the detector
 response as a function of truth-level particle properties, not the physics
 process itself. We have previously demonstrated~\cite{parnassus_v1,parnassus_v2}
-that Parnassus reproduces full CMS simulation and reconstruction across a wide
-range of SM and BSM processes. Here we show two representative examples to
-illustrate the API in action: a Standard Model process ($H \to ZZ \to 4\ell$)
-and a BSM exotic Higgs decay ($H \to aa \to gg\mu\mu$).
+that Parnassus reproduces full simulation and reconstruction across a wide
+range of SM and BSM processes. Here we show two representative examples using
+the CMS detector model to illustrate the API in action: a Standard Model
+process ($H \to ZZ \to 4\ell$) and a BSM exotic Higgs decay
+($H \to aa \to gg\mu\mu$). The same workflow applies to any detector model
+by changing the \texttt{generator.name} in the configuration.
 
-The current pre-trained model supports up to 400 truth particles per event.
+The current CMS detector model supports up to 400 truth particles per event.
 For events exceeding this limit, Parnassus retains the 400 highest-$p_\mathrm{T}$
 particles so that no events are discarded.
 
@@ -487,7 +516,7 @@ simultaneously generate hadronic jets and isolated muons within the same event.
 
 Figure~\ref{fig:kinematics} compares the particle-flow kinematic distributions
 for both processes. The $p_\mathrm{T}$ spectra follow the expected steeply
-falling shape, the $\eta$ distributions show the CMS barrel--endcap coverage,
+falling shape, the $\eta$ distributions reflect the detector acceptance,
 and the multiplicity distributions reflect the different underlying event
 structures. The BSM $H \to aa$ process shows higher multiplicity due to the
 hadronic activity from the $a \to gg$ decays.
@@ -705,7 +734,7 @@ dataset:
 # -- Generator -----------------------------------------
 generator:
   type: "neural"             # "neural" or "parametric"
-  name: "cms_2011_flow_v00"  # Registered model name
+  name: "cms_2011_flow_v00"  # Detector model (like a Delphes card)
   num_steps: 50              # Diffusion steps (neural only)
   batch_size: 2000           # Events per batch
   device: "cpu"              # "cpu", "cuda", or "mps"
@@ -745,14 +774,22 @@ output:
 \section{Conclusion}
 \label{sec:conclusion}
 
-We have presented the public release of Parnassus, a framework for neural fast
-simulation and reconstruction in High Energy Physics. The software provides a
-simple command-line and Python API for generating detector-level particle-flow
-objects from truth-level input, with full post-processing including jet
-clustering and lepton isolation. The process-agnostic nature of the neural
-models --- previously validated against full CMS simulation across diverse
-SM and BSM processes~\cite{parnassus_v1,parnassus_v2} --- enables users to
-apply the same pre-trained model to any physics process without retraining.
+We have presented the public release of Parnassus, a pure-Python,
+GPU-compatible framework for neural fast simulation and reconstruction in High
+Energy Physics. Unlike traditional C++/ROOT-based tools such as
+\textsc{Delphes}~\cite{delphes}, Parnassus runs entirely in Python with
+PyTorch, supports GPU acceleration (CUDA and Apple MPS), and requires no ROOT
+installation --- ROOT output is optionally handled via \texttt{uproot}. The
+software provides a simple command-line and Python API for generating
+detector-level particle-flow objects from truth-level input, with full
+post-processing including jet clustering and lepton isolation.
+
+The framework is both process-agnostic and detector-agnostic. Users select a
+detector model --- analogous to choosing a detector card in \textsc{Delphes}
+--- to target a specific experiment. The current release ships with a CMS
+detector model validated against full CMS simulation across diverse SM and BSM
+processes~\cite{parnassus_v1,parnassus_v2}; additional detector models will be
+provided in future releases.
 
 The source code is publicly available at
 \url{https://github.com/parnassus-hep/parnassus} under the MIT license.
@@ -904,6 +941,13 @@ The source code is publicly available at
   J.~Pivarski \emph{et al.},
   ``Uproot: ROOT I/O in pure Python and NumPy,''
   \url{https://github.com/scikit-hep/uproot5}.
+
+\bibitem{delphes}
+  J.~de~Favereau \emph{et al.} (\textsc{Delphes}\,3 Collaboration),
+  ``DELPHES\,3: A modular framework for fast simulation of a generic collider
+  experiment,''
+  \emph{JHEP} \textbf{02}, 057 (2014),
+  \href{https://arxiv.org/abs/1307.6346}{arXiv:1307.6346}.
 
 \bibitem{ml_sim_review}
   A.~Butter \emph{et al.},
