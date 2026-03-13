@@ -445,30 +445,29 @@ Beams:eCM = 13000.
 Beams:idA = 2212
 Beams:idB = 2212
 
-! SM Higgs production via gluon fusion
-HiggsSM:gg2H = on
+! BSM Higgs production via gluon fusion
+Higgs:useBSM = on
+HiggsBSM:gg2H2 = on
+35:m0 = 125.0                       ! Higgs mass
 
-! Force H -> a a (PDG ID 36: light pseudoscalar)
-25:onMode = off
-25:oneChannel = 1 1.0 100 36 36
+! SM-like couplings for production
+HiggsH2:coup2u = 1.0
+HiggsH2:coup2d = 1.0
+HiggsH2:coup2A3A3 = 1.0             ! H -> aa coupling
 
-! Light pseudoscalar a properties
+! Force H -> a a only
+35:onMode = off
+35:onIfAll = 36 36
+
+! Light pseudoscalar a properties (PDG ID 36)
 36:m0 = 20.0                        ! mass = 20 GeV
-36:mWidth = 0.01
-36:mMin = 19.0
-36:mMax = 21.0
-36:mayDecay = true
-36:isResonance = true
+HiggsA3:coup2d = 1.0
+HiggsA3:coup2u = 1.0
+HiggsA3:coup2l = 1.0
 
-! a decays: 50% gg, 50% mumu
+! Force a -> gg or mumu only
 36:onMode = off
-36:addChannel = 1 0.5 91 21 21      ! a -> g g
-36:addChannel = 1 0.5 91 13 -13     ! a -> mu+ mu-
-
-PartonLevel:MPI = on
-PartonLevel:ISR = on
-PartonLevel:FSR = on
-HadronLevel:Hadronize = on
+36:onIfAny = 21 13
 \end{lstlisting}
 
 \begin{lstlisting}[style=bash]
@@ -486,20 +485,22 @@ simultaneously generate hadronic jets and isolated muons within the same event.
 
 \subsection{Kinematic Distributions}
 
-Figure~\ref{fig:kinematics} shows the particle-flow kinematic distributions
-for the $H \to 4\ell$ sample. The $p_\mathrm{T}$ spectrum follows the expected
-steeply falling shape, the $\eta$ distribution shows the CMS barrel--endcap
-coverage, and the multiplicity distribution reflects the underlying event
-structure.
+Figure~\ref{fig:kinematics} compares the particle-flow kinematic distributions
+for both processes. The $p_\mathrm{T}$ spectra follow the expected steeply
+falling shape, the $\eta$ distributions show the CMS barrel--endcap coverage,
+and the multiplicity distributions reflect the different underlying event
+structures. The BSM $H \to aa$ process shows higher multiplicity due to the
+hadronic activity from the $a \to gg$ decays.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{figures/kinematic_distributions.pdf}
-\caption{Particle-flow kinematic distributions for $H{\to}ZZ{\to}4\ell$
-  (100 events, 50 diffusion steps).
+\includegraphics[width=\textwidth]{figures/kinematic_sm_bsm.pdf}
+\caption{Particle-flow kinematic distributions comparing SM ($H{\to}4\ell$,
+  99 events) and BSM ($H{\to}aa{\to}gg\mu\mu$, 99 events) processes.
   (a)~$p_\mathrm{T}$ in log scale,
   (b)~pseudorapidity $\eta$,
-  (c)~particle-flow multiplicity per event.}
+  (c)~particle-flow multiplicity per event.
+  All distributions are normalised to unit area.}
 \label{fig:kinematics}
 \end{figure}
 
@@ -519,6 +520,46 @@ truth-level particles into detector-level pflow objects.
   (red triangles), muons (orange squares), neutral hadrons (purple diamonds),
   photons (green stars).}
 \label{fig:display_h4l}
+\end{figure}
+
+\subsection{Aggregate Statistics}
+
+Table~\ref{tab:aggregate} compares the aggregate statistics for both processes.
+The BSM process shows higher truth-particle multiplicity ($163 \pm 70$) due to
+the $a \to gg$ hadronic decays, while the pflow output multiplicity is
+comparable across both processes.
+
+\begin{table}[H]
+\centering
+\caption{Aggregate statistics for SM and BSM processes (mean $\pm$ std).}
+\label{tab:aggregate}
+\begin{tabular}{@{}lrr@{}}
+\toprule
+\textbf{Quantity}
+  & \textbf{$H{\to}4\ell$}
+  & \textbf{$H{\to}aa$} \\
+  & \textbf{(99\,evt)}
+  & \textbf{(99\,evt)} \\
+\midrule
+Truth particles/event  & $97.2 \pm 46.0$   & $163.4 \pm 69.9$ \\
+Pflow particles/event  & $46.3 \pm 47.2$   & $53.6 \pm 46.4$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Particle Class Distribution}
+
+Figure~\ref{fig:classfracs} compares the particle class composition between the
+two processes. Both show similar class fractions dominated by charged hadrons
+(${\sim}60\%$), consistent with the process-agnostic nature of the model.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\textwidth]{figures/class_fractions_sm_bsm.pdf}
+\caption{Particle class fractions for SM ($H{\to}4\ell$) and BSM
+  ($H{\to}aa{\to}gg\mu\mu$) processes. The model produces consistent class
+  compositions regardless of the input physics process.}
+\label{fig:classfracs}
 \end{figure}
 
 % ══════════════════════════════════════════════════════════════

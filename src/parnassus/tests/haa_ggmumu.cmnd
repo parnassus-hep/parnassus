@@ -1,32 +1,41 @@
-! haa_ggmumu.cmnd
-! BSM: H -> aa -> gg mumu (exotic Higgs to light pseudoscalars)
-! a has mass 20 GeV; one decays to gg, the other to mumu
+! haa_ggmumu.cmnd -- BSM exotic Higgs decay H -> aa -> gg/mumu
+! Uses Pythia8 BSM Higgs framework (H2 -> A3 A3)
 
 ! Beam settings
-Beams:idA = 2212                    ! proton
-Beams:idB = 2212                    ! proton
-Beams:eCM = 13000.                  ! 13 TeV
+Beams:eCM = 13000.
+Beams:idA = 2212
+Beams:idB = 2212
 
-! SM Higgs production via gluon fusion
-HiggsSM:gg2H = on
+! Enable BSM Higgs mode
+Higgs:useBSM = on
 
-! Force H -> a a (using PDG ID 36 for light pseudoscalar)
-25:onMode = off
-25:oneChannel = 1 1.0 100 36 36
+! H2 production via gluon fusion (particle 35, used as BSM Higgs at 125 GeV)
+HiggsBSM:gg2H2 = on
+35:m0 = 125.0
 
-! Light pseudoscalar properties
-36:m0 = 20.0                        ! mass = 20 GeV
-36:mWidth = 0.01                    ! narrow width
-36:mMin = 19.0
-36:mMax = 21.0
-36:mayDecay = true
-36:isResonance = true
+! H2 SM-like couplings for production
+HiggsH2:coup2u = 1.0
+HiggsH2:coup2d = 1.0
+HiggsH2:coup2l = 1.0
+HiggsH2:coup2Z = 1.0
+HiggsH2:coup2W = 1.0
+HiggsH2:coup2A3A3 = 1.0
 
-! a decays: 50% to gg, 50% to mumu
-! This gives 25% gggg, 50% ggmumu, 25% mumumumu
+! Force H2 -> A0 A0 only
+35:onMode = off
+35:onIfAll = 36 36
+
+! A0 pseudoscalar properties (particle 36)
+36:m0 = 20.0
+
+! A0 couplings for decay width calculation
+HiggsA3:coup2d = 1.0
+HiggsA3:coup2u = 1.0
+HiggsA3:coup2l = 1.0
+
+! Force A0 -> gg or mumu only
 36:onMode = off
-36:addChannel = 1 0.5 91 21 21      ! a -> g g
-36:addChannel = 1 0.5 91 13 -13     ! a -> mu+ mu-
+36:onIfAny = 21 13
 
 ! Parton shower / hadronisation
 PartonLevel:MPI = on
