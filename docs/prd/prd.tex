@@ -1,4 +1,16 @@
-\documentclass[11pt,a4paper]{article}
+%%
+%% CPC Computer Programs in Physics (CPiP) manuscript
+%%
+%% To compile with the elsarticle class (for submission), use:
+%%   \documentclass[preprint,12pt]{elsarticle}
+%% and ensure elsarticle.cls is available.
+%%
+%% The fallback below uses the standard article class so the document
+%% compiles in any TeX distribution.  Switch the two lines when ready
+%% to submit.
+%%
+%\documentclass[preprint,12pt]{elsarticle}     % ← uncomment for submission
+\documentclass[11pt,a4paper]{article}          % ← fallback for local builds
 
 % ── Packages ─────────────────────────────────────────────────
 \usepackage[utf8]{inputenc}
@@ -14,30 +26,33 @@
 \usepackage{tikz}
 \usetikzlibrary{shapes.geometric, arrows.meta, positioning, calc}
 \usepackage{enumitem}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
 \usepackage[labelfont=bf]{caption}
 \usepackage{float}
 \usepackage{multirow}
 \usepackage{subcaption}
 \usepackage{makecell}
+\usepackage{lineno}        % CPC requires line numbers for review
+\usepackage[numbers,sort&compress]{natbib}  % elsarticle uses natbib; numerical for CPC
+
+% ── Line numbers (required by CPC for review) ───────────────
+\linenumbers
 
 % ── Colours ──────────────────────────────────────────────────
-\definecolor{parnblue}{RGB}{41,98,255}
-\definecolor{parngreen}{RGB}{0,150,80}
-\definecolor{parngray}{RGB}{100,100,100}
 \definecolor{codebg}{RGB}{245,245,248}
 \definecolor{codeframe}{RGB}{200,200,210}
 \definecolor{stringcolor}{RGB}{163,21,21}
 \definecolor{commentcolor}{RGB}{0,128,0}
 \definecolor{keywordcolor}{RGB}{0,0,200}
+% Colours used in TikZ figures
+\definecolor{parnblue}{RGB}{41,98,255}
+\definecolor{parngreen}{RGB}{0,150,80}
 
 % ── Hyperref ─────────────────────────────────────────────────
 \hypersetup{
   colorlinks=true,
-  linkcolor=parnblue,
-  urlcolor=parnblue,
-  citecolor=parnblue,
+  linkcolor=blue,
+  urlcolor=blue,
+  citecolor=blue,
   pdftitle={Parnassus: Neural Fast Simulation and Reconstruction for High Energy Physics},
   pdfauthor={Etienne Dreyer, Eilam Gross, Dmitrii Kobylianskii, Vinicius Mikuni, Benjamin Nachman},
 }
@@ -101,53 +116,110 @@
   morecomment=[l]{!},
 }
 
-% ── Headers ──────────────────────────────────────────────────
-\pagestyle{fancy}
-\fancyhf{}
-\fancyhead[L]{\small\textsc{Parnassus} v0.1.0}
-\fancyhead[R]{\small Product Reference Document}
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0.4pt}
-
-% ── Title formatting ────────────────────────────────────────
-\titleformat{\section}{\Large\bfseries\color{parnblue}}{\thesection}{1em}{}
-\titleformat{\subsection}{\large\bfseries\color{parnblue!80!black}}{\thesubsection}{1em}{}
-\titleformat{\subsubsection}{\normalsize\bfseries}{\thesubsubsection}{1em}{}
+% ── Journal declaration (used by elsarticle) ─────────────────
+% \journal{Computer Physics Communications}
 
 % ══════════════════════════════════════════════════════════════
 \begin{document}
 
-% ── Title page ───────────────────────────────────────────────
-\begin{titlepage}
-\centering
-\vspace*{3cm}
-{\Huge\bfseries\color{parnblue} Parnassus\par}
-\vspace{0.5cm}
-{\LARGE Neural Fast Simulation and Reconstruction\\for High Energy Physics\par}
-\vspace{2cm}
-{\Large Product Reference Document\par}
-\vspace{0.5cm}
-{\large Version 0.1.0\par}
-\vspace{2cm}
-{\large
-  Etienne Dreyer$^{1}$,\quad
-  Eilam Gross$^{1}$,\quad
-  Dmitrii Kobylianskii$^{1}$,\quad
-  Vinicius Mikuni$^{2}$,\quad
-  Benjamin Nachman$^{2}$\par}
-\vspace{0.5cm}
-{\small
-  $^{1}$Weizmann Institute of Science, Rehovot, Israel\\[4pt]
-  $^{2}$Lawrence Berkeley National Laboratory, Berkeley, CA, USA\par}
-\vspace{3cm}
-{\large\today\par}
-\vfill
-{\small Licensed under the MIT License}
-\end{titlepage}
+% ── Frontmatter ──────────────────────────────────────────────
+%% When using elsarticle, wrap the title/authors/abstract in
+%% \begin{frontmatter} ... \end{frontmatter}
 
-% ── Table of Contents ────────────────────────────────────────
-\tableofcontents
-\newpage
+\title{Parnassus: Neural Fast Simulation and Reconstruction\\
+  for High Energy Physics}
+
+\author{Etienne Dreyer$^{a}$, Eilam Gross$^{a}$,
+  Dmitrii Kobylianskii$^{a}$, Vinicius Mikuni$^{b}$,
+  Benjamin Nachman$^{b}$}
+
+\date{}
+
+\maketitle
+
+\noindent
+$^{a}$\textit{Weizmann Institute of Science, Rehovot, Israel}\\
+$^{b}$\textit{Lawrence Berkeley National Laboratory, Berkeley, CA, USA}
+
+\bigskip
+
+% ── Abstract ─────────────────────────────────────────────────
+\begin{abstract}
+We present the public software release of \textsc{Parnassus}, a pure-Python,
+GPU-compatible framework for neural fast detector simulation and reconstruction
+in High Energy Physics. Parnassus replaces the computationally expensive
+\textsc{Geant4} simulation and reconstruction chain with conditional flow
+matching models that map truth-level particles directly to detector-level
+particle-flow objects. The framework is both process-agnostic and
+detector-agnostic: users select a detector model---analogous to choosing a
+detector card in \textsc{Delphes}---and the same pre-trained model can be
+applied to arbitrary physics processes without retraining. Unlike
+C++/ROOT-based tools such as \textsc{Delphes}, Parnassus runs natively on GPU
+(CUDA and Apple MPS) and requires no ROOT installation. The current release
+ships with a CMS detector model trained on 2011 open data; additional detector
+models will be provided in future releases. We describe the installation,
+command-line and Python API, configuration system, and demonstrate the
+framework on Standard Model and BSM processes.
+\end{abstract}
+
+\noindent\textbf{Keywords:} fast simulation, detector simulation,
+  particle flow, generative models, flow matching, diffusion models,
+  high energy physics
+
+% ── CPC Program Summary ─────────────────────────────────────
+\bigskip
+\begin{center}
+\textbf{PROGRAM SUMMARY}
+\end{center}
+
+\noindent
+\begin{small}
+\begin{description}[style=nextline, leftmargin=4.5cm, labelwidth=4.3cm,
+  labelsep=0.2cm, font=\normalfont\itshape, itemsep=2pt]
+
+\item[Program title:] Parnassus
+
+\item[CPC Library link to program files:]
+  (to be added by Technical Editor)
+
+\item[Developer's repository link:]
+  \url{https://github.com/parnassus-hep/parnassus}
+
+\item[Licensing provisions:] MIT
+
+\item[Programming language:] Python ($\geq$ 3.12)
+
+\item[Nature of problem:]
+  Full detector simulation and reconstruction based on \textsc{Geant4} is
+  computationally expensive, often dominating the computing budget of
+  large-scale High Energy Physics analyses. A fast, accurate surrogate is
+  needed that maps truth-level (generator-level) particles directly to
+  detector-level particle-flow objects, preserving the fidelity of the full
+  chain while being orders of magnitude faster.
+
+\item[Solution method:]
+  Parnassus trains conditional flow matching
+  models~\cite{lipman2023flow,liu2023flow} on full simulation and
+  reconstruction data. Three cascaded diffusion models generate (1)~event-level
+  quantities, (2)~per-particle kinematics and classification, and
+  (3)~track impact parameters, conditioned on truth-level particle
+  properties. Generation is followed by physics-based post-processing
+  (jet clustering via \textsc{FastJet}~\cite{fastjet}, lepton isolation).
+  Users select a detector model---analogous to a \textsc{Delphes}
+  card---to target a specific experiment.
+
+\item[Additional comments including restrictions and unusual features:]
+  The framework is implemented entirely in Python with PyTorch and runs
+  natively on CPU, CUDA GPU, and Apple MPS. It has no dependency on
+  ROOT; output to ROOT format is optionally handled via
+  \texttt{uproot}~\cite{uproot}. The current release ships with a CMS
+  detector model trained on 2011 open data~\cite{cms_opendata}; additional
+  detector models for other experiments will be added in future releases.
+  The CMS model supports up to 400 truth particles per event; events
+  exceeding this limit retain the 400 highest-$p_\mathrm{T}$ particles.
+
+\end{description}
+\end{small}
 
 % ══════════════════════════════════════════════════════════════
 \section{Introduction}
@@ -196,7 +268,7 @@ models are conditioned on truth-level particle properties, making the generation
 inherently process-agnostic without requiring retraining for new physics
 scenarios.
 
-\subsection{Design Goals}
+\subsection{Design goals}
 
 \begin{description}[style=nextline,leftmargin=2.5cm]
   \item[\textbf{Speed}] Orders of magnitude faster than full simulation and
@@ -226,12 +298,12 @@ scenarios.
     optional output to ROOT format via \texttt{uproot}~\cite{uproot}.
 \end{description}
 
-\subsection{What Parnassus Produces}
+\subsection{Output quantities}
 
 Given a set of truth-level particles for each event, Parnassus generates the
 quantities listed in Table~\ref{tab:outputs}.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Output quantities produced by Parnassus for each event.}
 \label{tab:outputs}
@@ -253,14 +325,14 @@ Event-level quantities & $H_\mathrm{T}$, $\vec{E}_\mathrm{T}^\mathrm{miss}$
 \end{table}
 
 % ══════════════════════════════════════════════════════════════
-\section{Architecture Overview}
+\section{Architecture overview}
 \label{sec:architecture}
 
 Parnassus uses a three-stage neural generation pipeline followed by
 physics-based post-processing. The architecture is illustrated in
-Figure~\ref{fig:architecture}.
+Fig.~\ref{fig:architecture}.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[
   node distance=1.2cm,
@@ -309,14 +381,15 @@ integration. Each model is conditioned on truth-level particle information,
 making the generation process inherently dependent on the input physics process
 without being tied to any specific one.
 
-\subsection{Neural Model Details}
+\subsection{Neural model details}
 
 Table~\ref{tab:models} summarises the three neural models and their input/output
 specifications.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
-\caption{Neural model specifications (shown for the CMS\,2011 detector model). The same architecture applies to all detector models.}
+\caption{Neural model specifications (shown for the CMS\,2011 detector model).
+  The same architecture applies to all detector models.}
 \label{tab:models}
 \begin{tabular}{@{}llll@{}}
 \toprule
@@ -343,7 +416,7 @@ The number of diffusion steps is configurable at runtime via the \texttt{-{}-num
 (\texttt{-n}) flag, allowing users to trade generation speed for quality.
 
 % ══════════════════════════════════════════════════════════════
-\section{Installation and Quick Start}
+\section{Installation and quick start}
 \label{sec:quickstart}
 
 \subsection{Installation}
@@ -372,7 +445,7 @@ pip install -e ".[dev]"
   \item Uproot~\cite{uproot} $\geq$ 5.5.2 \emph{(optional, for ROOT output)}
 \end{itemize}
 
-\subsection{Initialise a Configuration File}
+\subsection{Initialise a configuration file}
 
 \begin{lstlisting}[style=bash]
 parnassus init .
@@ -383,7 +456,7 @@ The default configuration uses the \texttt{cms\_2011\_flow\_v00} detector model
 with anti-$k_t$ jet clustering and lepton isolation. To target a different
 detector, change the \texttt{generator.name} field to the desired detector model.
 
-\subsection{Run with a HepMC Input File}
+\subsection{Run with a HepMC input file}
 
 \begin{lstlisting}[style=bash,caption={Basic command-line invocation.}]
 parnassus run \
@@ -397,7 +470,7 @@ parnassus run \
 \noindent
 The available command-line flags are listed in Table~\ref{tab:cli}.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Command-line flags for \texttt{parnassus run}.}
 \label{tab:cli}
@@ -415,7 +488,7 @@ The available command-line flags are listed in Table~\ref{tab:cli}.
 \end{tabular}
 \end{table}
 
-\subsection{Run with Pythia8 On-the-Fly Generation}
+\subsection{Run with Pythia8 on-the-fly generation}
 
 To generate truth-level events on-the-fly with \textsc{Pythia8}, create a
 \texttt{.cmnd} steering card and pass it as the input file. Parnassus detects
@@ -431,7 +504,7 @@ parnassus run \
 \end{lstlisting}
 
 % ══════════════════════════════════════════════════════════════
-\section{Demonstration: SM and BSM Processes}
+\section{Demonstration: SM and BSM processes}
 \label{sec:demo}
 
 The neural models are \textbf{process-agnostic} --- they learn the detector
@@ -512,16 +585,16 @@ This demonstrates running Parnassus on a BSM signal process not present in the
 training data. The mixed $gg\mu\mu$ final state probes the model's ability to
 simultaneously generate hadronic jets and isolated muons within the same event.
 
-\subsection{Kinematic Distributions}
+\subsection{Kinematic distributions}
 
-Figure~\ref{fig:kinematics} compares the particle-flow kinematic distributions
+Fig.~\ref{fig:kinematics} compares the particle-flow kinematic distributions
 for both processes. The $p_\mathrm{T}$ spectra follow the expected steeply
 falling shape, the $\eta$ distributions reflect the detector acceptance,
 and the multiplicity distributions reflect the different underlying event
 structures. The BSM $H \to aa$ process shows higher multiplicity due to the
 hadronic activity from the $a \to gg$ decays.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/kinematic_sm_bsm.pdf}
 \caption{Particle-flow kinematic distributions comparing SM ($H{\to}4\ell$,
@@ -533,13 +606,13 @@ hadronic activity from the $a \to gg$ decays.
 \label{fig:kinematics}
 \end{figure}
 
-\subsection{Event Display}
+\subsection{Event display}
 
-Figure~\ref{fig:display_h4l} shows a representative $H \to 4\ell$ event
+Fig.~\ref{fig:display_h4l} shows a representative $H \to 4\ell$ event
 in the $\eta$--$\phi$ plane, illustrating how Parnassus transforms
 truth-level particles into detector-level pflow objects.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/event_display_h4l.pdf}
 \caption{Event display for $H \to ZZ \to 4\ell$: truth particles (left) and
@@ -551,14 +624,14 @@ truth-level particles into detector-level pflow objects.
 \label{fig:display_h4l}
 \end{figure}
 
-\subsection{Aggregate Statistics}
+\subsection{Aggregate statistics}
 
 Table~\ref{tab:aggregate} compares the aggregate statistics for both processes.
 The BSM process shows higher truth-particle multiplicity ($163 \pm 70$) due to
 the $a \to gg$ hadronic decays, while the pflow output multiplicity is
 comparable across both processes.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Aggregate statistics for SM and BSM processes (mean $\pm$ std).}
 \label{tab:aggregate}
@@ -576,13 +649,13 @@ Pflow particles/event  & $46.3 \pm 47.2$   & $53.6 \pm 46.4$ \\
 \end{tabular}
 \end{table}
 
-\subsection{Particle Class Distribution}
+\subsection{Particle class distribution}
 
-Figure~\ref{fig:classfracs} compares the particle class composition between the
+Fig.~\ref{fig:classfracs} compares the particle class composition between the
 two processes. Both show similar class fractions dominated by charged hadrons
 (${\sim}60\%$), consistent with the process-agnostic nature of the model.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.7\textwidth]{figures/class_fractions_sm_bsm.pdf}
 \caption{Particle class fractions for SM ($H{\to}4\ell$) and BSM
@@ -592,15 +665,15 @@ two processes. Both show similar class fractions dominated by charged hadrons
 \end{figure}
 
 % ══════════════════════════════════════════════════════════════
-\section{Diffusion Steps Convergence}
+\section{Diffusion steps convergence}
 \label{sec:convergence}
 
 The number of diffusion steps $N$ controls the trade-off between generation
-quality and speed. Figure~\ref{fig:convergence} shows the convergence of
+quality and speed. Fig.~\ref{fig:convergence} shows the convergence of
 particle-flow kinematic distributions as a function of $N$ for the
 $H \to 4\ell$ sample.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/convergence_kinematics.pdf}
 \caption{Diffusion steps convergence for $H \to ZZ \to 4\ell$ (100 events).
@@ -610,10 +683,10 @@ $H \to 4\ell$ sample.
 \label{fig:convergence}
 \end{figure}
 
-Figure~\ref{fig:convergence_class} shows that particle class fractions are also
+Fig.~\ref{fig:convergence_class} shows that particle class fractions are also
 stable across step counts.
 
-\begin{figure}[H]
+\begin{figure}[htbp]
 \centering
 \includegraphics[width=0.65\textwidth]{figures/convergence_class_fractions.pdf}
 \caption{Particle class fractions vs.\ number of diffusion steps. All classes
@@ -624,7 +697,7 @@ stable across step counts.
 Table~\ref{tab:timing} summarises the generation time as a function of diffusion
 steps on CPU.
 
-\begin{table}[H]
+\begin{table}[htbp]
 \centering
 \caption{Generation time vs.\ diffusion steps (100 events, CPU).}
 \label{tab:timing}
@@ -700,7 +773,7 @@ writer = RootWriter(config.writer_config)
 writer.write(gen_events)
 \end{lstlisting}
 
-\subsection{Reading Output Files}
+\subsection{Reading output files}
 
 \begin{lstlisting}[style=python,caption={Reading the output ROOT file with \texttt{uproot}.}]
 import uproot
@@ -721,7 +794,7 @@ z0 = tree["Pflow.z0"].array()
 \end{lstlisting}
 
 % ══════════════════════════════════════════════════════════════
-\section{Configuration Reference}
+\section{Configuration reference}
 \label{sec:config}
 
 \begin{lstlisting}[style=yaml,caption={Annotated default configuration.},label=lst:config]
@@ -795,173 +868,178 @@ The source code is publicly available at
 \url{https://github.com/parnassus-hep/parnassus} under the MIT license.
 
 % ══════════════════════════════════════════════════════════════
+%% CPC uses numerical citations with elsarticle-num.bst.
+%% For submission, replace the thebibliography block with:
+%%   \bibliographystyle{elsarticle-num}
+%%   \bibliography{parnassus}
+%% and provide a parnassus.bib file.
+
 \begin{thebibliography}{99}
 
 \bibitem{parnassus_v1}
   E.~Dreyer, E.~Gross, D.~Kobylianskii, V.~Mikuni, B.~Nachman, and
   N.~Soybelman,
-  ``Parnassus: An Automated Approach to Accurate, Precise, and Fast Detector
-  Simulation and Reconstruction,''
+  Parnassus: An Automated Approach to Accurate, Precise, and Fast Detector
+  Simulation and Reconstruction,
   \href{https://arxiv.org/abs/2406.01620}{arXiv:2406.01620} (2024).
 
 \bibitem{parnassus_v2}
   E.~Dreyer, E.~Gross, D.~Kobylianskii, V.~Mikuni, and B.~Nachman,
-  ``Conditional Deep Generative Models for Simultaneous Simulation and
-  Reconstruction of Entire Events,''
+  Conditional Deep Generative Models for Simultaneous Simulation and
+  Reconstruction of Entire Events,
   \href{https://arxiv.org/abs/2503.19981}{arXiv:2503.19981} (2025).
 
 \bibitem{geant4}
-  S.~Agostinelli \emph{et al.} (\textsc{Geant4} Collaboration),
-  ``Geant4 --- a simulation toolkit,''
-  \emph{Nucl.\ Instrum.\ Meth.\ A} \textbf{506}, 250 (2003).
+  S.~Agostinelli et~al. (\textsc{Geant4} Collaboration),
+  Geant4 --- a simulation toolkit,
+  Nucl.\ Instrum.\ Meth.\ A \textbf{506} (2003) 250.
 
 \bibitem{CMS-PRF-14-001}
   CMS Collaboration,
-  ``Particle-flow reconstruction and global event description with the CMS
-  detector,''
-  \emph{JINST} \textbf{12}, P10003 (2017),
+  Particle-flow reconstruction and global event description with the CMS
+  detector,
+  JINST \textbf{12} (2017) P10003,
   \href{https://arxiv.org/abs/1706.04965}{arXiv:1706.04965}.
 
 \bibitem{PERF-2015-09}
   ATLAS Collaboration,
-  ``Jet reconstruction and performance using particle flow with the ATLAS
-  Detector,''
-  \emph{Eur.\ Phys.\ J.\ C} \textbf{77}, 466 (2017),
+  Jet reconstruction and performance using particle flow with the ATLAS
+  Detector,
+  Eur.\ Phys.\ J.\ C \textbf{77} (2017) 466,
   \href{https://arxiv.org/abs/1703.10485}{arXiv:1703.10485}.
 
 \bibitem{cms_opendata}
   CMS Collaboration,
-  ``CMS Open Data,''
+  CMS Open Data,
   \url{https://opendata.cern.ch/search?experiment=CMS}.
 
 \bibitem{lipman2023flow}
   Y.~Lipman, R.~T.~Q.~Chen, H.~Ben-Hamu, M.~Nickel,
-  ``Flow Matching for Generative Modeling,''
-  \emph{ICLR} (2023),
+  Flow Matching for Generative Modeling,
+  ICLR (2023),
   \href{https://arxiv.org/abs/2210.02747}{arXiv:2210.02747}.
 
 \bibitem{liu2023flow}
   X.~Liu, C.~Gong, Q.~Liu,
-  ``Flow Straight and Fast: Learning to Generate and Transfer Data with
-  Rectified Flow,''
-  \emph{ICLR} (2023),
+  Flow Straight and Fast: Learning to Generate and Transfer Data with
+  Rectified Flow,
+  ICLR (2023),
   \href{https://arxiv.org/abs/2209.03003}{arXiv:2209.03003}.
 
 \bibitem{song2021scorebased}
   Y.~Song, J.~Sohl-Dickstein, D.~P.~Kingma, A.~Kumar, S.~Ermon, B.~Poole,
-  ``Score-Based Generative Modeling through Stochastic Differential Equations,''
-  \emph{ICLR} (2021),
+  Score-Based Generative Modeling through Stochastic Differential Equations,
+  ICLR (2021),
   \href{https://arxiv.org/abs/2011.13456}{arXiv:2011.13456}.
 
 \bibitem{ho2020denoising}
   J.~Ho, A.~Jain, P.~Abbeel,
-  ``Denoising Diffusion Probabilistic Models,''
-  \emph{NeurIPS} (2020),
+  Denoising Diffusion Probabilistic Models,
+  NeurIPS (2020),
   \href{https://arxiv.org/abs/2006.11239}{arXiv:2006.11239}.
 
 \bibitem{pythia8}
-  T.~Sj\"ostrand \emph{et al.},
-  ``An introduction to PYTHIA 8.2,''
-  \emph{Comput.\ Phys.\ Commun.} \textbf{191}, 159 (2015),
+  T.~Sj\"ostrand et~al.,
+  An introduction to PYTHIA 8.2,
+  Comput.\ Phys.\ Commun.\ \textbf{191} (2015) 159,
   \href{https://arxiv.org/abs/1410.3012}{arXiv:1410.3012}.
 
 \bibitem{hepmc3}
-  A.~Buckley \emph{et al.},
-  ``The HepMC3 event record library for Monte Carlo event generators,''
-  \emph{Comput.\ Phys.\ Commun.} \textbf{260}, 107310 (2021),
+  A.~Buckley et~al.,
+  The HepMC3 event record library for Monte Carlo event generators,
+  Comput.\ Phys.\ Commun.\ \textbf{260} (2021) 107310,
   \href{https://arxiv.org/abs/1912.08005}{arXiv:1912.08005}.
 
 \bibitem{madgraph}
-  J.~Alwall \emph{et al.},
-  ``The automated computation of tree-level and next-to-leading order
-  differential cross sections, and their matching to parton shower simulations,''
-  \emph{JHEP} \textbf{07}, 079 (2014),
+  J.~Alwall et~al.,
+  The automated computation of tree-level and next-to-leading order
+  differential cross sections, and their matching to parton shower simulations,
+  JHEP \textbf{07} (2014) 079,
   \href{https://arxiv.org/abs/1405.0301}{arXiv:1405.0301}.
 
 \bibitem{sherpa}
-  E.~Bothmann \emph{et al.} (\textsc{Sherpa} Collaboration),
-  ``Event Generation with Sherpa 2.2,''
-  \emph{SciPost Phys.} \textbf{7}, 034 (2019),
+  E.~Bothmann et~al. (\textsc{Sherpa} Collaboration),
+  Event Generation with Sherpa 2.2,
+  SciPost Phys.\ \textbf{7} (2019) 034,
   \href{https://arxiv.org/abs/1905.09127}{arXiv:1905.09127}.
 
 \bibitem{herwig}
-  J.~Bellm \emph{et al.},
-  ``Herwig 7.0/Herwig++ 3.0 release note,''
-  \emph{Eur.\ Phys.\ J.\ C} \textbf{76}, 196 (2016),
+  J.~Bellm et~al.,
+  Herwig 7.0/Herwig++ 3.0 release note,
+  Eur.\ Phys.\ J.\ C \textbf{76} (2016) 196,
   \href{https://arxiv.org/abs/1512.01178}{arXiv:1512.01178}.
 
 \bibitem{powheg}
   S.~Alioli, P.~Nason, C.~Oleari, E.~Re,
-  ``A general framework for implementing NLO calculations in shower Monte
-  Carlo programs: the POWHEG BOX,''
-  \emph{JHEP} \textbf{06}, 043 (2010),
+  A general framework for implementing NLO calculations in shower Monte
+  Carlo programs: the POWHEG BOX,
+  JHEP \textbf{06} (2010) 043,
   \href{https://arxiv.org/abs/1002.2581}{arXiv:1002.2581}.
 
 \bibitem{fastjet}
   M.~Cacciari, G.~P.~Salam, G.~Soyez,
-  ``FastJet User Manual,''
-  \emph{Eur.\ Phys.\ J.\ C} \textbf{72}, 1896 (2012),
+  FastJet User Manual,
+  Eur.\ Phys.\ J.\ C \textbf{72} (2012) 1896,
   \href{https://arxiv.org/abs/1111.6097}{arXiv:1111.6097}.
 
 \bibitem{antikt}
   M.~Cacciari, G.~P.~Salam, G.~Soyez,
-  ``The anti-$k_t$ jet clustering algorithm,''
-  \emph{JHEP} \textbf{04}, 063 (2008),
+  The anti-$k_t$ jet clustering algorithm,
+  JHEP \textbf{04} (2008) 063,
   \href{https://arxiv.org/abs/0802.1189}{arXiv:0802.1189}.
 
 \bibitem{root}
   R.~Brun and F.~Rademakers,
-  ``ROOT --- An object oriented data analysis framework,''
-  \emph{Nucl.\ Instrum.\ Meth.\ A} \textbf{389}, 81 (1997).
+  ROOT --- An object oriented data analysis framework,
+  Nucl.\ Instrum.\ Meth.\ A \textbf{389} (1997) 81.
 
 \bibitem{d2}
   A.~J.~Larkoski, I.~Moult, D.~Neill,
-  ``Power Counting to Better Jet Observables,''
-  \emph{JHEP} \textbf{12}, 009 (2014),
+  Power Counting to Better Jet Observables,
+  JHEP \textbf{12} (2014) 009,
   \href{https://arxiv.org/abs/1409.6298}{arXiv:1409.6298}.
 
 \bibitem{c2}
   A.~J.~Larkoski, G.~P.~Salam, J.~Thaler,
-  ``Energy Correlation Functions for Jet Substructure,''
-  \emph{JHEP} \textbf{06}, 108 (2013),
+  Energy Correlation Functions for Jet Substructure,
+  JHEP \textbf{06} (2013) 108,
   \href{https://arxiv.org/abs/1305.0007}{arXiv:1305.0007}.
 
 \bibitem{pytorch}
-  A.~Paszke \emph{et al.},
-  ``PyTorch: An Imperative Style, High-Performance Deep Learning Library,''
-  \emph{NeurIPS} (2019),
+  A.~Paszke et~al.,
+  PyTorch: An Imperative Style, High-Performance Deep Learning Library,
+  NeurIPS (2019),
   \href{https://arxiv.org/abs/1912.01703}{arXiv:1912.01703}.
 
 \bibitem{energyflow}
   P.~T.~Komiske, E.~M.~Metodiev, J.~Thaler,
-  ``EnergyFlow: A Python framework for jet and event analysis,''
+  EnergyFlow: A Python framework for jet and event analysis,
   (2019).
 
 \bibitem{uproot}
-  J.~Pivarski \emph{et al.},
-  ``Uproot: ROOT I/O in pure Python and NumPy,''
+  J.~Pivarski et~al.,
+  Uproot: ROOT I/O in pure Python and NumPy,
   \url{https://github.com/scikit-hep/uproot5}.
 
 \bibitem{delphes}
-  J.~de~Favereau \emph{et al.} (\textsc{Delphes}\,3 Collaboration),
-  ``DELPHES\,3: A modular framework for fast simulation of a generic collider
-  experiment,''
-  \emph{JHEP} \textbf{02}, 057 (2014),
+  J.~de~Favereau et~al. (\textsc{Delphes}\,3 Collaboration),
+  DELPHES\,3: A modular framework for fast simulation of a generic collider
+  experiment,
+  JHEP \textbf{02} (2014) 057,
   \href{https://arxiv.org/abs/1307.6346}{arXiv:1307.6346}.
 
 \bibitem{ml_sim_review}
-  A.~Butter \emph{et al.},
-  ``Machine Learning and LHC Event Generation,''
-  \emph{SciPost Phys.} \textbf{14}, 079 (2023),
+  A.~Butter et~al.,
+  Machine Learning and LHC Event Generation,
+  SciPost Phys.\ \textbf{14} (2023) 079,
   \href{https://arxiv.org/abs/2203.07460}{arXiv:2203.07460}.
 
 \bibitem{calochallenge}
-  C.~Krause \emph{et al.},
-  ``CaloChallenge: Community comparison of fast calorimeter simulation,''
+  C.~Krause et~al.,
+  CaloChallenge: Community comparison of fast calorimeter simulation,
   (2024),
   \href{https://arxiv.org/abs/2410.21611}{arXiv:2410.21611}.
 
 \end{thebibliography}
 
-% ══════════════════════════════════════════════════════════════
 \end{document}
