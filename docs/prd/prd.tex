@@ -200,13 +200,14 @@ framework on Standard Model and BSM processes.
 \item[Solution method:]
   Parnassus trains conditional flow matching
   models~\cite{lipman2023flow,liu2023flow} on full simulation and
-  reconstruction data. Three cascaded diffusion models generate (1)~event-level
-  quantities, (2)~per-particle kinematics and classification, and
-  (3)~track impact parameters, conditioned on truth-level particle
-  properties. Generation is followed by physics-based post-processing
-  (jet clustering via \textsc{FastJet}~\cite{fastjet}, lepton isolation).
-  Users select a detector model---analogous to a \textsc{Delphes}
-  card---to target a specific experiment.
+  reconstruction data. A neural detector model, conditioned on
+  truth-level particle properties, generates detector-level
+  particle-flow objects including kinematics, classification, and track
+  impact parameters. Generation is followed by physics-based
+  post-processing (jet clustering via
+  \textsc{FastJet}~\cite{fastjet}, lepton isolation). Users select a
+  detector model---analogous to a \textsc{Delphes} card---to target a
+  specific experiment.
 
 \item[Additional comments including restrictions and unusual features:]
   The framework is implemented entirely in Python with PyTorch and runs
@@ -327,14 +328,14 @@ Event-level quantities & $H_\mathrm{T}$, $\vec{E}_\mathrm{T}^\mathrm{miss}$
 \section{Architecture overview}
 \label{sec:architecture}
 
-Parnassus uses a three-stage neural generation pipeline followed by
-physics-based post-processing. The architecture is illustrated in
+Parnassus passes truth-level events through a neural detector model followed by
+physics-based post-processing. The pipeline is illustrated in
 Fig.~\ref{fig:architecture}.
 
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[
-  node distance=1.2cm,
+  node distance=1.4cm,
   box/.style={rectangle, draw=parnblue, fill=parnblue!8, thick,
     minimum width=5.5cm, minimum height=1.2cm, align=center,
     font=\small},
@@ -346,70 +347,37 @@ Fig.~\ref{fig:architecture}.
 ]
   % Main pipeline
   \node[box] (input) {Input Truth Events\\(HepMC or \textsc{Pythia8})};
-  \node[box, below=of input] (event) {Event Model\\
-    Generates: $H_\mathrm{T}$, $E_\mathrm{T}^\mathrm{miss}$, $n_\mathrm{particles}$};
-  \node[box, below=of event] (particle) {Particle Model\\
-    Generates: $p_\mathrm{T}$, $\eta$, $\phi$, $v_x$, $v_y$, $v_z$, class};
-  \node[box, below=of particle] (impact) {Impact Model \emph{(optional)}\\
-    Generates: $d_0$, $z_0$, $\sigma_{d_0}$, $\sigma_{z_0}$};
+  \node[box, below=of input, minimum height=2.0cm] (detector)
+    {Neural Detector Model\\[2pt]
+     {\footnotesize Generates: kinematics ($p_\mathrm{T}$, $\eta$, $\phi$),
+      vertex, class, impact parameters}};
 
   % Arrows
-  \draw[arr] (input) -- (event);
-  \draw[arr] (event) -- (particle);
-  \draw[arr] (particle) -- (impact);
+  \draw[arr] (input) -- (detector);
 
   % Post-processing
-  \node[postbox, below left=1.5cm and -0.5cm of impact] (jets) {Jet Clustering\\(\textsc{FastJet})};
-  \node[postbox, below=1.5cm of impact] (iso) {Lepton\\Isolation};
-  \node[postbox, below right=1.5cm and -0.5cm of impact] (root) {ROOT\\Writer};
+  \node[postbox, below left=1.5cm and -0.5cm of detector] (jets) {Jet Clustering\\(\textsc{FastJet})};
+  \node[postbox, below=1.5cm of detector] (iso) {Lepton\\Isolation};
+  \node[postbox, below right=1.5cm and -0.5cm of detector] (root) {ROOT\\Writer};
 
-  \draw[arrg] (impact.south) -- ++(0,-0.6) -| (jets.north);
-  \draw[arrg] (impact.south) -- (iso.north);
-  \draw[arrg] (impact.south) -- ++(0,-0.6) -| (root.north);
+  \draw[arrg] (detector.south) -- ++(0,-0.6) -| (jets.north);
+  \draw[arrg] (detector.south) -- (iso.north);
+  \draw[arrg] (detector.south) -- ++(0,-0.6) -| (root.north);
 \end{tikzpicture}
-\caption{Parnassus generation pipeline. Three neural diffusion models (blue)
-  produce detector-level quantities from truth-level input. Physics-based
-  post-processing stages (green) compute derived quantities and write the
-  final output.}
+\caption{Parnassus generation pipeline. The neural detector model (blue)
+  produces detector-level particle-flow objects from truth-level input.
+  Physics-based post-processing stages (green) compute derived quantities and
+  write the final output.}
 \label{fig:architecture}
 \end{figure}
 
-All three neural models are \textbf{diffusion models} trained with conditional
+The neural detector model is a \textbf{diffusion model} trained with conditional
 flow matching~\cite{lipman2023flow,liu2023flow} and sampled via Euler
-integration. Each model is conditioned on truth-level particle information,
+integration. The model is conditioned on truth-level particle information,
 making the generation process inherently dependent on the input physics process
-without being tied to any specific one.
-
-\subsection{Neural model details}
-
-Table~\ref{tab:models} summarises the three neural models and their input/output
-specifications.
-
-\begin{table}[htbp]
-\centering
-\caption{Neural model specifications (shown for the CMS\,2011 detector model).
-  The same architecture applies to all detector models.}
-\label{tab:models}
-\begin{tabular}{@{}llll@{}}
-\toprule
-\textbf{Model} & \textbf{Input Context} & \textbf{Output Variables} & \textbf{Sampler} \\
-\midrule
-Event & \makecell[l]{Truth particle kinematics\\
-  ($p_\mathrm{T}^\mathrm{rel}$, $\eta$, $\phi$, $v_x$, $v_y$, $v_z$, class),\\
-  global sums ($H_\mathrm{T}$, MET, $n_\mathrm{truth}$)}
-  & \makecell[l]{pflow $H_\mathrm{T}$,\\$\mathrm{MET}_x$, $\mathrm{MET}_y$,\\$n_\mathrm{pflow}$}
-  & Euler, 50 steps \\
-\addlinespace
-Particle & Same + event model outputs
-  & \makecell[l]{pflow $p_\mathrm{T}^\mathrm{rel}$, $\eta$, $\phi$,\\$v_x$, $v_y$, $v_z$, class}
-  & \makecell[l]{Euler (reverse\\time), 50 steps} \\
-\addlinespace
-Impact & Same + event model outputs
-  & $d_0$, $z_0$, $\sigma_{d_0}$, $\sigma_{z_0}$
-  & Euler, 50 steps \\
-\bottomrule
-\end{tabular}
-\end{table}
+without being tied to any specific one. Generated output variables include
+particle-flow kinematics ($p_\mathrm{T}$, $\eta$, $\phi$), vertex positions,
+particle classification, and track impact parameters ($d_0$, $z_0$).
 
 The number of diffusion steps is configurable at runtime via the \texttt{-{}-num\_steps}
 (\texttt{-n}) flag, allowing users to trade generation speed for quality.
