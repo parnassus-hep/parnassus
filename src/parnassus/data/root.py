@@ -67,7 +67,7 @@ class RootDataset(BaseDataset):
         _ = self.full_data_array.pop("pt")
 
     @override
-    def load_data(self):
+    def _load_data(self):
         with uproot.open(self.cfg.file_path) as f:  # pyright: ignore  # noqa: PGH003
             tree = f["evt_tree"]
             self._update_num_events(tree)

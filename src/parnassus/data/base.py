@@ -64,7 +64,7 @@ class BaseDataset(Dataset[dict[str, Tensor]]):
 
         if not Path(self.cfg.file_path).exists():
             raise FileNotFoundError(f"Trying to load file {self.cfg.file_path}, no file exist!")
-        self.load_data()
+        self._load_data()
         self._validate_required_attributes()
         self._preprocess_data()
 
@@ -225,5 +225,5 @@ class BaseDataset(Dataset[dict[str, Tensor]]):
         }
 
     @abstractmethod
-    def load_data(self):
+    def _load_data(self):
         pass

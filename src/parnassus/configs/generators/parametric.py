@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from .base import GeneratorConfig
 
@@ -8,7 +9,8 @@ class ParametricGeneratorConfig(GeneratorConfig):
     """Configuration for parametric event generator.
 
     This configuration manages parametric physics-based event generation,
-    using analytical models or lookup tables instead of neural networks.
+    routing input events through the torch_delphes fast detector simulation
+    instead of a neural network.
 
     Parameters
     ----------
@@ -18,11 +20,20 @@ class ParametricGeneratorConfig(GeneratorConfig):
         Maximum number of particles per event.
     seed : int | None, optional
         Random seed for reproducible generation. Defaults to None.
+    hepmc_file_path : Path | str | None, optional
+        Path to the input HepMC file.  When set, ``build_dataset`` will use
+        this path instead of the one in ``DatasetConfig``.  Defaults to None
+        (uses ``DatasetConfig.file_path``).
+    num_events : int | None, optional
+        Maximum number of events to load from the HepMC file.
+        ``None`` loads all events. Defaults to None.
     """
 
     type: str = field(default="parametric", init=False)
     max_particles: int = 100
     seed: int | None = None
+    hepmc_file_path: Path | str | None = None
+    num_events: int | None = None
 
     # Truth and pflow output variable names
     _truth_output_vars: list[str] = field(default_factory=lambda: ["pt", "eta", "phi", "class"])

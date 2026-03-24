@@ -95,15 +95,16 @@ class GenerationPipeline(SourcePipeline):
         Returns
         -------
         BaseDataset
-            Dataset instance based on configured file type.
+            Dataset instance based on configured file type and generator mode.
         """
-        # Extract transform_registry if available (NN generators have it)
-        transform_registry = (
-            self.config.generator_config.transform_registry
-            if isinstance(self.config.generator_config, NeuralGeneratorConfig)
-            else None
+        if isinstance(self.config.generator_config, NeuralGeneratorConfig):
+            transform_registry = self.config.generator_config.transform_registry
+            return build_dataset(self.config.dataset_config, transform_registry, mode="neural")
+        if isinstance(self.config.generator_config, ParametricGeneratorConfig):
+            return build_dataset(self.config.dataset_config, mode="parametric")
+        raise TypeError(
+            f"Unsupported generator type: {type(self.config.generator_config).__name__}"
         )
-        return build_dataset(self.config.dataset_config, transform_registry)
 
     def _build_dataloader(self, dataset: "BaseDataset") -> DataLoader:
         """Create dataloader for batching dataset.
@@ -113,6 +114,15 @@ class GenerationPipeline(SourcePipeline):
         DataLoader
             PyTorch DataLoader for batch iteration.
         """
+        from parnassus.data import ParametricAdapter, parametric_collate_fn
+
+        if isinstance(dataset, ParametricAdapter):
+            return DataLoader(
+                dataset,
+                batch_size=self.config.batch_size,
+                collate_fn=parametric_collate_fn,
+                num_workers=0,
+            )
         return DataLoader(dataset, batch_size=self.config.batch_size, num_workers=0)
 
     def _init_generator(self) -> EventGenerator:
@@ -133,14 +143,9 @@ class GenerationPipeline(SourcePipeline):
 
         if isinstance(self.config.generator_config, NeuralGeneratorConfig):
             return NeuralEventGenerator(self.config.generator_config, log).to(device)
-        # Placeholder for parametric generators
-        if isinstance(self.config.generator_config, ParametricGeneratorConfig):
-            raise NotImplementedError(
-                f"Parametric generator '{self.config.generator_config.name}' "
-                "is not yet implemented."
-            )
         raise TypeError(
-            f"Unsupported generator type: {type(self.config.generator_config).__name__}"
+            f"Unsupported generator type: {type(self.config.generator_config).__name__}. "
+            "Parametric generation is handled directly by the pipeline, not via _init_generator."
         )
 
     def _init_buffers(self, num_events: int) -> GenerationBuffers:

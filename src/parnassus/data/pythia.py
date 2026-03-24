@@ -63,7 +63,7 @@ class PythiaDataset(BaseDataset):
         super().__init__(cfg=cfg, var_transform_dict=var_transform_dict)
 
     @override
-    def load_data(self):
+    def _load_data(self):
         # Same allocation pattern as HepMCDataset
         self.n_truth_particles = np.zeros(self.cfg.num_events, dtype=np.int32)
 
