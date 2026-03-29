@@ -29,7 +29,6 @@ Reference:
 
 import numpy as np
 import torch
-from torch import nn
 
 from parnassus.torch_delphes.Efficiency import Efficiency
 from parnassus.torch_delphes.EFlowMerger import EFlowMerger
@@ -38,8 +37,10 @@ from parnassus.torch_delphes.MomentumSmearing import MomentumSmearing
 from parnassus.torch_delphes.ParticlePropagator import ParticlePropagator
 from parnassus.torch_delphes.SimpleCalorimeter import SimpleCalorimeter
 
+from .base import DelphesBaseCard
 
-class ATLASEnergyFlowDefault(nn.Module):
+
+class ATLASEnergyFlowDefault(DelphesBaseCard):
     """PyTorch implementation of the default ATLAS Delphes detector simulation.
 
     Simulates the full ATLAS detector response chain including:
