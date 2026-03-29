@@ -29,16 +29,14 @@ class GenParticleCollection:
         Azimuthal angle of particles.
     mass : FloatArray | None, optional
         Mass of particles. Defaults to zeros if not provided.
-    pdg_id : IntArray | None, optional
-        PDG (Particle Data Group) identification codes.
-    particle_jet_idx : IntArray | None, optional
-        Index mapping particles to jets.
     vx : FloatArray | None, optional
         Vertex x-coordinate.
     vy : FloatArray | None, optional
         Vertex y-coordinate.
     vz : FloatArray | None, optional
         Vertex z-coordinate.
+    t  : FloatArray | None, optional
+        Particle arrival time of flight.
     d0 : FloatArray | None, optional
         Transverse impact parameter.
     z0 : FloatArray | None, optional
@@ -47,12 +45,16 @@ class GenParticleCollection:
         Uncertainty in transverse impact parameter.
     z0_error : FloatArray | None, optional
         Uncertainty in longitudinal impact parameter.
+    pdg_id : IntArray | None, optional
+        PDG (Particle Data Group) identification codes.
     class_id : IntArray | None, optional
         Particle class identifier (derived from pdg_id if available).
     charge : IntArray | None, optional
         Electric charge of particles (derived from pdg_id if available).
     status : IntArray | None, optional
         Status code of particles.
+    particle_jet_idx : IntArray | None, optional
+        Index mapping particles to jets.
     jet_idx : dict[str, IntArray]
         Dictionary mapping jet algorithm names to particle-jet associations.
     """
@@ -60,15 +62,18 @@ class GenParticleCollection:
     # Properties
     name: str
     num_particles: int = field(init=False)
+
+    # Kinematic properties
     pt: FloatArray
     eta: FloatArray
     phi: FloatArray
     mass: FloatArray | None = None
-    pdg_id: IntArray | None = None
-    particle_jet_idx: IntArray | None = None
+
+    # Vertex information
     vx: FloatArray | None = None
     vy: FloatArray | None = None
     vz: FloatArray | None = None
+    t: FloatArray | None = None
 
     # Impact parameters
     d0: FloatArray | None = None
@@ -77,11 +82,13 @@ class GenParticleCollection:
     z0_error: FloatArray | None = None
 
     # Additional properties
+    pdg_id: IntArray | None = None
     class_id: IntArray | None = None
     charge: IntArray | None = None
     status: IntArray | None = None
 
     # Jet idxs
+    particle_jet_idx: IntArray | None = None
     jet_idx: dict[str, IntArray] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -172,9 +179,17 @@ class GenLeptonCollection:
     # Properties
     name: str
     num_particles: int = field(init=False)
+
+    # Kinematic properties
     pt: FloatArray
     eta: FloatArray
     phi: FloatArray
+
+    # Vertex information
+    vx: FloatArray | None = None
+    vy: FloatArray | None = None
+    vz: FloatArray | None = None
+    t: FloatArray | None = None
 
     # Impact parameters
     d0: FloatArray | None = None
@@ -206,6 +221,12 @@ class GenLeptonCollection:
 
         class_mask = cls.get_class_id(name) == particles.class_id
 
+        vertex_attrs = {}
+        for key in ["vx", "vy", "vz", "t"]:
+            attr = getattr(particles, key)
+            if attr is not None:
+                vertex_attrs[key] = attr[class_mask]
+
         impact_attrs = {}
         for key in ["d0", "z0", "d0_error", "z0_error"]:
             attr = getattr(particles, key)
@@ -217,6 +238,7 @@ class GenLeptonCollection:
             pt=particles.pt[class_mask],
             eta=particles.eta[class_mask],
             phi=particles.phi[class_mask],
+            **vertex_attrs,
             **impact_attrs,
         )
 
@@ -243,6 +265,147 @@ class GenLeptonCollection:
 
     def __getitem__(self, idx: int):
         assert idx < self.num_particles, f"Index {idx} out of range"
+
+
+@dataclass(slots=True)
+class GenTowerCollection:
+    """Class storing information about a collection of towers.
+
+    This class represents a collection of towers
+    and provides methods to access and manipulate their properties.
+
+    Attributes
+    ----------
+    name : str
+        Name identifier for the tower collection.
+    num_particles : int
+        Total number of towers in the collection (automatically computed).
+    e : FloatArray
+        Energy of towers.
+    et: FloatArray
+        Transverse energy of towers.
+    eta : FloatArray
+        Pseudorapidity of towers.
+    phi : FloatArray
+        Azimuthal angle of towers.
+    t: FloatArray | None, optional
+        Calo deposit time, averaged by sqrt(EM energy) over all particles.
+    """
+
+    # Properties
+    name: str
+    num: int = field(init=False)
+    e: FloatArray
+    et: FloatArray
+    eta: FloatArray
+    phi: FloatArray
+    t: FloatArray
+
+    def __post_init__(self):
+        self.num = len(self.e)
+        for key in self.__slots__:
+            if key in {"name", "num"}:
+                continue
+            attr = self.__getattribute__(key)
+            if attr is None:
+                continue
+            attr_len = len(attr)
+            assert attr_len == self.num, (
+                f"Assumed length of each features be {self.num}, got {attr_len} for {key} attribute"
+            )
+
+    def __len__(self):
+        return self.num
+
+    @override
+    def __repr__(self) -> str:
+        return f"{self.name} collection with {len(self)} elements"
+
+    def __getitem__(self, idx: int):
+        assert idx < self.num, f"Index {idx} out of range"
+
+
+@dataclass(slots=True)
+class GenTrackCollection(GenParticleCollection):
+    """Class storing information about a collection of tracks.
+
+    This class represents a collection of tracks
+    and provides methods to access and manipulate their properties.
+
+    Attributes
+    ----------
+    name : str
+        Name identifier for the track collection.
+    num_particles : int
+        Total number of tracks in the collection (automatically computed).
+    pt : FloatArray
+        Transverse momentum of tracks.
+    eta : FloatArray
+        Pseudorapidity of tracks.
+    phi : FloatArray
+        Azimuthal angle of tracks.
+    mass : FloatArray | None, optional
+        Mass of tracks. Defaults to zeros if not provided.
+    vx : FloatArray | None, optional
+        Vertex x-coordinate.
+    vy : FloatArray | None, optional
+        Vertex y-coordinate.
+    vz : FloatArray | None, optional
+        Vertex z-coordinate.
+    t  : FloatArray | None, optional
+        Track arrival time of flight.
+    d0 : FloatArray | None, optional
+        Transverse impact parameter.
+    z0 : FloatArray | None, optional
+        Longitudinal impact parameter.
+    d0_error : FloatArray | None, optional
+        Uncertainty in transverse impact parameter.
+    z0_error : FloatArray | None, optional
+        Uncertainty in longitudinal impact parameter.
+    pdg_id : IntArray | None, optional
+        PDG (Particle Data Group) identification codes.
+    class_id : IntArray | None, optional
+        Particle class identifier (derived from pdg_id if available).
+    charge : IntArray | None, optional
+        Electric charge of tracks (derived from pdg_id if available).
+    status : IntArray | None, optional
+        Status code of tracks.
+    """
+
+    @classmethod
+    def from_particles(cls, particles: GenParticleCollection, name: str) -> Self:
+        if particles.class_id is None:
+            mask = np.ones(len(particles), dtype=bool)
+        else:
+            mask = particles.class_id < 3
+
+        vertex_attrs = {}
+        for key in ["vx", "vy", "vz", "t"]:
+            attr = getattr(particles, key)
+            if attr is not None:
+                vertex_attrs[key] = attr[mask]
+        impact_attrs = {}
+        for key in ["d0", "z0", "d0_error", "z0_error"]:
+            attr = getattr(particles, key)
+            if attr is not None:
+                impact_attrs[key] = attr[mask]
+
+        additional_attrs = {}
+        for key in ["pdg_id", "class_id", "charge", "status"]:
+            attr = getattr(particles, key)
+            if attr is not None:
+                additional_attrs[key] = attr[mask]
+
+        return cls(
+            name=name,
+            pt=particles.pt[mask],
+            eta=particles.eta[mask],
+            phi=particles.phi[mask],
+            mass=particles.mass[mask] if particles.mass is not None else None,
+            **vertex_attrs,
+            **impact_attrs,
+            **additional_attrs,
+        )
 
 
 @dataclass(slots=True)
@@ -321,6 +484,11 @@ class GenEvent:
     electrons: GenLeptonCollection = field(init=False)
 
     jets: dict[str, GenJetCollection] = field(default_factory=dict)
+
+    # Tracks and Towers
+    tracks: GenTrackCollection | None = None
+    towers: GenTowerCollection | None = None
+
     # Event features
     truth_ht: np.float32 = field(init=False)
     truth_met_x: np.float32 = field(init=False)

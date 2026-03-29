@@ -244,46 +244,46 @@ class AccessorTemplates:
 
     # Particle kinematics
     KINEMATICS: ClassVar = [
-        AccessorSpec("pt"),
-        AccessorSpec("eta"),
-        AccessorSpec("phi"),
+        AccessorSpec("pt", output_name="PT"),
+        AccessorSpec("eta", output_name="Eta"),
+        AccessorSpec("phi", output_name="Phi"),
     ]
 
     IMPACT_PARAMETERS: ClassVar = [
-        AccessorSpec("d0"),
-        AccessorSpec("z0"),
-        AccessorSpec("d0_error"),
-        AccessorSpec("z0_error"),
+        AccessorSpec("d0", output_name="D0"),
+        AccessorSpec("z0", output_name="Z0"),
+        AccessorSpec("d0_error", output_name="ErrorD0"),
+        AccessorSpec("z0_error", output_name="ErrorZ0"),
     ]
 
     # Full particle info
     FULL_PARTICLE: ClassVar = [
         *KINEMATICS,
-        AccessorSpec("vx"),
-        AccessorSpec("vy"),
-        AccessorSpec("vz"),
-        AccessorSpec("class_id", dtype="int32"),
-        AccessorSpec("pdg_id", dtype="int32"),
+        AccessorSpec("vx", output_name="X"),
+        AccessorSpec("vy", output_name="Y"),
+        AccessorSpec("vz", output_name="Z"),
+        AccessorSpec("class_id", output_name="ClassID", dtype="int32"),
+        AccessorSpec("pdg_id", output_name="PID", dtype="int32"),
     ]
 
     # Isolation variables
     ISOLATION: ClassVar = [
-        AccessorSpec("iso_var"),
-        AccessorSpec("sum_pt"),
-        AccessorSpec("sum_pt_ch"),
-        AccessorSpec("sum_pt_neut"),
+        AccessorSpec("iso_var", output_name="IsolationVar"),
+        AccessorSpec("sum_pt", output_name="SumPt"),
+        AccessorSpec("sum_pt_ch", output_name="SumPtCharged"),
+        AccessorSpec("sum_pt_neut", output_name="SumPtNeutral"),
     ]
 
     # Jet substructure
     JET_SUBSTRUCTURE: ClassVar = [
-        AccessorSpec("d2"),
-        AccessorSpec("c2"),
+        AccessorSpec("d2", output_name="D2"),
+        AccessorSpec("c2", output_name="C2"),
     ]
 
     # Particle classification
     CLASSIFICATION: ClassVar = [
-        AccessorSpec("class_id", dtype="int32"),
-        AccessorSpec("charge", dtype="int32"),
+        AccessorSpec("class_id", output_name="ClassID", dtype="int32"),
+        AccessorSpec("charge", output_name="Charge", dtype="int32"),
     ]
 
 
