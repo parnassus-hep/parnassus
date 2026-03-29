@@ -1,7 +1,7 @@
 """Event generation pipeline and orchestration."""
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, final
+from typing import final
 
 import numpy as np
 import torch
@@ -11,14 +11,13 @@ from parnassus.configs import Config
 from parnassus.configs.accessors import Accessor
 from parnassus.configs.generators import NeuralGeneratorConfig, ParametricGeneratorConfig
 from parnassus.configs.scheme import GenEvent, GenParticleCollection
-from parnassus.data import build_dataset
+from parnassus.data import build_dataset, parametric_collate_fn
+from parnassus.data.adapters import ParametricAdapter
+from parnassus.data.protocols import NeuralDataset, ParametricDataset
 from parnassus.utils.logger import ProgressBar, setup_logger, update_task
 
 from .base import EventGenerator, SourcePipeline
 from .generators import NeuralEventGenerator
-
-if TYPE_CHECKING:
-    from parnassus.data.base import BaseDataset
 
 
 @dataclass
@@ -89,12 +88,12 @@ class GenerationPipeline(SourcePipeline):
         self._accessors = accessors_dict
         return event_list, accessors_dict
 
-    def _build_dataset(self) -> "BaseDataset":
+    def _build_dataset(self) -> NeuralDataset | ParametricDataset:
         """Create dataset from configuration.
 
         Returns
         -------
-        BaseDataset
+        NeuralDataset | ParametricDataset
             Dataset instance based on configured file type and generator mode.
         """
         if isinstance(self.config.generator_config, NeuralGeneratorConfig):
@@ -106,7 +105,7 @@ class GenerationPipeline(SourcePipeline):
             f"Unsupported generator type: {type(self.config.generator_config).__name__}"
         )
 
-    def _build_dataloader(self, dataset: "BaseDataset") -> DataLoader:
+    def _build_dataloader(self, dataset: NeuralDataset | ParametricDataset) -> DataLoader:
         """Create dataloader for batching dataset.
 
         Returns
@@ -114,16 +113,14 @@ class GenerationPipeline(SourcePipeline):
         DataLoader
             PyTorch DataLoader for batch iteration.
         """
-        from parnassus.data import ParametricAdapter, parametric_collate_fn
-
         if isinstance(dataset, ParametricAdapter):
             return DataLoader(
-                dataset,
+                dataset,  # type: ignore[arg-type]
                 batch_size=self.config.batch_size,
                 collate_fn=parametric_collate_fn,
                 num_workers=0,
             )
-        return DataLoader(dataset, batch_size=self.config.batch_size, num_workers=0)
+        return DataLoader(dataset, batch_size=self.config.batch_size, num_workers=0)  # type: ignore[arg-type]
 
     def _init_generator(self) -> EventGenerator:
         """Initialize event generator based on configuration type.

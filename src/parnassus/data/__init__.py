@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Literal
 from parnassus.utils.transform import TransformRegistry
 
 from .adapters import NeuralAdapter, ParametricAdapter, parametric_collate_fn
-from .hepmc import HepMCDataset
 from .hepmc_raw import HepMCRawDataset
+from .protocols import NeuralDataset, ParametricDataset
 from .pythia import PythiaDataset
 from .root import RootDataset
 
@@ -23,13 +23,13 @@ def _build_hepmc_neural(
 
 if TYPE_CHECKING:
     from parnassus.configs.data import DatasetConfig
-    from parnassus.data.base import BaseDataset
 
 __all__ = [
-    "HepMCDataset",
     "HepMCRawDataset",
     "NeuralAdapter",
+    "NeuralDataset",
     "ParametricAdapter",
+    "ParametricDataset",
     "PythiaDataset",
     "RootDataset",
     "build_dataset",
@@ -40,9 +40,9 @@ __all__ = [
 def build_dataset(
     dataset_config: "DatasetConfig",
     transform_registry: TransformRegistry | None = None,
-    dataset_builders: Mapping[str, Callable[..., "BaseDataset"]] | None = None,
+    dataset_builders: Mapping[str, Callable[..., "NeuralDataset"]] | None = None,
     mode: Literal["neural", "parametric", "raw"] = "neural",
-) -> "BaseDataset | HepMCRawDataset | ParametricAdapter":
+) -> "NeuralDataset | ParametricDataset":
     """Factory function to create dataset instances based on file type.
 
     Parameters
@@ -59,15 +59,14 @@ def build_dataset(
         Dataset mode:
 
         * ``"neural"`` *(default)* — returns a :class:`NeuralAdapter`
-          (HepMC), :class:`RootDataset`, or :class:`PythiaDataset`
-          subclass of :class:`BaseDataset`.
+          (HepMC), :class:`RootDataset`, or :class:`PythiaDataset`.
         * ``"raw"`` — returns :class:`HepMCRawDataset` (HepMC files only).
         * ``"parametric"`` — returns :class:`ParametricAdapter` wrapping a
           :class:`HepMCRawDataset` (HepMC files only).
 
     Returns
     -------
-    BaseDataset | HepMCRawDataset | ParametricAdapter
+    NeuralDataset | ParametricDataset
         Dataset instance appropriate for the requested mode and file type.
 
     Raises
@@ -93,7 +92,6 @@ def build_dataset(
             return raw
         return ParametricAdapter(raw)
 
-    # mode == "neural" — original behaviour
     var_transform_dict = transform_registry.to_var_transform_dict() if transform_registry else {}
     builders = dataset_builders or {
         ".root": RootDataset,

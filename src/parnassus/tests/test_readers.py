@@ -2,8 +2,7 @@ import numpy as np
 import pytest
 
 from parnassus.configs.data import DatasetConfig
-from parnassus.data import HepMCDataset, PythiaDataset, RootDataset
-from parnassus.data.base import BaseDataset
+from parnassus.data import HepMCRawDataset, NeuralAdapter, PythiaDataset, RootDataset
 from parnassus.utils.mock import (
     get_mock_hepmc_file,
     get_mock_pythia_file,
@@ -28,7 +27,7 @@ def test_reader_no_file():
     var_transform_dict = get_mock_transforms()
     var_reqs = get_mock_variable_requirements()
     with pytest.raises(FileNotFoundError):
-        _ = BaseDataset(
+        _ = RootDataset(
             DatasetConfig(file_path=fname, variable_requirements=var_reqs, max_particles=400),
             var_transform_dict=var_transform_dict,
         )
@@ -75,7 +74,8 @@ def test_hepmc_reader_load_data(hepmc_fname: str):
     cfg = DatasetConfig(
         file_path=hepmc_fname, variable_requirements=var_reqs, max_particles=400, num_events=500
     )
-    _ = HepMCDataset(cfg, var_transform_dict=var_transform_dict)
+    raw = HepMCRawDataset(hepmc_fname, num_events=500)
+    _ = NeuralAdapter(raw, cfg, var_transform_dict=var_transform_dict)
 
 
 def test_hepmc_reader_get_data(hepmc_fname: str):
@@ -84,7 +84,8 @@ def test_hepmc_reader_get_data(hepmc_fname: str):
     cfg = DatasetConfig(
         file_path=hepmc_fname, variable_requirements=var_reqs, max_particles=400, num_events=500
     )
-    reader = HepMCDataset(cfg, var_transform_dict=var_transform_dict)
+    raw = HepMCRawDataset(hepmc_fname, num_events=500)
+    reader = NeuralAdapter(raw, cfg, var_transform_dict=var_transform_dict)
     output = reader[0]
 
     assert "ctxt_data" in output
@@ -127,7 +128,8 @@ def test_hepmc_root_readers_equivalence(root_fname: str, hepmc_fname: str):
     hepmc_cfg = DatasetConfig(
         file_path=hepmc_fname, variable_requirements=var_reqs, max_particles=400, num_events=500
     )
-    hepmc_reader = HepMCDataset(hepmc_cfg, var_transform_dict=var_transform_dict)
+    raw = HepMCRawDataset(hepmc_fname, num_events=500)
+    hepmc_reader = NeuralAdapter(raw, hepmc_cfg, var_transform_dict=var_transform_dict)
 
     root_cfg = DatasetConfig(
         file_path=root_fname, variable_requirements=var_reqs, max_particles=400, num_events=500

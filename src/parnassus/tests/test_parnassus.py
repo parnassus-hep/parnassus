@@ -28,7 +28,8 @@ def test_main_run_with_invalid_config():
         main(["run", "-c", "non_existent_config.yaml"])
 
 
-def test_main_run(tmp_path):
+@pytest.mark.parametrize("ds_file", ["h4lep_test_100.hepmc", "HZZ4l.cmnd"])
+def test_main_run(tmp_path, ds_file: str):
     output_path = Path(tmp_path) / "test.root"
     current_dir = Path(__file__).parent
     args = [
@@ -36,7 +37,7 @@ def test_main_run(tmp_path):
         "-c",
         (current_dir.parent / "configs/default_config.yaml").as_posix(),
         "-i",
-        (current_dir / "h4lep_test_100.hepmc").as_posix(),
+        (current_dir / ds_file).as_posix(),
         "-ne",
         "4",
         "-bs",
@@ -54,12 +55,13 @@ def test_main_run(tmp_path):
     with uproot.open(current_dir / "expected_results/h4lep_test.root") as expected_file:
         expected = expected_file["Parnassus"].arrays(library="np")
     assert set(generated.keys()) == set(expected.keys()), "Output keys do not match expected keys"
-    for key in expected:
-        if "Truth" in key:
-            for i in range(4):
-                np.testing.assert_allclose(
-                    generated[key][i],
-                    expected[key][i],
-                    err_msg=f"Mismatch in key '{key}' for event {i}",
-                    rtol=1e-6,
-                )
+    if ds_file == "h4lep_test_100.hepmc":
+        for key in expected:
+            if "Truth" in key:
+                for i in range(4):
+                    np.testing.assert_allclose(
+                        generated[key][i],
+                        expected[key][i],
+                        err_msg=f"Mismatch in key '{key}' for event {i}",
+                        rtol=1e-6,
+                    )

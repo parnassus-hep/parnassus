@@ -2,17 +2,17 @@
 
 Two adapters are provided:
 
-* :class:`NeuralAdapter` — wraps :class:`HepMCRawDataset` to produce the same
+* :class:`NeuralAdapter` — standalone ``Dataset`` that applies particle selection
+  cuts and variable transforms, producing the same
   ``{ctxt_data, ctxt_global_data, mask, event_number}`` dict that
-  :class:`~parnassus.data.base.BaseDataset` subclasses produce, making it a
-  drop-in replacement for :class:`~parnassus.data.hepmc.HepMCDataset` in the
-  neural generation pipeline.
+  :class:`~parnassus.data.base.BaseDataset` subclasses produce.
 
 * :class:`ParametricAdapter` — thin wrapper that returns per-event particle
   tensors in ColumnMap format.  Use with :func:`parametric_collate_fn` to
   concatenate events into the flat tensor expected by the torch_delphes modules.
 """
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -24,24 +24,30 @@ from parnassus.configs.data import DatasetConfig
 from parnassus.data.particle_io import N_FEATURES, ColumnMap
 from parnassus.utils import pid_to_class
 from parnassus.utils.transform import VarTransform
+from parnassus.utils.typing import FloatArray
 
-from .base import BaseDataset
 from .hepmc_raw import HepMCRawDataset
+from .transforms import (
+    SCALAR_KEYS,
+    get_event_data,
+    prepare_ctxt_global_data,
+    preprocess_flat_arrays,
+)
 
 if TYPE_CHECKING:
-    pass
+    from parnassus.utils.typing import IntArray, LongArray
 
 
 # ==================== NEURAL ADAPTER ====================
 
 
-class NeuralAdapter(BaseDataset):
-    """Wraps :class:`HepMCRawDataset` to produce the neural-generator data format.
+class NeuralAdapter(Dataset[dict[str, Tensor]]):
+    """Standalone dataset that wraps :class:`HepMCRawDataset` for neural generation.
 
-    Applies the same particle selection cuts, derived-variable computation, and
-    flat-array bookkeeping as :class:`~parnassus.data.hepmc.HepMCDataset` so
-    that :class:`~parnassus.pipelines.generate.GenerationPipeline` receives
-    identical batches from both dataset implementations.
+    Applies particle selection cuts, computes derived variables (``ptrel``,
+    ``ht``, ``met_x``, ``met_y``), scales variables via ``VarTransform``, and
+    returns padded, masked batches identical to those produced by
+    :class:`~parnassus.data.base.BaseDataset` subclasses.
 
     Parameters
     ----------
@@ -49,8 +55,8 @@ class NeuralAdapter(BaseDataset):
         Pre-loaded raw dataset to read particles from.
     cfg : DatasetConfig
         Dataset configuration (max_particles, truth_vars_to_load, etc.).
-    var_transform_dict : dict[str, VarTransform]
-        Variable transformation registry for scaling.
+    var_transform_dict : dict[str, VarTransform] | None
+        Variable transformation registry for scaling.  ``None`` → no scaling.
     """
 
     def __init__(
@@ -59,17 +65,36 @@ class NeuralAdapter(BaseDataset):
         cfg: DatasetConfig,
         var_transform_dict: dict[str, VarTransform] | None = None,
     ) -> None:
-        # Assign _raw BEFORE calling super().__init__(), which triggers load_data()
-        self._raw = raw
-        super().__init__(cfg=cfg, var_transform_dict=var_transform_dict or {})
-        # Free raw tensors — all data is now in flat numpy arrays
-        self._raw = None  # type: ignore[assignment]
+        super().__init__()
+        self.cfg = cfg
+        self.var_transform_dict: dict[str, VarTransform] = var_transform_dict or {}
+        self.ctxt_vars: list[str] = cfg.variable_requirements.ctxt_vars_stripped
+        self.ctxt_global_vars: list[str] = cfg.variable_requirements.ctxt_global_vars_stripped
 
-    def _load_data(self) -> None:
+        self.full_data_array: dict[str, FloatArray] = {}
+        self.n_truth_particles: IntArray
+        self.truth_cumsum: LongArray
+        self.eventNumber: IntArray
+
+        if not Path(cfg.file_path).exists():
+            raise FileNotFoundError(f"Trying to load file {cfg.file_path}, no file exists!")
+
+        self._load_data(raw)
+        preprocess_flat_arrays(self.full_data_array, SCALAR_KEYS)
+
+        self.n_events = len(self.n_truth_particles)
+        self.scaled_ctxt_global_data: Tensor = prepare_ctxt_global_data(
+            self.full_data_array,
+            self.n_truth_particles,
+            self.truth_cumsum,
+            self.ctxt_vars,
+            self.ctxt_global_vars,
+            self.var_transform_dict,
+        )
+
+    def _load_data(self, raw: HepMCRawDataset) -> None:
         """Load particles from the raw dataset, applying neural selection cuts."""
-        assert self._raw is not None, "Raw dataset must be assigned before load_data()"
-
-        n_events_raw = len(self._raw)
+        n_events_raw = len(raw)
         n_alloc = n_events_raw * self.cfg.max_particles
 
         self.n_truth_particles = np.zeros(n_events_raw, dtype=np.int32)
@@ -85,7 +110,7 @@ class NeuralAdapter(BaseDataset):
         curr_particle_idx = 0
 
         for raw_idx in range(n_events_raw):
-            item = self._raw[raw_idx]
+            item = raw[raw_idx]
             particles: Tensor = item["particles"]  # (N_i, N_FEATURES), float32
             event_number: int = item["event_number"]
 
@@ -95,13 +120,11 @@ class NeuralAdapter(BaseDataset):
             event_start = curr_particle_idx
             num_particles = 0
 
-            # Access relevant columns as numpy for fast iteration
             pids_np = particles[:, ColumnMap.PID].numpy()
             pt_np = particles[:, ColumnMap.PT].numpy()
             eta_np = particles[:, ColumnMap.ETA].numpy()
             phi_np = particles[:, ColumnMap.PHI].numpy()
 
-            # Optional columns
             x_np = (
                 particles[:, ColumnMap.X].numpy() if "vx" in self.cfg.truth_vars_to_load else None
             )
@@ -157,7 +180,7 @@ class NeuralAdapter(BaseDataset):
             self.eventNumber[curr_event_idx] = event_number
             curr_event_idx += 1
 
-        # Trim to actual size
+        # Trim to actual size and drop raw pt (use ptrel instead)
         _ = self.full_data_array.pop("pt")
         for key in self.ctxt_vars:
             self.full_data_array[key] = self.full_data_array[key][:curr_particle_idx]
@@ -166,6 +189,28 @@ class NeuralAdapter(BaseDataset):
         self.eventNumber = self.eventNumber[:curr_event_idx]
         self.n_truth_particles = self.n_truth_particles[:curr_event_idx]
         self.truth_cumsum = np.cumsum([0, *list(self.n_truth_particles)])
+
+    def __len__(self) -> int:
+        return len(self.n_truth_particles)
+
+    def __getitem__(self, idx: Any) -> dict[str, Tensor]:  # pyright: ignore[reportImplicitOverride]
+        ctxt_data, ctxt_global_data, mask = get_event_data(
+            idx,
+            self.full_data_array,
+            self.n_truth_particles,
+            self.truth_cumsum,
+            self.ctxt_vars,
+            self.scaled_ctxt_global_data,
+            self.cfg.max_particles,
+            self.var_transform_dict,
+        )
+        event_number = torch.tensor(self.eventNumber[idx], dtype=torch.long).unsqueeze(-1)
+        return {
+            "ctxt_data": ctxt_data,
+            "ctxt_global_data": ctxt_global_data,
+            "mask": mask,
+            "event_number": event_number,
+        }
 
 
 # ==================== PARAMETRIC ADAPTER ====================
