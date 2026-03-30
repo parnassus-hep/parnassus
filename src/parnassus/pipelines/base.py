@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Protocol
 
-import numpy as np
-
 from parnassus.configs.accessors import Accessor
 from parnassus.configs.scheme import GenEvent
 
@@ -13,70 +11,42 @@ if TYPE_CHECKING:
 class EventGenerator(Protocol):
     """Protocol for event generation backends (NN, parametric, Pythia, etc.)."""
 
-    @property
-    def has_impact_model(self) -> bool:
-        """Whether this generator produces impact parameters."""
-        ...
-
-    @property
-    def max_particles(self) -> int:
-        """Maximum number of particles per event."""
-        ...
-
-    @property
-    def truth_output_vars(self) -> list[str]:
-        """List of truth-level output variable names."""
-        ...
-
-    @property
-    def pflow_output_vars(self) -> list[str]:
-        """List of particle-flow output variable names."""
-        ...
-
-    @property
-    def event_sampler_steps(self) -> int | None:
-        """Number of sampling steps for event generation (None for parametric)."""
-        ...
-
-    @property
-    def particle_sampler_steps(self) -> int | None:
-        """Number of sampling steps for particle generation (None for parametric)."""
-        ...
-
-    @property
-    def impact_sampler_steps(self) -> int | None:
-        """Number of sampling steps for impact generation (None if no impact model)."""
-        ...
-
     def get_accessors(self) -> dict[str, list[Accessor]]:
         """Return dictionary of accessors for generated output."""
         ...
 
-    def generate_batch(
-        self,
-        data_dict: "TensorDict",
-        event_callback=None,
-        particle_callback=None,
-        impact_callback=None,
-    ) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray], dict[str, np.ndarray]]:
-        """Generate truth and pflow particles for a batch.
+    def initialize(self, n_events: int, n_batches: int) -> None:
+        """Set up internal storage and progress tracking before the batch loop.
 
         Parameters
         ----------
-        data_dict : TensorDict
-            Input batch containing ctxt_data, ctxt_global_data, mask, event_number.
-        event_callback : Callable | None
-            Optional callback for event-level generation progress.
-        particle_callback : Callable | None
-            Optional callback for particle-level generation progress.
-        impact_callback : Callable | None
-            Optional callback for impact parameter generation progress.
+        n_events : int
+            Total number of events to generate (for buffer pre-allocation).
+        n_batches : int
+            Total number of batches (for progress tracking).
+        """
+        ...
+
+    def process_batch(self, batch: "TensorDict") -> None:
+        """Process one batch, accumulate results internally, and update progress.
+
+        Parameters
+        ----------
+        batch : TensorDict
+            Input batch from the dataloader.
+        """
+        ...
+
+    def get_events(self) -> list[GenEvent]:
+        """Finalise generation and return the list of generated events.
+
+        Closes any open progress contexts and converts accumulated data to
+        GenEvent objects.
 
         Returns
         -------
-        tuple[dict[str, np.ndarray], dict[str, np.ndarray], dict[str, np.ndarray]]
-            (truth_data_dict, pflow_data_dict, metadata_dict) where metadata contains
-            event_number, fs_mask, tr_mask, bad_idxs.
+        list[GenEvent]
+            Generated events.
         """
         ...
 
@@ -91,15 +61,3 @@ class GenPipeline(ABC):
     @abstractmethod
     def get_accessors(self) -> dict[str, list[Accessor]]:
         pass
-
-
-class SourcePipeline(ABC):
-    """Abstract base class for event source pipelines."""
-
-    @abstractmethod
-    def run(self) -> tuple[list[GenEvent], dict[str, list[Accessor]]]:
-        """Generate events from an external source."""
-
-    @abstractmethod
-    def get_accessors(self) -> dict[str, list[Accessor]]:
-        """Accessors exposed by this pipeline (after run)."""

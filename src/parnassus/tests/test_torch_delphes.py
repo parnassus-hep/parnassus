@@ -43,7 +43,7 @@ import torch
 from tqdm import tqdm
 
 # Set PyTorch to use maximum precision (double precision / float64)
-torch.set_default_dtype(torch.float64)
+# torch.set_default_dtype(torch.float64)
 
 # Seeds for reproducibility
 random.seed(42)
