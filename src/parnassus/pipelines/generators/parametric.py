@@ -1,6 +1,6 @@
 """Parametric event generator — sketch/placeholder."""
 
-from typing import TYPE_CHECKING, final
+from typing import TYPE_CHECKING, Self, final
 
 from parnassus.configs.accessors import Accessor
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
@@ -19,6 +19,12 @@ class ParametricEventGenerator:
 
     def __init__(self, config: ParametricGeneratorConfig) -> None:
         self.config = config
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_) -> None:
+        pass
 
     def get_accessors(self) -> dict[str, list[Accessor]]:
         raise NotImplementedError

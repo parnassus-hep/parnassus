@@ -54,17 +54,11 @@ class GenerationPipeline:
 
         self.generator = self._init_generator()
         n_events = len(dataset)  # type: ignore[arg-type]
-        self.generator.initialize(n_events, n_batches=len(dataloader))
-        try:
+        with self.generator:
+            self.generator.initialize(n_events, n_batches=len(dataloader))
             for batch in dataloader:
                 self.generator.process_batch(batch)
-        except Exception:
-            # Ensure the generator's progress display is always closed even on
-            # error, to prevent rich.errors.LiveError in subsequent operations.
-            self.generator.get_events()
-            raise
-
-        events = self.generator.get_events()
+            events = self.generator.get_events()
         log.info(f"[green]Generated {len(events)} events from requested {n_events}.")
         accessors = self.generator.get_accessors()
         self._accessors = accessors

@@ -171,6 +171,18 @@ class NeuralEventGenerator:
         self.device = device
         return self
 
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_) -> None:
+        # Close any open progress display (no-op if get_events() already did so)
+        if self._exit_stack is not None:
+            self._exit_stack.close()
+            self._exit_stack = None
+            self._progress_bar = None
+        # Move model weights back to CPU to free device memory
+        self.to(torch.device("cpu"))
+
     # ------------------------------------------------------------------ #
     # EventGenerator protocol                                              #
     # ------------------------------------------------------------------ #

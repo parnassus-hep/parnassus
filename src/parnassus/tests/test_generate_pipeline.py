@@ -28,6 +28,12 @@ def make_stub_event_generator(with_impact: bool = False, max_particles: int = 2)
             self.calls = 0
             self._with_impact = with_impact
 
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
         def initialize(self, n_events: int, n_batches: int) -> None:
             self._events = []
 
@@ -214,19 +220,26 @@ def test_progress_bar_closed_on_process_batch_exception(monkeypatch):
     config = SimpleNamespace(dataset_config=dataset_config, batch_size=1, device="cpu")
 
     class _BoomGenerator:
-        calls = 0
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            # Real generators close their resources here even on exception
+            if hasattr(self, "_pb_stack"):
+                self._pb_stack.close()
 
         def get_accessors(self):
             return {}
 
         def initialize(self, n_events, n_batches):
-            self._pb = ProgressBar().__enter__()
+            self._pb_stack = __import__("contextlib").ExitStack()
+            self._pb_stack.enter_context(ProgressBar())
 
         def process_batch(self, batch):
             raise RuntimeError("boom")
 
         def get_events(self):
-            self._pb.__exit__(None, None, None)
+            self._pb_stack.close()
             return []
 
     dataloader = StubDataLoader(dataset_len=1, batches=[{}])

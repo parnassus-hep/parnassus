@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, Self
 
 from parnassus.configs.accessors import Accessor
 from parnassus.configs.scheme import GenEvent
@@ -9,7 +9,20 @@ if TYPE_CHECKING:
 
 
 class EventGenerator(Protocol):
-    """Protocol for event generation backends (NN, parametric, Pythia, etc.)."""
+    """Protocol for event generation backends (NN, parametric, Pythia, etc.).
+
+    Generators are context managers: use ``with generator:`` to guarantee that
+    device memory is released and progress displays are closed after generation,
+    regardless of whether an exception occurs.
+    """
+
+    def __enter__(self) -> Self:
+        """Enter the generation context."""
+        ...
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit the generation context, releasing resources."""
+        ...
 
     def get_accessors(self) -> dict[str, list[Accessor]]:
         """Return dictionary of accessors for generated output."""
