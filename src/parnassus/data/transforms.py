@@ -253,9 +253,7 @@ def get_event_data(
 
     ctxt_data_list: list[Tensor] = []
     for var in ctxt_vars:
-        x = torch.tensor(
-            full_data_array[var][truth_start:truth_end][truth_idx]
-        ).view(-1, 1)
+        x = torch.tensor(full_data_array[var][truth_start:truth_end][truth_idx]).view(-1, 1)
         if var == "phi" and apply_transforms:
             ctxt_data_list.extend([torch.sin(x).float(), torch.cos(x).float()])
         elif var == "class" and apply_transforms:

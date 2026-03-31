@@ -6,7 +6,7 @@ import pytest
 from parnassus.configs.scheme import GenEvent, GenParticleCollection
 from parnassus.data import build_dataset
 from parnassus.pipelines.generate import GenerationPipeline
-from parnassus.pipelines.generators.neural import NeuralEventGenerator, _GenerationBuffers
+from parnassus.pipelines.generators.neural import _GenerationBuffers  # noqa: PLC2701
 
 
 class StubDataLoader:

@@ -197,6 +197,7 @@ def get_mass_from_pdg_id(pids: np.ndarray) -> np.ndarray:
 
 # ==================== PARTICLE CONVERSION ====================
 
+
 def particles_to_tensor(
     particles_list: list,
     event_number: int,
