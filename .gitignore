@@ -77,9 +77,11 @@ typings/
 *.root
 *.hepmc
 
-
 # TorchDelphes validation outputs
 src/parnassus/torch_delphes/validation/validation_plots/
 src/parnassus/torch_delphes/validation/data/
 src/parnassus/torch_delphes/validation/logs/
 *.hepmc
+
+# MacOS
+.DS_Store
