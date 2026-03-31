@@ -17,17 +17,6 @@ class GeneratorConfig(ABC):
     type: str  # Generator type: "neural", "parametric", etc.
 
     @abstractmethod
-    def get_output_vars(self) -> tuple[list[str], list[str]]:
-        """Get output variable names for this generator.
-
-        Returns
-        -------
-        tuple[list[str], list[str]]
-            Tuple of (truth_output_vars, pflow_output_vars).
-        """
-        ...
-
-    @abstractmethod
     def get_max_particles(self) -> int:
         """Get maximum number of particles per event.
 

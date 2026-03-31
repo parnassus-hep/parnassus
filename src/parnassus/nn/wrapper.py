@@ -16,10 +16,10 @@ class ModelWrapper(nn.Module):
         super().__init__()
         self.config = config
 
-        self.num_fs_vars = len(config.variables_config.fs_vars)
-        if "pflow_phi" in config.variables_config.fs_vars:
+        self.num_fs_vars = len(config.fs_vars)
+        if "pflow_phi" in config.fs_vars:
             self.num_fs_vars += 1  # phi expands to sin/cos (2 components), net +1 from original
-        if "pflow_class" in config.variables_config.fs_vars:
+        if "pflow_class" in config.fs_vars:
             # Add 4 for Class variables
             self.num_fs_vars += 4
         self.net: nn.Module = load(f=config.file_path).module()

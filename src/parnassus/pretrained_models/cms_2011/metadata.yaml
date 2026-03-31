@@ -1,6 +1,34 @@
 name: CMS 2011 Flow v1
 max_particles: 400
 
+variables:
+  truth_vars_to_load:
+    - pt
+    - eta
+    - phi
+    - vx
+    - vy
+    - vz
+    - class
+  ctxt_vars:
+    - truth_ptrel
+    - truth_eta
+    - truth_phi
+    - truth_vx
+    - truth_vy
+    - truth_vz
+    - truth_class
+  ctxt_global_vars:
+    - means
+    - truth_ht
+    - truth_met_x
+    - truth_met_y
+    - ntruth
+    - pflow_ht
+    - pflow_met_x
+    - pflow_met_y
+    - npflow
+
 models:
   event:
     file_name: event.pt2
@@ -10,34 +38,11 @@ models:
       type: euler
       num_steps: 50
       reverse_time: false
-    variables:
-      truth_vars_to_load:
-        - pt
-        - eta
-        - phi
-        - vx
-        - vy
-        - vz
-        - class
-      fs_vars:
-        - pflow_ht
-        - pflow_met_x
-        - pflow_met_y
-        - npflow
-      ctxt_vars:
-        - truth_ptrel
-        - truth_eta
-        - truth_phi
-        - truth_vx
-        - truth_vy
-        - truth_vz
-        - truth_class
-      ctxt_global_vars:
-        - means
-        - truth_ht
-        - truth_met_x
-        - truth_met_y
-        - ntruth
+    fs_vars:
+      - pflow_ht
+      - pflow_met_x
+      - pflow_met_y
+      - npflow
   particle:
     file_name: particle.pt2
     version: v1
@@ -46,41 +51,14 @@ models:
       type: euler
       num_steps: 50
       reverse_time: true
-    variables:
-      truth_vars_to_load:
-        - pt
-        - eta
-        - phi
-        - vx
-        - vy
-        - vz
-        - class
-      fs_vars:
-        - pflow_ptrel
-        - pflow_eta
-        - pflow_phi
-        - pflow_vx
-        - pflow_vy
-        - pflow_vz
-        - pflow_class
-      ctxt_vars:
-        - truth_ptrel
-        - truth_eta
-        - truth_phi
-        - truth_vx
-        - truth_vy
-        - truth_vz
-        - truth_class
-      ctxt_global_vars:
-        - means
-        - truth_ht
-        - truth_met_x
-        - truth_met_y
-        - ntruth
-        - pflow_ht
-        - pflow_met_x
-        - pflow_met_y
-        - npflow
+    fs_vars:
+      - pflow_ptrel
+      - pflow_eta
+      - pflow_phi
+      - pflow_vx
+      - pflow_vy
+      - pflow_vz
+      - pflow_class
   impact:
     file_name: impact.pt2
     version: v1
@@ -89,35 +67,8 @@ models:
       type: euler
       num_steps: 50
       reverse_time: false
-    variables:
-      truth_vars_to_load:
-        - pt
-        - eta
-        - phi
-        - vx
-        - vy
-        - vz
-        - class
-      fs_vars:
-        - pflow_d0
-        - pflow_d0Error
-        - pflow_z0
-        - pflow_z0Error
-      ctxt_vars:
-        - truth_ptrel
-        - truth_eta
-        - truth_phi
-        - truth_vx
-        - truth_vy
-        - truth_vz
-        - truth_class
-      ctxt_global_vars:
-        - means
-        - truth_ht
-        - truth_met_x
-        - truth_met_y
-        - ntruth
-        - pflow_ht
-        - pflow_met_x
-        - pflow_met_y
-        - npflow
+    fs_vars:
+      - pflow_d0
+      - pflow_d0Error
+      - pflow_z0
+      - pflow_z0Error

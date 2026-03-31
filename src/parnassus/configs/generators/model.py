@@ -6,28 +6,6 @@ from parnassus.utils.typing import VarNameTuple
 
 
 @dataclass(slots=True)
-class VariablesConfig:
-    """Configuration for variables used by a model.
-
-    Parameters
-    ----------
-    truth_vars_to_load : VarNameTuple
-        Tuple of truth-level variable names to load.
-    fs_vars : VarNameTuple
-        Tuple of fastsim variable names.
-    ctxt_vars : VarNameTuple
-        Tuple of context variable names.
-    ctxt_global_vars : VarNameTuple
-        Tuple of global context variable names.
-    """
-
-    truth_vars_to_load: VarNameTuple
-    fs_vars: VarNameTuple
-    ctxt_vars: VarNameTuple
-    ctxt_global_vars: VarNameTuple
-
-
-@dataclass(slots=True)
 class SamplerConfig:
     """Configuration for the sampler used with a model.
 
@@ -64,5 +42,18 @@ class ModelConfig:
 
     name: str
     file_path: Path
-    variables_config: VariablesConfig
+    fs_vars: VarNameTuple
+    version: str
+    timestamp: str
     sampler_config: SamplerConfig = field(default_factory=SamplerConfig)
+
+    @property
+    def fs_vars_stripped(self) -> VarNameTuple:
+        """Get fs_vars with "pflow_" prefix stripped.
+
+        Returns
+        -------
+        VarNameTuple
+            Tuple of fs variable names with "pflow_" prefix removed.
+        """
+        return tuple(var.replace("pflow_", "") for var in self.fs_vars)

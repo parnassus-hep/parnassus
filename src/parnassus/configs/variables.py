@@ -1,5 +1,6 @@
 """Variable requirements configuration for models and datasets."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,27 @@ class VariableRequirements:
     ctxt_global_vars: VarNameTuple
 
     @classmethod
+    def from_dict(cls, config: dict[str, Sequence[str]]) -> "VariableRequirements":
+        """Create VariableRequirements from a dictionary.
+
+        Parameters
+        ----------
+        config : dict[str, list[str]]
+            Dictionary containing variable lists with keys 'truth_vars_to_load',
+            'ctxt_vars', and 'ctxt_global_vars'.
+
+        Returns
+        -------
+        VariableRequirements
+            A new VariableRequirements instance populated from the dictionary.
+        """
+        return cls(
+            truth_vars_to_load=tuple(config.get("truth_vars_to_load", [])),
+            ctxt_vars=tuple(config.get("ctxt_vars", [])),
+            ctxt_global_vars=tuple(config.get("ctxt_global_vars", [])),
+        )
+
+    @classmethod
     def from_model_config(cls, generator_config: "GeneratorConfig") -> "VariableRequirements":
         """Create VariableRequirements from a GeneratorConfig.
 
@@ -35,24 +57,23 @@ class VariableRequirements:
         VariableRequirements
             A new VariableRequirements instance with variables from the generator.
 
-        Raises
-        ------
-        TypeError
-            If generator type doesn't support variable extraction.
         """
         # For neural generators, extract from model configs
         from parnassus.configs.generators import NeuralGeneratorConfig  # noqa: PLC0415
 
         if isinstance(generator_config, NeuralGeneratorConfig):
+            variable_requirements = generator_config.variable_requirements
             return cls(
-                truth_vars_to_load=generator_config.truth_vars_to_load,
-                ctxt_vars=generator_config.event_model_config.variables_config.ctxt_vars,
-                ctxt_global_vars=generator_config.event_model_config.variables_config.ctxt_global_vars,
+                truth_vars_to_load=variable_requirements.truth_vars_to_load,
+                ctxt_vars=variable_requirements.ctxt_vars,
+                ctxt_global_vars=variable_requirements.ctxt_global_vars,
             )
-        # For future generator types, provide defaults or raise error
-        raise TypeError(
-            "Variable extraction not implemented for generator type: "
-            f"{type(generator_config).__name__}"
+
+        # For non-neural generators, we don't have variable requirements, so return empty.
+        return cls(
+            truth_vars_to_load=(),
+            ctxt_vars=(),
+            ctxt_global_vars=(),
         )
 
     @property
@@ -64,7 +85,7 @@ class VariableRequirements:
         list[str]
             List of context variable names without 'truth_' prefix.
         """
-        return [var.replace("truth_", "") for var in self.ctxt_vars]
+        return [var.removeprefix("truth_") for var in self.ctxt_vars]
 
     @property
     def ctxt_global_vars_stripped(self) -> list[str]:
@@ -75,4 +96,4 @@ class VariableRequirements:
         list[str]
             List of global context variable names without 'truth_' prefix.
         """
-        return [var.replace("truth_", "") for var in self.ctxt_global_vars]
+        return [var.removeprefix("truth_") for var in self.ctxt_global_vars if "pflow" not in var]

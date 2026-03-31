@@ -41,16 +41,6 @@ class ParametricGeneratorConfig(GeneratorConfig):
         default_factory=lambda: ["pt", "eta", "phi", "vx", "vy", "vz", "class"]
     )
 
-    def get_output_vars(self) -> tuple[list[str], list[str]]:
-        """Get output variable names for parametric generator.
-
-        Returns
-        -------
-        tuple[list[str], list[str]]
-            Tuple of (truth_output_vars, pflow_output_vars).
-        """
-        return self._truth_output_vars, self._pflow_output_vars
-
     def get_max_particles(self) -> int:
         """Get maximum particles for parametric generator.
 

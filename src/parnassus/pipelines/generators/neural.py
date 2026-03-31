@@ -63,8 +63,8 @@ class NeuralEventGenerator:
         # Use the transform registry to get VarTransform instances
         self.var_transform_dict = config.transform_registry.to_var_transform_dict()
 
-        self.fs_npart_pos = config.event_model_config.variables_config.fs_vars.index("npflow")
-        self.fs_ht_pos = config.event_model_config.variables_config.fs_vars.index("pflow_ht")
+        self.fs_npart_pos = config.event_model_config.fs_vars.index("npflow")
+        self.fs_ht_pos = config.event_model_config.fs_vars.index("pflow_ht")
 
         self.ht_shift = self.var_transform_dict["ht"].shift
         self.ht_scale = self.var_transform_dict["ht"].scale
@@ -72,9 +72,9 @@ class NeuralEventGenerator:
 
         self.unscaler = Unscaler(
             transform_dict=self.var_transform_dict,
-            ctxt_vars=config.particle_model_config.variables_config.ctxt_vars,
-            fs_vars=config.particle_model_config.variables_config.fs_vars,
-            ctxt_global_vars=config.particle_model_config.variables_config.ctxt_global_vars,
+            ctxt_vars=config.variable_requirements.ctxt_vars,
+            fs_vars=config.particle_model_config.fs_vars,
+            ctxt_global_vars=config.variable_requirements.ctxt_global_vars,
         )
 
         # State managed across initialize / process_batch / get_events
@@ -97,14 +97,6 @@ class NeuralEventGenerator:
     @property
     def max_particles(self) -> int:
         return self.config.max_particles
-
-    @property
-    def truth_output_vars(self) -> list[str]:
-        return self.config.truth_output_vars
-
-    @property
-    def pflow_output_vars(self) -> list[str]:
-        return self.config.pflow_output_vars
 
     @property
     def _event_sampler_steps(self) -> int | None:
@@ -197,8 +189,8 @@ class NeuralEventGenerator:
         n_batches : int
             Total number of batches (for progress bar).
         """
-        truth_vars = [*self.truth_output_vars, "ind"]
-        pflow_vars = [*self.pflow_output_vars, "ind"]
+        truth_vars = [*self.config.truth_output_vars, "ind"]
+        pflow_vars = [*self.config.pflow_output_vars, "ind"]
 
         def _zeros(var_names: list[str]) -> dict[str, np.ndarray]:
             return {

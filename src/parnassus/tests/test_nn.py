@@ -14,7 +14,7 @@ import pytest
 import torch
 from torch import Tensor
 
-from parnassus.configs.generators.model import ModelConfig, SamplerConfig, VariablesConfig
+from parnassus.configs.generators.model import ModelConfig, SamplerConfig
 from parnassus.nn.sampler import EulerSampler
 from parnassus.nn.wrapper import ModelWrapper
 from parnassus.utils.mock import get_mock_input_data, get_mock_model_file
@@ -45,13 +45,6 @@ def _create_model_config(model_path: str, mode: str = "part") -> ModelConfig:
         ctxt_vars = ("truth_pt", "truth_eta", "truth_phi")
         ctxt_global_vars = ("met_pt", "met_phi")
 
-    variables_config = VariablesConfig(
-        truth_vars_to_load=("truth_pt", "truth_eta", "truth_phi"),
-        fs_vars=fs_vars,
-        ctxt_vars=ctxt_vars,
-        ctxt_global_vars=ctxt_global_vars,
-    )
-
     sampler_config = SamplerConfig(
         type="euler",
         num_steps=2,
@@ -61,7 +54,9 @@ def _create_model_config(model_path: str, mode: str = "part") -> ModelConfig:
     return ModelConfig(
         name=f"mock_{mode}_model",
         file_path=Path(model_path),
-        variables_config=variables_config,
+        fs_vars=fs_vars,
+        version="v1",
+        timestamp="000000000000",
         sampler_config=sampler_config,
     )
 
@@ -192,12 +187,7 @@ def test_model_wrapper_num_fs_vars_calculation():
     assert model.num_fs_vars == 9
 
     # Test without pflow_phi and pflow_class
-    config.variables_config = VariablesConfig(
-        truth_vars_to_load=("truth_pt", "truth_eta"),
-        fs_vars=("pflow_pt", "pflow_eta"),
-        ctxt_vars=("truth_pt", "truth_eta"),
-        ctxt_global_vars=("met_pt",),
-    )
+    config.fs_vars = ("pflow_pt", "pflow_eta")
     model_path_simple = get_mock_model_file(mode="part")
     config.file_path = Path(model_path_simple)
     model = ModelWrapper(config)
@@ -456,12 +446,9 @@ def test_model_wrapper_with_invalid_path():
     config = ModelConfig(
         name="invalid_model",
         file_path=Path("/nonexistent/path/model.pt2"),
-        variables_config=VariablesConfig(
-            truth_vars_to_load=("pt",),
-            fs_vars=("pflow_pt",),
-            ctxt_vars=("truth_pt",),
-            ctxt_global_vars=("met_pt",),
-        ),
+        fs_vars=("pflow_pt",),
+        version="v1",
+        timestamp="000000000000",
         sampler_config=SamplerConfig(),
     )
 
