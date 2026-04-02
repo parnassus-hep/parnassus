@@ -166,7 +166,7 @@ class NeuralEventGenerator:
     def __enter__(self) -> Self:
         return self
 
-    def __exit__(self, *_) -> None:
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
         # Close any open progress display (no-op if get_events() already did so)
         if self._exit_stack is not None:
             self._exit_stack.close()

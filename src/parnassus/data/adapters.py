@@ -74,7 +74,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self.full_data_array: dict[str, FloatArray] = {}
         self.n_truth_particles: IntArray
         self.truth_cumsum: LongArray
-        self.eventNumber: IntArray
+        self.eventNumber: LongArray
 
         if not Path(cfg.file_path).exists():
             raise FileNotFoundError(f"Trying to load file {cfg.file_path}, no file exists!")

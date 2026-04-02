@@ -20,7 +20,7 @@ class EventGenerator(Protocol):
         """Enter the generation context."""
         ...
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
         """Exit the generation context, releasing resources."""
         ...
 
