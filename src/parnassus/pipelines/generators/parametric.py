@@ -17,13 +17,19 @@ from parnassus.configs.scheme import (
     GenTrackCollection,
 )
 from parnassus.data.particle_io import ColumnMap
-from parnassus.torch_delphes.defaults import ATLASEnergyFlowDefault, CMSEnergyFlowDefault
+from parnassus.torch_delphes.defaults import (
+    ATLASEnergyFlowDefault,
+    CMSEnergyFlowDefault,
+)
 from parnassus.torch_delphes.defaults.base import DelphesBaseCard
 from parnassus.utils.logger import ProgressBar
 
 if TYPE_CHECKING:
     from parnassus.utils.typing import TensorDict
 
+T_SCALE_CONVERSION = (
+    1e-3 / 299792458.0
+)  # Convert mm/c to seconds for Delphes convention
 
 _CARD_REGISTRY: dict[str, type[DelphesBaseCard]] = {
     "cms": CMSEnergyFlowDefault,
@@ -91,7 +97,7 @@ class ParametricEventGenerator:
             self._exit_stack = None
             self._progress_bar = None
 
-        self.log.warning("[green]Resetting precision to float32.")
+        self.log.debug("[green]Resetting precision to float32.")
         torch.set_default_dtype(torch.float32)
         # Move card back to CPU to free GPU memory, if applicable
         self.to(torch.device("cpu"))
@@ -99,25 +105,28 @@ class ParametricEventGenerator:
     def initialize(self, n_events: int, n_batches: int) -> None:  # noqa: ARG002
         if self.config.seed is not None:
             torch.manual_seed(self.config.seed)
-        self.log.warning("[green]Setting precision to float64.")
+        self.log.debug("[green]Setting precision to float64.")
         torch.set_default_dtype(torch.float64)
         self.card.eval()
         self._events = []
         self._exit_stack = ExitStack()
         self._progress_bar = self._exit_stack.enter_context(ProgressBar())
-        self._task = self._progress_bar.add_task("[green]Parametric generation", total=n_batches)
+        self._task = self._progress_bar.add_task(
+            "[green]Parametric generation", total=n_batches
+        )
 
     @torch.inference_mode()
     def process_batch(self, batch: TensorDict) -> None:
         assert self._events is not None, "Call initialize() before process_batch()"
         assert self._progress_bar is not None
 
-        particles: torch.Tensor = batch["particles"].to(self.device)
-        if particles.shape[0] > 0:
-            results = self.card(particles)
+        all_particles: torch.Tensor = batch["all_particles"]
+        stable_particles: torch.Tensor = batch["stable_particles"].to(self.device)
+        if stable_particles.shape[0] > 0:
+            results = self.card(stable_particles)
             self._events.extend(
                 _tensors_to_gen_events(
-                    truth=particles,
+                    truth=all_particles,
                     pflow=results["EFlowObject"],
                     tracks=results["Track"],
                     towers=results["Tower"],
@@ -171,7 +180,9 @@ def _tensors_to_gen_events(
     events = [
         GenEvent(
             event_number=int(ev),
-            truth_particles=_make_particle_collection(truth_np, ev, "truth"),
+            truth_particles=_make_particle_collection(
+                truth_np, ev, "truth", fix_neutral_hadrons=True
+            ),
             pflow_particles=_make_particle_collection(
                 pflow_np, ev, "pflow", fix_neutral_hadrons=True
             ),
@@ -194,7 +205,9 @@ def _make_particle_collection(
     pdg_id = a[:, ColumnMap.PID].astype(np.int32)
     if fix_neutral_hadrons:
         pdg_id = pdg_id.copy()
-        pdg_id[pdg_id == 0] = 130  # K_L^0 for Delphes-convention neutral hadrons (PID=0)
+        pdg_id[pdg_id == 0] = (
+            130  # K_L^0 for Delphes-convention neutral hadrons (PID=0)
+        )
     return GenParticleCollection(
         name=name,
         pt=a[:, ColumnMap.PT].astype(np.float32),
@@ -202,15 +215,18 @@ def _make_particle_collection(
         phi=a[:, ColumnMap.PHI].astype(np.float32),
         mass=a[:, ColumnMap.MASS].astype(np.float32),
         pdg_id=pdg_id,
+        charge=a[:, ColumnMap.CHARGE].astype(np.int32),
         vx=a[:, ColumnMap.X].astype(np.float32),
         vy=a[:, ColumnMap.Y].astype(np.float32),
         vz=a[:, ColumnMap.Z].astype(np.float32),
-        t=a[:, ColumnMap.T].astype(np.float32),
+        t=(a[:, ColumnMap.T] * T_SCALE_CONVERSION).astype(np.float32),
         status=a[:, ColumnMap.STATUS].astype(np.int32),
     )
 
 
-def _make_track_collection(arr: np.ndarray, event_num: int) -> GenTrackCollection | None:
+def _make_track_collection(
+    arr: np.ndarray, event_num: int
+) -> GenTrackCollection | None:
     a = arr[_mask_for_event(arr, event_num)]
     if a.shape[0] == 0:
         return None
@@ -221,15 +237,18 @@ def _make_track_collection(arr: np.ndarray, event_num: int) -> GenTrackCollectio
         phi=a[:, ColumnMap.PHI].astype(np.float32),
         mass=a[:, ColumnMap.MASS].astype(np.float32),
         pdg_id=a[:, ColumnMap.PID].astype(np.int32),
+        charge=a[:, ColumnMap.CHARGE].astype(np.int32),
         vx=a[:, ColumnMap.X].astype(np.float32),
         vy=a[:, ColumnMap.Y].astype(np.float32),
         vz=a[:, ColumnMap.Z].astype(np.float32),
-        t=a[:, ColumnMap.T].astype(np.float32),
+        t=(a[:, ColumnMap.T] * T_SCALE_CONVERSION).astype(np.float32),
         status=a[:, ColumnMap.STATUS].astype(np.int32),
     )
 
 
-def _make_tower_collection(arr: np.ndarray, event_num: int) -> GenTowerCollection | None:
+def _make_tower_collection(
+    arr: np.ndarray, event_num: int
+) -> GenTowerCollection | None:
     a = arr[_mask_for_event(arr, event_num)]
     if a.shape[0] == 0:
         return None
@@ -238,8 +257,10 @@ def _make_tower_collection(arr: np.ndarray, event_num: int) -> GenTowerCollectio
     return GenTowerCollection(
         name="towers",
         e=e,
-        et=(e / np.cosh(eta)).astype(np.float32),  # ET = E / cosh(η), matching Delphes convention
+        et=(e / np.cosh(eta)).astype(
+            np.float32
+        ),  # ET = E / cosh(η), matching Delphes convention
         eta=eta,
         phi=a[:, ColumnMap.PHI].astype(np.float32),
-        t=a[:, ColumnMap.T].astype(np.float32),
+        t=(a[:, ColumnMap.T] * T_SCALE_CONVERSION).astype(np.float32),
     )

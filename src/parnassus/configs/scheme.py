@@ -96,8 +96,10 @@ class GenParticleCollection:
         if self.mass is None:
             self.mass = np.zeros_like(self.pt)
         if self.pdg_id is not None:
-            self.class_id = np.array([pid_to_class(el) for el in self.pdg_id], dtype=np.int32)
-            self.charge = np.array([np.sign(el) for el in self.pdg_id], dtype=np.int32)
+            if self.class_id is None:
+                self.class_id = np.array([pid_to_class(el) for el in self.pdg_id], dtype=np.int32)
+            if self.charge is None:
+                self.charge = np.array([np.sign(el) for el in self.pdg_id], dtype=np.int32)
         if self.pdg_id is None and self.class_id is not None:
             self.pdg_id = class_to_pid_vectorized(self.class_id)
         for key in self.__slots__:

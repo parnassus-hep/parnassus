@@ -37,6 +37,8 @@ from .transforms import (
 if TYPE_CHECKING:
     from parnassus.utils.typing import IntArray, LongArray
 
+_pid_to_class_vec = np.vectorize(pid_to_class)
+
 
 # ==================== NEURAL ADAPTER ====================
 
@@ -69,7 +71,9 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self.cfg = cfg
         self.var_transform_dict: dict[str, VarTransform] = var_transform_dict or {}
         self.ctxt_vars: list[str] = cfg.variable_requirements.ctxt_vars_stripped
-        self.ctxt_global_vars: list[str] = cfg.variable_requirements.ctxt_global_vars_stripped
+        self.ctxt_global_vars: list[str] = (
+            cfg.variable_requirements.ctxt_global_vars_stripped
+        )
 
         self.full_data_array: dict[str, FloatArray] = {}
         self.n_truth_particles: IntArray
@@ -77,7 +81,9 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self.eventNumber: LongArray
 
         if not Path(cfg.file_path).exists():
-            raise FileNotFoundError(f"Trying to load file {cfg.file_path}, no file exists!")
+            raise FileNotFoundError(
+                f"Trying to load file {cfg.file_path}, no file exists!"
+            )
 
         self._load_data(raw)
         preprocess_flat_arrays(self.full_data_array, SCALAR_KEYS)
@@ -117,51 +123,47 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
             if particles.shape[0] == 0:
                 continue
 
-            event_start = curr_particle_idx
-            num_particles = 0
-
             pids_np = particles[:, ColumnMap.PID].numpy()
+            status_np = particles[:, ColumnMap.STATUS].numpy()
             pt_np = particles[:, ColumnMap.PT].numpy()
             eta_np = particles[:, ColumnMap.ETA].numpy()
             phi_np = particles[:, ColumnMap.PHI].numpy()
 
-            x_np = (
-                particles[:, ColumnMap.X].numpy() if "vx" in self.cfg.truth_vars_to_load else None
+            # Neural selection cuts
+            mask = (
+                (status_np == 1)
+                & (np.abs(eta_np) < 2.7)
+                & (pt_np > 0.25)
+                & ~np.isin(np.abs(pids_np), [12, 14, 16])
             )
-            y_np = (
-                particles[:, ColumnMap.Y].numpy() if "vy" in self.cfg.truth_vars_to_load else None
-            )
-            z_np = (
-                particles[:, ColumnMap.Z].numpy() if "vz" in self.cfg.truth_vars_to_load else None
-            )
-
-            for i in range(particles.shape[0]):
-                pid = int(pids_np[i])
-                pt = float(pt_np[i])
-                eta = float(eta_np[i])
-
-                # Neural selection cuts (status==1 already guaranteed by HepMCRawDataset)
-                if abs(eta) >= 2.7 or pt <= 0.25 or abs(pid) in {12, 14, 16}:
-                    continue
-
-                self.full_data_array["pt"][curr_particle_idx] = pt
-                self.full_data_array["eta"][curr_particle_idx] = eta
-                self.full_data_array["phi"][curr_particle_idx] = float(phi_np[i])
-                self.full_data_array["class"][curr_particle_idx] = float(pid_to_class(pid))
-                if x_np is not None:
-                    self.full_data_array["vx"][curr_particle_idx] = float(x_np[i])
-                if y_np is not None:
-                    self.full_data_array["vy"][curr_particle_idx] = float(y_np[i])
-                if z_np is not None:
-                    self.full_data_array["vz"][curr_particle_idx] = float(z_np[i])
-
-                num_particles += 1
-                curr_particle_idx += 1
+            num_particles = int(mask.sum())
 
             if num_particles >= self.cfg.max_particles:
                 # Drop this event — too many particles
-                curr_particle_idx -= num_particles
                 continue
+            
+            # Write particle data to flat arrays
+            event_start = curr_particle_idx
+            end = curr_particle_idx + num_particles
+            self.full_data_array["pt"][event_start:end] = pt_np[mask]
+            self.full_data_array["eta"][event_start:end] = eta_np[mask]
+            self.full_data_array["phi"][event_start:end] = phi_np[mask]
+            self.full_data_array["class"][event_start:end] = _pid_to_class_vec(
+                pids_np[mask].astype(int)
+            )
+            if "vx" in self.cfg.truth_vars_to_load:
+                self.full_data_array["vx"][event_start:end] = particles[
+                    :, ColumnMap.X
+                ].numpy()[mask]
+            if "vy" in self.cfg.truth_vars_to_load:
+                self.full_data_array["vy"][event_start:end] = particles[
+                    :, ColumnMap.Y
+                ].numpy()[mask]
+            if "vz" in self.cfg.truth_vars_to_load:
+                self.full_data_array["vz"][event_start:end] = particles[
+                    :, ColumnMap.Z
+                ].numpy()[mask]
+            curr_particle_idx = end
 
             pt_slice = self.full_data_array["pt"][event_start:curr_particle_idx]
             ht = float(pt_slice.sum())
@@ -204,7 +206,9 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
             self.cfg.max_particles,
             self.var_transform_dict,
         )
-        event_number = torch.tensor(self.eventNumber[idx], dtype=torch.long).unsqueeze(-1)
+        event_number = torch.tensor(self.eventNumber[idx], dtype=torch.long).unsqueeze(
+            -1
+        )
         return {
             "ctxt_data": ctxt_data,
             "ctxt_global_data": ctxt_global_data,
@@ -275,8 +279,11 @@ def parametric_collate_fn(
     else:
         all_particles = torch.zeros((0, N_FEATURES), dtype=torch.float32)
 
+    stable_particles = all_particles[all_particles[:, ColumnMap.STATUS] == 1]
+
     return {
-        "particles": all_particles,
+        "all_particles": all_particles,
+        "stable_particles": stable_particles,
         "event_numbers": event_numbers,
         "n_particles": n_particles,
     }

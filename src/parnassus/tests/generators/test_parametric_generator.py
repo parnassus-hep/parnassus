@@ -22,7 +22,7 @@ from parnassus.pipelines.generators.parametric import (
 # Helpers
 # ---------------------------------------------------------------------------
 
-_STUB_LOG = SimpleNamespace(info=lambda *_: None, warning=lambda *_: None)
+_STUB_LOG = SimpleNamespace(info=lambda *_: None, warning=lambda *_: None, debug=lambda *_: None)
 
 
 def _make_config(
