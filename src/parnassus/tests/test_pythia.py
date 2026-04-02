@@ -63,7 +63,7 @@ def suppress_stdout_stderr():
 def compare_four_vectors(
     v_c: pyhepmc.FourVector, v_py: pyhepmc.FourVector, rel_tol: float = 1e-6, abs_tol: float = 1e-9
 ) -> tuple[bool, str]:
-    """Compare two four-vectors with tolerance."""  # noqa: DOC201
+    """Compare two four-vectors with tolerance."""
     for attr in ["x", "y", "z", "t"]:
         val_c = getattr(v_c, attr)
         val_py = getattr(v_py, attr)
@@ -87,7 +87,7 @@ def compare_particles(
     abs_tol: float = 1e-9,
     ignore_id: bool = False,
 ) -> tuple[bool, str]:
-    """Compare two particles for equivalence."""  # noqa: DOC201
+    """Compare two particles for equivalence."""
     # Check PDG ID
     if particle_c.pid != particle_py.pid:
         return (
@@ -284,7 +284,7 @@ def compare_events(
     # Check that vertices/topology match #######################
     # Build particle map by physics properties for vertex comparison
     def get_particle_signature(p: pyhepmc.GenParticle) -> str:
-        """Create a unique signature for a particle based on physics properties."""  # noqa: DOC201
+        """Create a unique signature for a particle based on physics properties."""
         return f"{p.pid}_{p.status}_{p.momentum.x:.6e}_{p.momentum.y:.6e}_{p.momentum.z:.6e}_{p.momentum.t:.6e}"
 
     # Check that vertices have equivalent connections

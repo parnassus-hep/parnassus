@@ -25,9 +25,7 @@ from parnassus.pipelines.generators.parametric import (
 _STUB_LOG = SimpleNamespace(info=lambda *_: None, warning=lambda *_: None, debug=lambda *_: None)
 
 
-def _make_config(
-    card: str = "cms", seed: int | None = None
-) -> ParametricGeneratorConfig:
+def _make_config(card: str = "cms", seed: int | None = None) -> ParametricGeneratorConfig:
     return ParametricGeneratorConfig(name="test", card=card, seed=seed)
 
 
@@ -102,12 +100,10 @@ def test_make_particle_collection_fixes_neutral_hadron_pid(fix_neutral_hadrons):
 
 
 def test_make_particle_collection_filters_by_event():
-    arr = np.concatenate(
-        [
-            _particle_tensor(2, event_number=1),
-            _particle_tensor(3, event_number=2),
-        ]
-    )
+    arr = np.concatenate([
+        _particle_tensor(2, event_number=1),
+        _particle_tensor(3, event_number=2),
+    ])
     assert len(_make_particle_collection(arr, event_num=1, name="truth")) == 2
     assert len(_make_particle_collection(arr, event_num=2, name="truth")) == 3
 
@@ -157,9 +153,7 @@ def test_tensors_to_gen_events_empty_branches_yield_none():
     truth = _particle_torch(2, event_number=1)
     empty = torch.zeros((0, N_FEATURES), dtype=torch.float64)
 
-    events = _tensors_to_gen_events(
-        truth=truth, pflow=truth, tracks=empty, towers=empty
-    )
+    events = _tensors_to_gen_events(truth=truth, pflow=truth, tracks=empty, towers=empty)
 
     assert len(events) == 1
     assert events[0].tracks is None
@@ -173,8 +167,8 @@ def test_tensors_to_gen_events_empty_branches_yield_none():
 
 def test_generator_init_dispatches_card():
     from parnassus.torch_delphes.defaults import (
-        CMSEnergyFlowDefault,
         ATLASEnergyFlowDefault,
+        CMSEnergyFlowDefault,
     )
 
     assert isinstance(

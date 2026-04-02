@@ -47,9 +47,7 @@ class HepMCRawDataset(Dataset):
 
     def _load(self) -> None:
         with ProgressBar() as progress:
-            task = progress.add_task(
-                "[green]Reading data from HepMC file", total=self.num_events
-            )
+            task = progress.add_task("[green]Reading data from HepMC file", total=self.num_events)
             with pyhepmc.open(self.file_path) as f:
                 for event_idx, event in enumerate(f):
                     if self.num_events is not None and event_idx >= self.num_events:

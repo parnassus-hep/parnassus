@@ -71,9 +71,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self.cfg = cfg
         self.var_transform_dict: dict[str, VarTransform] = var_transform_dict or {}
         self.ctxt_vars: list[str] = cfg.variable_requirements.ctxt_vars_stripped
-        self.ctxt_global_vars: list[str] = (
-            cfg.variable_requirements.ctxt_global_vars_stripped
-        )
+        self.ctxt_global_vars: list[str] = cfg.variable_requirements.ctxt_global_vars_stripped
 
         self.full_data_array: dict[str, FloatArray] = {}
         self.n_truth_particles: IntArray
@@ -81,9 +79,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self.eventNumber: LongArray
 
         if not Path(cfg.file_path).exists():
-            raise FileNotFoundError(
-                f"Trying to load file {cfg.file_path}, no file exists!"
-            )
+            raise FileNotFoundError(f"Trying to load file {cfg.file_path}, no file exists!")
 
         self._load_data(raw)
         preprocess_flat_arrays(self.full_data_array, SCALAR_KEYS)
@@ -141,7 +137,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
             if num_particles >= self.cfg.max_particles:
                 # Drop this event — too many particles
                 continue
-            
+
             # Write particle data to flat arrays
             event_start = curr_particle_idx
             end = curr_particle_idx + num_particles
@@ -152,17 +148,17 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
                 pids_np[mask].astype(int)
             )
             if "vx" in self.cfg.truth_vars_to_load:
-                self.full_data_array["vx"][event_start:end] = particles[
-                    :, ColumnMap.X
-                ].numpy()[mask]
+                self.full_data_array["vx"][event_start:end] = particles[:, ColumnMap.X].numpy()[
+                    mask
+                ]
             if "vy" in self.cfg.truth_vars_to_load:
-                self.full_data_array["vy"][event_start:end] = particles[
-                    :, ColumnMap.Y
-                ].numpy()[mask]
+                self.full_data_array["vy"][event_start:end] = particles[:, ColumnMap.Y].numpy()[
+                    mask
+                ]
             if "vz" in self.cfg.truth_vars_to_load:
-                self.full_data_array["vz"][event_start:end] = particles[
-                    :, ColumnMap.Z
-                ].numpy()[mask]
+                self.full_data_array["vz"][event_start:end] = particles[:, ColumnMap.Z].numpy()[
+                    mask
+                ]
             curr_particle_idx = end
 
             pt_slice = self.full_data_array["pt"][event_start:curr_particle_idx]
@@ -206,9 +202,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
             self.cfg.max_particles,
             self.var_transform_dict,
         )
-        event_number = torch.tensor(self.eventNumber[idx], dtype=torch.long).unsqueeze(
-            -1
-        )
+        event_number = torch.tensor(self.eventNumber[idx], dtype=torch.long).unsqueeze(-1)
         return {
             "ctxt_data": ctxt_data,
             "ctxt_global_data": ctxt_global_data,

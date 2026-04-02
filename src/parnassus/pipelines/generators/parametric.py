@@ -27,9 +27,7 @@ from parnassus.utils.logger import ProgressBar
 if TYPE_CHECKING:
     from parnassus.utils.typing import TensorDict
 
-T_SCALE_CONVERSION = (
-    1e-3 / 299792458.0
-)  # Convert mm/c to seconds for Delphes convention
+T_SCALE_CONVERSION = 1e-3 / 299792458.0  # Convert mm/c to seconds for Delphes convention
 
 _CARD_REGISTRY: dict[str, type[DelphesBaseCard]] = {
     "cms": CMSEnergyFlowDefault,
@@ -111,9 +109,7 @@ class ParametricEventGenerator:
         self._events = []
         self._exit_stack = ExitStack()
         self._progress_bar = self._exit_stack.enter_context(ProgressBar())
-        self._task = self._progress_bar.add_task(
-            "[green]Parametric generation", total=n_batches
-        )
+        self._task = self._progress_bar.add_task("[green]Parametric generation", total=n_batches)
 
     @torch.inference_mode()
     def process_batch(self, batch: TensorDict) -> None:
@@ -205,9 +201,7 @@ def _make_particle_collection(
     pdg_id = a[:, ColumnMap.PID].astype(np.int32)
     if fix_neutral_hadrons:
         pdg_id = pdg_id.copy()
-        pdg_id[pdg_id == 0] = (
-            130  # K_L^0 for Delphes-convention neutral hadrons (PID=0)
-        )
+        pdg_id[pdg_id == 0] = 130  # K_L^0 for Delphes-convention neutral hadrons (PID=0)
     return GenParticleCollection(
         name=name,
         pt=a[:, ColumnMap.PT].astype(np.float32),
@@ -224,9 +218,7 @@ def _make_particle_collection(
     )
 
 
-def _make_track_collection(
-    arr: np.ndarray, event_num: int
-) -> GenTrackCollection | None:
+def _make_track_collection(arr: np.ndarray, event_num: int) -> GenTrackCollection | None:
     a = arr[_mask_for_event(arr, event_num)]
     if a.shape[0] == 0:
         return None
@@ -246,9 +238,7 @@ def _make_track_collection(
     )
 
 
-def _make_tower_collection(
-    arr: np.ndarray, event_num: int
-) -> GenTowerCollection | None:
+def _make_tower_collection(arr: np.ndarray, event_num: int) -> GenTowerCollection | None:
     a = arr[_mask_for_event(arr, event_num)]
     if a.shape[0] == 0:
         return None
@@ -257,9 +247,7 @@ def _make_tower_collection(
     return GenTowerCollection(
         name="towers",
         e=e,
-        et=(e / np.cosh(eta)).astype(
-            np.float32
-        ),  # ET = E / cosh(η), matching Delphes convention
+        et=(e / np.cosh(eta)).astype(np.float32),  # ET = E / cosh(η), matching Delphes convention
         eta=eta,
         phi=a[:, ColumnMap.PHI].astype(np.float32),
         t=(a[:, ColumnMap.T] * T_SCALE_CONVERSION).astype(np.float32),

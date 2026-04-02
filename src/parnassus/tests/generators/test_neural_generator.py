@@ -5,7 +5,10 @@ import pytest
 import torch
 
 from parnassus.configs.generators.neural import NEURAL_GENERATORS_REGISTRY, NeuralGeneratorConfig
-from parnassus.pipelines.generators.neural import NeuralEventGenerator, _GenerationBuffers  # noqa: PLC2701
+from parnassus.pipelines.generators.neural import (
+    NeuralEventGenerator,
+    _GenerationBuffers,
+)
 from parnassus.utils.logger import setup_logger
 
 # ---------------------------------------------------------------------------

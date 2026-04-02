@@ -87,7 +87,7 @@ class StubEventGenerator:
             vy=vxyz,
             vz=vxyz,
             class_id=class_id,
-            **impact_kwargs, # pyright: ignore[reportArgumentType]
+            **impact_kwargs,  # pyright: ignore[reportArgumentType]
         )
 
         self._events.append(

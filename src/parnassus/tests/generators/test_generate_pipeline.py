@@ -11,7 +11,6 @@ from parnassus.utils.logger import ProgressBar
 
 from .conftest import StubDataLoader, StubEventGenerator
 
-
 # ---------------------------------------------------------------------------
 # Dataset building
 # ---------------------------------------------------------------------------
@@ -69,9 +68,7 @@ def test_build_dataset_validates_path_and_extension(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def test_pipeline_run_wires_dataset_dataloader_generator(
-    monkeypatch, stub_event_generator
-):
+def test_pipeline_run_wires_dataset_dataloader_generator(monkeypatch, stub_event_generator):
     """GenerationPipeline.run() calls initialize, process_batch, get_events in order."""
     config = SimpleNamespace(
         dataset_config=SimpleNamespace(max_particles=2, file_path="ignored"),
@@ -88,9 +85,7 @@ def test_pipeline_run_wires_dataset_dataloader_generator(
 
     assert len(events) == 1
     assert isinstance(events[0], GenEvent)
-    assert pipeline.get_accessors() == {
-        key: list(val) for key, val in accessors.items()
-    }
+    assert pipeline.get_accessors() == {key: list(val) for key, val in accessors.items()}
 
 
 def test_pipeline_get_accessors_is_empty_before_run():
