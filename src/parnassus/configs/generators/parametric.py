@@ -38,3 +38,9 @@ class ParametricGeneratorConfig(GeneratorConfig):
             Maximum number of particles per event.
         """
         return self.max_particles
+
+
+PARAMETRIC_GENERATORS_REGISTRY: dict[str, ParametricGeneratorConfig] = {
+    "cms": ParametricGeneratorConfig(name="cms", card="cms"),
+    "atlas": ParametricGeneratorConfig(name="atlas", card="atlas"),
+}
