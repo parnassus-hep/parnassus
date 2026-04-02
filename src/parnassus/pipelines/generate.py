@@ -117,7 +117,7 @@ class GenerationPipeline:
         if isinstance(self.config.generator_config, NeuralGeneratorConfig):
             return NeuralEventGenerator(self.config.generator_config, log).to(device)
         if isinstance(self.config.generator_config, ParametricGeneratorConfig):
-            return ParametricEventGenerator(self.config.generator_config).to(device)
+            return ParametricEventGenerator(self.config.generator_config, log).to(device)
         raise TypeError(
             f"Unsupported generator type: {type(self.config.generator_config).__name__}"
         )
