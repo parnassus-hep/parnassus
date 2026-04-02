@@ -51,6 +51,10 @@ lint.ignore = [
   "RET504"
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# Ignore specific rules in all files under the tests/ directory
+"src/parnassus/tests/*" = ["PLC2701", "D103", "DOC201", "PCL0415"]
+
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
