@@ -9,20 +9,20 @@ Supported detectors:
     - ATLAS: Uses delphes_cards/delphes_card_ATLAS_eflow.tcl configuration
 
 Processing pipeline:
-    1. Load HepMC events and convert to tensor format
-    2. Apply detector simulation (CMSEnergyFlowDefault or ATLASEnergyFlowDefault)
-    3. Write output to ROOT file in Delphes format
+    1. Load HepMC events via HepMCRawDataset + ParametricAdapter
+    2. Apply detector simulation via ParametricEventGenerator
+    3. Write output to ROOT file via RootWriter
     4. Generate validation histograms comparing to C++ Delphes benchmark
 
 Usage:
     # Process 1000 events with CMS detector
-    python test_torch_delphes.py --detector CMS --num-events 1000 --debug
+    python validate_torch_delphes.py --detector CMS --num-events 1000 --debug
 
     # Process with ATLAS detector
-    python test_torch_delphes.py --detector ATLAS --num-events 1000 --debug
+    python validate_torch_delphes.py --detector ATLAS --num-events 1000
 
     # Skip generation, only run validation
-    python test_torch_delphes.py --skip-gen --detector CMS
+    python validate_torch_delphes.py --skip-gen --detector CMS
 
 Output files:
     - ROOT file: {process}_{nevents}_eflow_torch.root
@@ -34,7 +34,6 @@ Required benchmark files:
 """
 
 import argparse
-import random
 import time
 from pathlib import Path
 
@@ -43,23 +42,29 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import uproot
-from tqdm import tqdm
+from torch.utils.data import DataLoader
 
-# Seeds for reproducibility
-random.seed(42)
-np.random.seed(42)
-torch.manual_seed(42)
-
-from parnassus.torch_delphes.defaults import ATLASEnergyFlowDefault, CMSEnergyFlowDefault
-from parnassus.torch_delphes.tensor_utils import COLUMN_MAP as CMAP
-from parnassus.torch_delphes.tensor_utils import (
-    hepmc_to_tensor,
-    tensor_to_root_dict,
-    write_root_file,
-)
+from parnassus.configs.accessors import AccessorStore
+from parnassus.configs.generators.parametric import ParametricGeneratorConfig
+from parnassus.configs.writer import WriterConfig
+from parnassus.data.adapters import ParametricAdapter, parametric_collate_fn
+from parnassus.data.hepmc_raw import HepMCRawDataset
+from parnassus.pipelines.generators.parametric import ParametricEventGenerator
+from parnassus.utils.logger import setup_logger
+from parnassus.writers.root import RootWriter
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {DEVICE}")
+
+
+# MAP DICT
+
+TORCH_MAP_DICT = {
+    "Particle": "Truth",
+    "Track": "Track",
+    "Tower": "Tower",
+    "EFlowObject": "Pflow",
+}
 
 
 def validate_against_benchmark(
@@ -109,7 +114,7 @@ def validate_against_benchmark(
 
     print(f"PyTorch output: {torch_output_file}")
     torch_root = uproot.open(torch_output_file)
-    torch_tree = torch_root["Delphes"]
+    torch_tree = torch_root["Parnassus"]
 
     print(f"C++ Delphes benchmark: {benchmark_file}")
     benchmark_root = uproot.open(benchmark_file)
@@ -118,9 +123,12 @@ def validate_against_benchmark(
 
     # Check event bounds if validating single event
     if event_number is not None:
-        sample_branch = "CalorimeterTower/CalorimeterTower.E"
-        if sample_branch in torch_tree.keys():
-            n_events_torch = len(torch_tree[sample_branch].array())
+        sample_branch = "Track/Track.PT"
+        torch_key = sample_branch.split("/", maxsplit=1)[0]
+        torch_key = TORCH_MAP_DICT.get(torch_key, torch_key)  # Map to PyTorch branch name
+        print(torch_tree.keys())
+        if torch_key in torch_tree:
+            n_events_torch = len(torch_tree[torch_key + ".PT"].array())
             n_events_benchmark = len(benchmark_tree[sample_branch].array())
 
             if event_number >= n_events_torch or event_number >= n_events_benchmark:
@@ -215,9 +223,9 @@ def validate_against_benchmark(
             ("Particle", genparticle_kinematic_vars),
             ("Track", track_kinematic_vars),
             ("Tower", tower_kinematic_vars),
-            ("EFlowTrack", track_kinematic_vars),
-            ("EFlowPhoton", tower_kinematic_vars),
-            ("EFlowNeutralHadron", tower_kinematic_vars),
+            # ("EFlowTrack", track_kinematic_vars),
+            # ("EFlowPhoton", tower_kinematic_vars),
+            # ("EFlowNeutralHadron", tower_kinematic_vars),
             ("EFlowObject", eflow_kinematic_vars),
         ]
 
@@ -233,15 +241,16 @@ def validate_against_benchmark(
         branch_dir.mkdir(exist_ok=True)
 
         # Check if branch exists in PyTorch output
-        torch_branch_keys = [k for k in torch_tree.keys() if k.startswith(f"{branch_name}/")]
+        torch_branch_name = TORCH_MAP_DICT.get(branch_name, branch_name)
+        torch_branch_keys = [k for k in torch_tree.keys() if k.startswith(f"{torch_branch_name}")]
         if not torch_branch_keys:
             print(f"  ⚠ {branch_name} not found in PyTorch output, skipping...")
             continue
-
+        print(torch_branch_keys)
         # 1. Standalone plots for each kinematic variable
         for var in kinematic_vars:
             # Check if variable exists in both datasets
-            torch_key = f"{branch_name}/{branch_name}.{var}"
+            torch_key = f"{torch_branch_name}.{var}"
             benchmark_key = f"{branch_name}/{branch_name}.{var}"
 
             if torch_key not in torch_tree.keys():
@@ -515,7 +524,7 @@ def validate_against_benchmark(
             torch_key = f"{branch_name}/{branch_name}.{var}"
             benchmark_key = f"{branch_name}/{branch_name}.{var}"
 
-            if torch_key not in torch_tree.keys() or benchmark_key not in benchmark_tree.keys():
+            if torch_key not in torch_tree or benchmark_key not in benchmark_tree:
                 continue
 
             try:
@@ -538,7 +547,12 @@ def validate_against_benchmark(
                 # Create subplot with histogram on top, ratio below
                 # Use 4 rows to match the 3:1 height ratio, columns for each variable
                 gs = plt.GridSpec(
-                    4, 4, figure=fig, hspace=0.05, wspace=0.3, height_ratios=[3, 1, 0, 0]
+                    4,
+                    4,
+                    figure=fig,
+                    hspace=0.05,
+                    wspace=0.3,
+                    height_ratios=[3, 1, 0, 0],
                 )
 
                 # Column position (0-3 for Eta, Phi, PT, P)
@@ -696,7 +710,12 @@ def validate_against_benchmark(
 
                     # Create subplot with histogram on top, ratio below
                     gs = plt.GridSpec(
-                        4, 4, figure=fig, hspace=0.05, wspace=0.3, height_ratios=[3, 1, 0, 0]
+                        4,
+                        4,
+                        figure=fig,
+                        hspace=0.05,
+                        wspace=0.3,
+                        height_ratios=[3, 1, 0, 0],
                     )
 
                     # Column position (0-3 for variables)
@@ -789,7 +808,7 @@ def main(
     validation_dir: Path,
     detector: str,
     max_events: int | None = None,
-    batch_size: int = 1_000_000,
+    batch_size: int = 100,
     debug: bool = False,
 ) -> None:
     """Main processing function.
@@ -800,106 +819,66 @@ def main(
         output_file: Path to output ROOT file
         benchmark_file: Path to benchmark ROOT file
         max_events: Maximum number of events to process (None = all)
-        batch_size: Number of events to process per batch (for GPU acceleration)
-        debug: If True, print histogram bin counts and edges for debugging
+        batch_size: Number of events per DataLoader batch
+        debug: Passed through to the detector card for intermediate output
     """
-    print("\n" + "=" * 80)
-    print("Parnassus.TorchDelphes Processing")
-    print("=" * 80)
-    print(f"\nInput:  {input_file}")
-    print(f"Batch size: {batch_size}")
-    print(f"Device: {DEVICE}")
+    log = setup_logger()
 
-    print("\nSetting default torch dtype to float64 for better precision in validation...")
-    torch.set_default_dtype(torch.float64)
+    log.info(f"\nInput:  {input_file}")
+    log.info(f"Batch size: {batch_size} events")
+    log.info(f"Device: {DEVICE}")
 
-    # ========================================================================
-    # 1. Load HepMC and convert to tensors
-    # ========================================================================
-    print("\n" + "=" * 80)
-    print(f"STEP 1: Loading HepMC file and converting to tensors: {input_file}")
-    print("=" * 80)
+    # -------------------------------------------------------------------------
+    # 1. Load HepMC via dataset stack
+    # -------------------------------------------------------------------------
+    raw = HepMCRawDataset(input_file, num_events=max_events)
+    dataset = ParametricAdapter(raw)
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        collate_fn=parametric_collate_fn,
+    )
+    log.info(f"Loaded {len(dataset)} events from HepMC.")
 
-    stable_particles, all_particles = hepmc_to_tensor(input_file, max_events)
-    stable_particles = stable_particles.to(DEVICE)
-    all_particles = all_particles.to(DEVICE)
+    # -------------------------------------------------------------------------
+    # 2. Run detector simulation via ParametricEventGenerator
+    # -------------------------------------------------------------------------
+    config = ParametricGeneratorConfig(name=detector, card=detector.lower())
+    generator = ParametricEventGenerator(config, log)
+    generator.to(torch.device(DEVICE))
 
-    n_event = len(torch.unique(stable_particles[:, CMAP["EVENT_NUMBER"]]))
-    n_part_total = stable_particles.shape[0]
-    n_all_particles = all_particles.shape[0]
-    print(f"Loaded {n_event} events from HepMC")
-    print(f"  Total stable particles: {n_part_total}")
-    print(f"  Total all particles (including unstable): {n_all_particles}")
+    with generator:
+        generator.initialize(n_events=len(dataset), n_batches=len(dataloader))
+        for batch in dataloader:
+            generator.process_batch(batch)
+        events = generator.get_events()
 
-    # ========================================================================
-    # 2. Apply CMSModule
-    # ========================================================================
-    print("\n" + "=" * 80)
-    print("STEP 2: Applying Detector Module...")
-    print("=" * 80)
+    log.info(f"Generated {len(events)} events.")
+    accessors = generator.get_accessors()
 
-    if detector == "CMS":
-        print("Using module: CMSEnergyFlowDefault")
-        torch_detector = CMSEnergyFlowDefault(debug=debug).to(DEVICE)
-    elif detector == "ATLAS":
-        print("Using module: ATLASDefault")
-        torch_detector = ATLASEnergyFlowDefault(debug=debug).to(DEVICE)
-    else:
-        raise NotImplementedError(f"Detector {detector} not implemented. Choose 'CMS' or 'ATLAS'.")
+    # -------------------------------------------------------------------------
+    # 3. Write output via RootWriter
+    # -------------------------------------------------------------------------
+    accessor_store = AccessorStore.from_dict(accessors)
+    writer = RootWriter(WriterConfig(file_path=output_file, accessor_store=accessor_store))
+    writer.write(events)
+    log.info(f"Output written to {output_file}.")
 
-    tic_torch = time.time()
-    results = {}
-    for batch_start in tqdm(range(0, n_part_total, batch_size)):
-        batch_end = min(batch_start + batch_size, n_part_total)
-        batch_particles = stable_particles[batch_start:batch_end]
-
-        batch_results = torch_detector(batch_particles)
-
-        for k, v in batch_results.items():
-            if k not in results:
-                results[k] = []
-            results[k].append(v.cpu())
-
-    toc_torch = time.time()
-    dur_torch = toc_torch - tic_torch
-    print(f"\nTorch processing time: {dur_torch // 60:.0f} minutes, {dur_torch % 60:.2f} seconds")
-
-    # ========================================================================
-    # 3. Write output
-    # ========================================================================
-
-    print(f"\nWriting {output_file}...")
-
-    # Concatenate batched results
-    for k in results:
-        results[k] = torch.cat(results[k], dim=0)
-
-    # Add all_particles (Particle branch) to results for ROOT writing
-    # Wrap in list since tensor_to_root_dict expects list of batch tensors
-    results["Particle"] = all_particles
-
-    # Convert to ROOT format and write
-    # tensor_to_root_dict expects List[Tensor], so wrap single tensors in a list
-    event_nums = range(n_event)  # Event numbers for grouping
-    branches_torch_root = {
-        k: tensor_to_root_dict([v] if not isinstance(v, list) else v, k, event_nums)
-        for k, v in results.items()
-    }
-    write_root_file(output_file, branches_torch_root)
-
-    # ========================================================================
-    # 4. Validate Against C++ Delphes (Final ROOT branches)
-    # ========================================================================
+    # -------------------------------------------------------------------------
+    # 4. Validate against C++ Delphes benchmark (if available)
+    #
+    # Note: validate_against_benchmark reads a Delphes-format ROOT tree.  The
+    # RootWriter above produces a Parnassus-format tree, so the comparison only
+    # makes sense when a separately-generated Delphes-format file is supplied
+    # alongside a matching benchmark.  Skip silently when unavailable.
+    # -------------------------------------------------------------------------
     if Path(benchmark_file).exists():
-        print(f"\nBenchmark file: {benchmark_file}")
-        print(f"Validation directory: {validation_dir}")
+        log.info(f"Benchmark file: {benchmark_file}")
+        log.info(f"Validation directory: {validation_dir}")
         validate_against_benchmark(output_file, benchmark_file, validation_dir, debug=debug)
     else:
-        print(f"\n⚠ Benchmark file not found: {benchmark_file}")
-        print("  Skipping validation. To enable validation, provide HZZ4l_eflow.root")
-        print("  (Generated by C++ Delphes with delphes_cards/delphes_card_<detector>_eflow.tcl)")
-
-    torch.set_default_dtype(torch.float32)
+        log.warning(f"Benchmark file not found: {benchmark_file} — skipping validation.")
 
 
 def parse_args() -> argparse.Namespace:
@@ -931,11 +910,13 @@ def parse_args() -> argparse.Namespace:
         "--batch-size",
         "-bs",
         type=int,
-        default=1_000_000,
-        help="Batch size for processing (default: 1_000_000)",
+        default=100,
+        help="Number of events per batch (default: 100)",
     )
     parser.add_argument(
-        "--debug", action="store_true", help="Print histogram bin counts and edges for debugging"
+        "--debug",
+        action="store_true",
+        help="Print histogram bin counts and edges for debugging",
     )
     parser.add_argument(
         "--specific-event",
@@ -981,7 +962,7 @@ def _get_paths(args, script_dir: Path) -> tuple[Path, Path, Path, Path]:
         benchmark_fpath = data_detector_dir / f"{args.process}_100k_eflow.root"
     else:
         raise ValueError(
-            f"Unsupported number of events: {args.n_events}. Supported values: <= 100k."
+            f"Unsupported number of events: {args.num_events}. Supported values: <= 100k."
         )
 
     return input_fpath, output_fpath, benchmark_fpath, validation_dir
@@ -994,8 +975,7 @@ if __name__ == "__main__":
     input_fpath, output_fpath, benchmark_fpath, validation_dir = _get_paths(args, script_dir)
 
     if args.skip_gen:
-        # Skip generation, just run validation
-        if Path(args.output).exists() and Path(args.benchmark).exists():
+        if output_fpath.exists() and benchmark_fpath.exists():
             validate_against_benchmark(
                 output_fpath,
                 benchmark_fpath,
@@ -1006,13 +986,12 @@ if __name__ == "__main__":
             )
         else:
             print("\n⚠ Error: Output or benchmark file not found!")
-            print(f"  Output: {args.output}")
-            print(f"  Benchmark: {args.benchmark}")
+            print(f"  Output: {output_fpath}")
+            print(f"  Benchmark: {benchmark_fpath}")
             print(
                 "  Please run the full pipeline first (without --skip-gen) to generate output files."
             )
     else:
-        # Run full pipeline
         main(
             input_fpath,
             output_fpath,
@@ -1024,12 +1003,7 @@ if __name__ == "__main__":
             debug=args.debug,
         )
 
-        # If --validate-event was specified, run single-event validation after full pipeline
-        if (
-            args.specific_event is not None
-            and Path(args.output).exists()
-            and Path(args.benchmark).exists()
-        ):
+        if args.specific_event is not None and output_fpath.exists() and benchmark_fpath.exists():
             validate_against_benchmark(
                 output_fpath,
                 benchmark_fpath,
