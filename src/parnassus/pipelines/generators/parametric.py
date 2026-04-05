@@ -217,6 +217,32 @@ class ParametricEventGenerator:
 # ---------------------------------------------------------------------------
 
 
+def _split_by_event(arr: np.ndarray) -> dict[int, np.ndarray]:
+    """Split a concatenated multi-event array into per-event sub-arrays.
+
+    Uses ``np.unique`` + ``np.split`` for a single O(rows) pass rather than
+    one boolean scan per event.  Assumes rows for each event are contiguous,
+    which is guaranteed by ``ParametricAdapter`` / torch_delphes cards.
+
+    Parameters
+    ----------
+    arr : np.ndarray
+        Array of shape (N_rows, N_features) in ColumnMap format, containing rows for
+        multiple events concatenated together. Must include ColumnMap.EVENT_NUMBER.
+
+    Returns
+    -------
+    dict[int, np.ndarray]
+        Mapping from event number to sub-array of rows for that event.
+    """
+    if arr.shape[0] == 0:
+        return {}
+    event_col = arr[:, ColumnMap.EVENT_NUMBER].astype(np.int32)
+    unique_evs, first_idx = np.unique(event_col, return_index=True)
+    sub_arrays = np.split(arr, first_idx[1:])
+    return {int(ev): sub for ev, sub in zip(unique_evs, sub_arrays, strict=True)}
+
+
 def _tensors_to_gen_events(
     truth: torch.Tensor,
     results: dict[str, torch.Tensor],
@@ -242,7 +268,9 @@ def _tensors_to_gen_events(
     truth_np = truth.cpu().numpy()
     pflow_np = results["EFlowObject"].cpu().numpy()
 
-    # Pre-convert all extra tensors to numpy once, outside the per-event loop.
+    # Convert tensors to numpy once, then pre-split every array by event number.
+    # This replaces O(N_events x N_arrays) full-array boolean scans with a single
+    # O(rows) pass per array.
     extra_np: dict[str, np.ndarray] = {
         key: tensor.cpu().numpy()
         for key, tensor in results.items()
@@ -251,28 +279,31 @@ def _tensors_to_gen_events(
         and (debug or key not in _NORMAL_MODE_SKIP)
     }
 
-    event_nums = np.unique(truth_np[:, ColumnMap.EVENT_NUMBER].astype(np.int32))
-    events = []
-    for ev in event_nums:
-        collections: dict = {}
+    truth_splits = _split_by_event(truth_np)
+    pflow_splits = _split_by_event(pflow_np)
+    extra_splits = {key: _split_by_event(arr) for key, arr in extra_np.items()}
 
-        for key, arr in extra_np.items():
-            if key in _TOWER_OUTPUT_KEYS:
-                col = _make_tower_collection(arr, ev, name=key)
-            elif key == "Track":
-                col = _make_track_collection(arr, ev)
-            else:
-                col = _make_particle_collection(arr, ev, name=key) if arr.shape[0] > 0 else None
-            if col is not None:
-                collections[key] = col
+    empty: np.ndarray = np.empty((0, truth_np.shape[1]), dtype=truth_np.dtype)
+    events = []
+    for ev, truth_a in truth_splits.items():
+        collections: dict = {}
+        for key, splits in extra_splits.items():
+            a = splits.get(ev, empty)
+            collections[key] = (
+                _make_tower_collection(a, name=key)
+                if key in _TOWER_OUTPUT_KEYS
+                else _make_particle_collection(a, name=key)
+            )
+
+        pflow_a = pflow_splits.get(ev, empty)
         events.append(
             GenEvent(
-                event_number=int(ev),
+                event_number=ev,
                 truth_particles=_make_particle_collection(
-                    truth_np, ev, "truth", fix_neutral_hadrons=True
+                    truth_a, "truth", fix_neutral_hadrons=True
                 ),
                 pflow_particles=_make_particle_collection(
-                    pflow_np, ev, "pflow", fix_neutral_hadrons=True
+                    pflow_a, "pflow", fix_neutral_hadrons=True
                 ),
                 collections=collections,
             )
@@ -280,14 +311,26 @@ def _tensors_to_gen_events(
     return events
 
 
-def _mask_for_event(arr: np.ndarray, event_num: int) -> np.ndarray:
-    return arr[:, ColumnMap.EVENT_NUMBER].astype(np.int32) == event_num
-
-
 def _make_particle_collection(
-    arr: np.ndarray, event_num: int, name: str, fix_neutral_hadrons: bool = False
+    a: np.ndarray, name: str, fix_neutral_hadrons: bool = False
 ) -> GenParticleCollection:
-    a = arr[_mask_for_event(arr, event_num)]
+    """Build a ``GenParticleCollection`` from a pre-sliced single-event array.
+
+    Parameters
+    ----------
+    a : np.ndarray
+        Array of shape (N_particles, N_features) in ColumnMap format.
+    name : str
+        Name for the GenParticleCollection (e.g. "truth", "pflow", "Track").
+    fix_neutral_hadrons : bool, optional
+        If True, replace PDG ID 0 with 130 (K_L^0) to match Delphes convention for neutral hadrons.
+        Defaults to False.
+
+    Returns
+    -------
+    GenParticleCollection
+        GenParticleCollection with fields populated from the input array.
+    """
     pdg_id = a[:, ColumnMap.PID].astype(np.int32)
     if fix_neutral_hadrons:
         pdg_id = pdg_id.copy()
@@ -308,32 +351,22 @@ def _make_particle_collection(
     )
 
 
-def _make_track_collection(arr: np.ndarray, event_num: int) -> GenParticleCollection | None:
-    a = arr[_mask_for_event(arr, event_num)]
-    if a.shape[0] == 0:
-        return None
-    return GenParticleCollection(
-        name="Track",
-        pt=a[:, ColumnMap.PT].astype(np.float32),
-        eta=a[:, ColumnMap.ETA].astype(np.float32),
-        phi=a[:, ColumnMap.PHI].astype(np.float32),
-        mass=a[:, ColumnMap.MASS].astype(np.float32),
-        pdg_id=a[:, ColumnMap.PID].astype(np.int32),
-        charge=a[:, ColumnMap.CHARGE].astype(np.int32),
-        vx=a[:, ColumnMap.X].astype(np.float32),
-        vy=a[:, ColumnMap.Y].astype(np.float32),
-        vz=a[:, ColumnMap.Z].astype(np.float32),
-        t=(a[:, ColumnMap.T] * T_SCALE_CONVERSION).astype(np.float32),
-        status=a[:, ColumnMap.STATUS].astype(np.int32),
-    )
+def _make_tower_collection(a: np.ndarray, name: str = "Tower") -> GenTowerCollection:
+    """Build a ``GenTowerCollection`` from a pre-sliced single-event array.
 
+    Parameters
+    ----------
+    a : np.ndarray
+        Array of shape (N_towers, N_features) in ColumnMap format.
+    name : str, optional
+        Name for the GenTowerCollection (e.g. "Tower", "ECalTower").
+        Defaults to "Tower".
 
-def _make_tower_collection(
-    arr: np.ndarray, event_num: int, name: str = "Tower"
-) -> GenTowerCollection | None:
-    a = arr[_mask_for_event(arr, event_num)]
-    if a.shape[0] == 0:
-        return None
+    Returns
+    -------
+    GenTowerCollection
+        GenTowerCollection with fields populated from the input array.
+    """
     eta = a[:, ColumnMap.ETA].astype(np.float32)
     e = a[:, ColumnMap.E].astype(np.float32)
     return GenTowerCollection(

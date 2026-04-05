@@ -14,7 +14,6 @@ from parnassus.pipelines.generators.parametric import (
     ParametricEventGenerator,
     _make_particle_collection,
     _make_tower_collection,
-    _make_track_collection,
     _tensors_to_gen_events,
 )
 
@@ -77,7 +76,7 @@ def _make_stub_card(results: dict[str, torch.Tensor]):
 
 def test_make_particle_collection_extracts_columns():
     arr = _particle_tensor(3, event_number=7, pt=5.0, eta=0.3, phi=1.2, pid=13)
-    col = _make_particle_collection(arr, event_num=7, name="truth")
+    col = _make_particle_collection(arr, name="truth")
 
     assert isinstance(col, GenParticleCollection)
     assert len(col) == 3
@@ -90,46 +89,30 @@ def test_make_particle_collection_extracts_columns():
 @pytest.mark.parametrize("fix_neutral_hadrons", [True, False])
 def test_make_particle_collection_fixes_neutral_hadron_pid(fix_neutral_hadrons):
     arr = _particle_tensor(2, event_number=1, pid=0)
-    col = _make_particle_collection(
-        arr, event_num=1, name="pflow", fix_neutral_hadrons=fix_neutral_hadrons
-    )
+    col = _make_particle_collection(arr, name="pflow", fix_neutral_hadrons=fix_neutral_hadrons)
     if fix_neutral_hadrons:
         assert np.all(col.pdg_id == 130)
     else:
         assert np.all(col.pdg_id == 0)
 
 
-def test_make_particle_collection_filters_by_event():
-    arr = np.concatenate([
-        _particle_tensor(2, event_number=1),
-        _particle_tensor(3, event_number=2),
-    ])
-    assert len(_make_particle_collection(arr, event_num=1, name="truth")) == 2
-    assert len(_make_particle_collection(arr, event_num=2, name="truth")) == 3
-
-
-def test_make_track_collection_returns_none_for_missing_event():
-    arr = _particle_tensor(2, event_number=1)
-    assert _make_track_collection(arr, event_num=99) is None
-
-
-def test_make_track_collection_extracts_kinematics():
+def test_make_particle_collection_as_track_extracts_kinematics():
     arr = _particle_tensor(4, event_number=5, pt=8.0)
-    tracks = _make_track_collection(arr, event_num=5)
-    assert tracks is not None
+    tracks = _make_particle_collection(arr, name="Track")
     assert tracks.name == "Track"
     assert np.allclose(tracks.pt, 8.0)
 
 
-def test_make_tower_collection_returns_none_for_missing_event():
-    arr = _particle_tensor(2, event_number=1)
-    assert _make_tower_collection(arr, event_num=99) is None
+def test_make_tower_collection_empty_input_yields_zero_length():
+    empty = np.empty((0, N_FEATURES), dtype=np.float64)
+    towers = _make_tower_collection(empty)
+    assert isinstance(towers, GenTowerCollection)
+    assert len(towers) == 0
 
 
 def test_make_tower_collection_et_equals_e_over_cosh_eta():
     arr = _particle_tensor(3, event_number=2, e=20.0, eta=1.0)
-    towers = _make_tower_collection(arr, event_num=2)
-    assert towers is not None
+    towers = _make_tower_collection(arr)
     assert isinstance(towers, GenTowerCollection)
     assert np.allclose(towers.et, 20.0 / np.cosh(1.0), rtol=1e-5)
 
@@ -150,7 +133,7 @@ def test_tensors_to_gen_events_produces_one_event_per_unique_event_number():
     assert len(events[1].truth_particles) == 2
 
 
-def test_tensors_to_gen_events_empty_branches_yield_none():
+def test_tensors_to_gen_events_empty_branches_have_zero_length():
     truth = _particle_torch(2, event_number=1)
     empty = torch.zeros((0, N_FEATURES), dtype=torch.float64)
 
@@ -160,8 +143,8 @@ def test_tensors_to_gen_events_empty_branches_yield_none():
     )
 
     assert len(events) == 1
-    assert "Track" not in events[0].collections
-    assert "Tower" not in events[0].collections
+    assert len(events[0].collections["Track"]) == 0
+    assert len(events[0].collections["Tower"]) == 0
 
 
 # ---------------------------------------------------------------------------
