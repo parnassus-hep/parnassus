@@ -92,9 +92,9 @@ class RootWriter(BaseWriter):
                     accessor_store.update_data_dict(event, data)
                     events_in_queue += 1
                     if events_in_queue == BATCH_SIZE:
-                        self.write_to_tree(f["Parnassus"], data)
+                        self.write_to_tree(f["Parnassus"], data)  # pyright: ignore[reportArgumentType]
                         progress.update(task, advance=BATCH_SIZE)
                         events_in_queue = 0
                 if events_in_queue != 0:
-                    self.write_to_tree(f["Parnassus"], data)
+                    self.write_to_tree(f["Parnassus"], data)  # pyright: ignore[reportArgumentType]
                     progress.update(task, advance=events_in_queue)
