@@ -1,6 +1,9 @@
 from typing import TYPE_CHECKING, Any, final, override
 
 import awkward as ak
+import numpy as np
+from awkward.contents import ListOffsetArray, NumpyArray, RecordArray
+from awkward.index import Index64
 from uproot import WritableTree, recreate
 
 from parnassus.configs.scheme import GenEvent
@@ -12,7 +15,34 @@ if TYPE_CHECKING:
     from uproot.writing.writable import WritableDirectory
 
 
-BATCH_SIZE = 100
+BATCH_SIZE = 1000
+
+
+def _make_collection_array(var_data: dict[str, list[Any]]) -> ak.Array:
+    """Build a variable-length record array, computing offsets once across all variables.
+
+    Parameters
+    ----------
+    var_data : dict[str, list[Any]]
+        Dictionary of variable data, where each value is a list of arrays (one per event).
+        All lists must have the same length (number of events).
+
+    Returns
+    -------
+    ak.Array
+        An Awkward Array with a ListOffsetArray structure, where each record contains the variables.
+    """
+    first = next(iter(var_data.values()))
+    counts = np.fromiter((len(arr) for arr in first), dtype=np.int64, count=len(first))
+    offsets = np.zeros(len(counts) + 1, dtype=np.int64)
+    np.cumsum(counts, out=offsets[1:])
+    index = Index64(offsets)
+    fields = list(var_data.keys())
+    inner = RecordArray(
+        [NumpyArray(np.concatenate(var_data[f])) for f in fields],  # type: ignore[arg-type]
+        fields,
+    )
+    return ak.Array(ListOffsetArray(index, inner))
 
 
 def clear_dicts(data: dict[Any, Any]):
@@ -40,13 +70,7 @@ class RootWriter(BaseWriter):
     """Writer class for outputting generated events to a ROOT file."""
 
     def write_to_tree(self, tree: WritableTree, data: dict[str, dict[str, Any]]):
-        extend_data = {
-            collection: ak.zip({
-                var_name: ak.Array(data[collection][var_name]) for var_name in data[collection]
-            })
-            for collection in data
-        }
-        tree.extend(extend_data)
+        tree.extend({collection: _make_collection_array(data[collection]) for collection in data})
         clear_dicts(data)
 
     @override
