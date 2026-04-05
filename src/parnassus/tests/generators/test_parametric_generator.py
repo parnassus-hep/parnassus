@@ -208,9 +208,9 @@ def test_generator_process_batch_accumulates_events():
     gen.card = _make_stub_card({"EFlowObject": t1, "Track": t1, "Tower": t1})
     gen.initialize(n_events=2, n_batches=2)
 
-    gen.process_batch({"particles": t1})
+    gen.process_batch({"stable_particles": t1, "all_particles": t1})
     gen.card.return_value = {"EFlowObject": t2, "Track": t2, "Tower": t2}
-    gen.process_batch({"particles": t2})
+    gen.process_batch({"stable_particles": t2, "all_particles": t2})
 
     assert len(gen.get_events()) == 2
 
@@ -221,7 +221,10 @@ def test_generator_process_batch_skips_empty_without_calling_card():
     gen.card = stub_card
     gen.initialize(n_events=0, n_batches=1)
 
-    gen.process_batch({"particles": torch.zeros((0, N_FEATURES), dtype=torch.float64)})
+    gen.process_batch({
+        "stable_particles": torch.zeros((0, N_FEATURES), dtype=torch.float64),
+        "all_particles": torch.zeros((0, N_FEATURES), dtype=torch.float64),
+    })
 
     stub_card.assert_not_called()
     gen.get_events()
@@ -232,7 +235,10 @@ def test_generator_guards_before_initialize():
     with pytest.raises(AssertionError):
         gen.get_events()
     with pytest.raises(AssertionError):
-        gen.process_batch({"particles": torch.zeros((1, N_FEATURES))})
+        gen.process_batch({
+            "stable_particles": torch.zeros((1, N_FEATURES)),
+            "all_particles": torch.zeros((1, N_FEATURES)),
+        })
 
 
 def test_generator_context_manager_resets_dtype_to_float32():
