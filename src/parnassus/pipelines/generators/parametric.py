@@ -147,10 +147,10 @@ class ParametricEventGenerator:
             "Pflow": AccessorListBuilder.for_particles("pflow_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Track": AccessorListBuilder.for_particles("tracks")
+            "Track": AccessorListBuilder.for_collection("tracks")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Tower": AccessorListBuilder.for_particles("towers")
+            "Tower": AccessorListBuilder.for_collection("towers")
             .add_from_specs(_TOWER_SPECS)
             .build(),
         }
@@ -173,20 +173,27 @@ def _tensors_to_gen_events(
     towers_np = towers.cpu().numpy()
 
     event_nums = np.unique(truth_np[:, ColumnMap.EVENT_NUMBER].astype(np.int32))
-    events = [
-        GenEvent(
-            event_number=int(ev),
-            truth_particles=_make_particle_collection(
-                truth_np, ev, "truth", fix_neutral_hadrons=True
-            ),
-            pflow_particles=_make_particle_collection(
-                pflow_np, ev, "pflow", fix_neutral_hadrons=True
-            ),
-            tracks=_make_track_collection(tracks_np, ev),
-            towers=_make_tower_collection(towers_np, ev),
+    events = []
+    for ev in event_nums:
+        collections: dict = {}
+        track = _make_track_collection(tracks_np, ev)
+        if track is not None:
+            collections["tracks"] = track
+        tower = _make_tower_collection(towers_np, ev)
+        if tower is not None:
+            collections["towers"] = tower
+        events.append(
+            GenEvent(
+                event_number=int(ev),
+                truth_particles=_make_particle_collection(
+                    truth_np, ev, "truth", fix_neutral_hadrons=True
+                ),
+                pflow_particles=_make_particle_collection(
+                    pflow_np, ev, "pflow", fix_neutral_hadrons=True
+                ),
+                collections=collections,
+            )
         )
-        for ev in event_nums
-    ]
     return events
 
 

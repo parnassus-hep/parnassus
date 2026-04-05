@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Self, override
+from typing import Protocol, Self, override
 
 import awkward as ak
 import numpy as np
@@ -410,6 +410,15 @@ class GenTrackCollection(GenParticleCollection):
         )
 
 
+class GenCollection(Protocol):
+    """Protocol satisfied by all named, sized particle/tower/jet collections."""
+
+    @property
+    def name(self) -> str: ...
+
+    def __len__(self) -> int: ...
+
+
 @dataclass(slots=True)
 class GenJetCollection:
     """Class storing information about generic jet collection.
@@ -487,9 +496,8 @@ class GenEvent:
 
     jets: dict[str, GenJetCollection] = field(default_factory=dict)
 
-    # Tracks and Towers
-    tracks: GenTrackCollection | None = None
-    towers: GenTowerCollection | None = None
+    # Generator-specific collections (e.g. tracks, towers) keyed by collection name
+    collections: dict[str, GenCollection] = field(default_factory=dict)
 
     # Event features
     truth_ht: np.float32 = field(init=False)

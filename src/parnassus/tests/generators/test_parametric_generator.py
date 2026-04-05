@@ -156,8 +156,8 @@ def test_tensors_to_gen_events_empty_branches_yield_none():
     events = _tensors_to_gen_events(truth=truth, pflow=truth, tracks=empty, towers=empty)
 
     assert len(events) == 1
-    assert events[0].tracks is None
-    assert events[0].towers is None
+    assert "tracks" not in events[0].collections
+    assert "towers" not in events[0].collections
 
 
 # ---------------------------------------------------------------------------

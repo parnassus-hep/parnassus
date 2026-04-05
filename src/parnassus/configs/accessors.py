@@ -40,7 +40,7 @@ class Accessor(ABC):
 @final
 @dataclass(frozen=True)
 class ParticleAccessor(Accessor):
-    """Accessor for particle collections."""
+    """Accessor for named particle collections on GenEvent (e.g. truth_particles, electrons)."""
 
     @override
     def get(self, event: GenEvent):
@@ -67,8 +67,28 @@ class ParticleAccessor(Accessor):
 
 @final
 @dataclass(frozen=True)
+class CollectionAccessor(Accessor):
+    """Accessor for generator-specific collections stored in GenEvent.collections."""
+
+    @override
+    def get(self, event: GenEvent):
+        try:
+            collection = event.collections[self.collection]
+        except KeyError as e:
+            raise AccessorError(f"Event has no entry '{self.collection}' in collections") from e
+
+        try:
+            return getattr(collection, self.name)
+        except AttributeError as e:
+            raise AccessorError(
+                f"Collection '{self.collection}' has no attribute '{self.name}'"
+            ) from e
+
+
+@final
+@dataclass(frozen=True)
 class JetAccessor(Accessor):
-    """Accessor for jet collections."""
+    """Accessor for jet collections stored in GenEvent.jets."""
 
     @override
     def get(self, event: GenEvent):
@@ -149,6 +169,20 @@ class AccessorListBuilder:
             AccessorListBuilder for chaining
         """
         return cls(collection, ParticleAccessor)
+
+    @classmethod
+    def for_collection(cls, collection: str) -> "AccessorListBuilder":
+        """Create builder for accessors targeting GenEvent.collections.
+
+        Parameters
+        ----------
+            collection: Key in GenEvent.collections
+
+        Returns
+        -------
+            AccessorListBuilder for chaining
+        """
+        return cls(collection, CollectionAccessor)
 
     @classmethod
     def for_jets(cls, collection: str) -> "AccessorListBuilder":
