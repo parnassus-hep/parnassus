@@ -117,7 +117,7 @@ def test_make_track_collection_extracts_kinematics():
     arr = _particle_tensor(4, event_number=5, pt=8.0)
     tracks = _make_track_collection(arr, event_num=5)
     assert tracks is not None
-    assert tracks.name == "tracks"
+    assert tracks.name == "Track"
     assert np.allclose(tracks.pt, 8.0)
 
 
@@ -140,7 +140,8 @@ def test_tensors_to_gen_events_produces_one_event_per_unique_event_number():
     combined = torch.cat([ev1, ev2])
 
     events = _tensors_to_gen_events(
-        truth=combined, pflow=combined, tracks=combined, towers=combined
+        truth=combined,
+        results={"EFlowObject": combined, "Track": combined, "Tower": combined},
     )
 
     assert len(events) == 2
@@ -153,11 +154,14 @@ def test_tensors_to_gen_events_empty_branches_yield_none():
     truth = _particle_torch(2, event_number=1)
     empty = torch.zeros((0, N_FEATURES), dtype=torch.float64)
 
-    events = _tensors_to_gen_events(truth=truth, pflow=truth, tracks=empty, towers=empty)
+    events = _tensors_to_gen_events(
+        truth=truth,
+        results={"EFlowObject": truth, "Track": empty, "Tower": empty},
+    )
 
     assert len(events) == 1
-    assert "tracks" not in events[0].collections
-    assert "towers" not in events[0].collections
+    assert "Track" not in events[0].collections
+    assert "Tower" not in events[0].collections
 
 
 # ---------------------------------------------------------------------------
@@ -255,4 +259,4 @@ def test_get_accessors_tower_output_names_and_collection():
     accessors = ParametricEventGenerator(_make_config(), _STUB_LOG).get_accessors()
     tower_accessors = accessors["Tower"]
     assert {a.output_name for a in tower_accessors} == {"E", "ET", "Eta", "Phi", "T"}
-    assert all(a.collection == "towers" for a in tower_accessors)
+    assert all(a.collection == "Tower" for a in tower_accessors)

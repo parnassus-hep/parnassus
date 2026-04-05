@@ -223,9 +223,9 @@ def validate_against_benchmark(
             ("Particle", genparticle_kinematic_vars),
             ("Track", track_kinematic_vars),
             ("Tower", tower_kinematic_vars),
-            # ("EFlowTrack", track_kinematic_vars),
-            # ("EFlowPhoton", tower_kinematic_vars),
-            # ("EFlowNeutralHadron", tower_kinematic_vars),
+            ("EFlowTrack", track_kinematic_vars),
+            ("EFlowPhoton", tower_kinematic_vars),
+            ("EFlowNeutralHadron", tower_kinematic_vars),
             ("EFlowObject", eflow_kinematic_vars),
         ]
 
@@ -844,7 +844,7 @@ def main(
     # -------------------------------------------------------------------------
     # 2. Run detector simulation via ParametricEventGenerator
     # -------------------------------------------------------------------------
-    config = ParametricGeneratorConfig(name=detector, card=detector.lower())
+    config = ParametricGeneratorConfig(name=detector, card=detector.lower(), debug=True)
     generator = ParametricEventGenerator(config, log)
     generator.to(torch.device(DEVICE))
 

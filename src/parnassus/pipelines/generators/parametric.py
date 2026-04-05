@@ -59,6 +59,24 @@ _TOWER_SPECS: list[AccessorSpec] = [
     AccessorSpec("t", output_name="T"),
 ]
 
+# Card output keys that represent calorimeter towers (vs charged-particle tracks).
+# These are stored as GenTowerCollection; all other keys become GenParticleCollection.
+_TOWER_OUTPUT_KEYS: frozenset[str] = frozenset({
+    "Tower",
+    "ECalTower",
+    "HCalTower",
+    "EFlowPhoton",
+    "EFlowNeutralHadron",
+})
+
+# Keys that are always handled specially: truth/pflow live on GenEvent directly,
+# Track and Tower go to collections in both normal and debug mode.
+_ALWAYS_COLLECTIONS = ("Track", "Tower")
+
+# Keys present in normal (non-debug) card output that we skip in normal mode —
+# they would be redundant with EFlowObject (pflow) and are only stored in debug.
+_NORMAL_MODE_SKIP = frozenset({"EFlowTrack", "EFlowPhoton", "EFlowNeutralHadron"})
+
 
 @final
 class ParametricEventGenerator:
@@ -66,6 +84,13 @@ class ParametricEventGenerator:
 
     Routes truth-level HepMC particles through a torch_delphes detector
     simulation card (CMS or ATLAS) and accumulates GenEvent objects.
+
+    In normal mode (``config.debug=False``) each event stores:
+    truth particles, pflow particles (EFlowObject), tracks, and towers.
+
+    In debug mode (``config.debug=True``) the card's full intermediate output
+    is also stored — every branch the card emits is placed in
+    ``GenEvent.collections`` under its card output key.
     """
 
     def __init__(self, config: ParametricGeneratorConfig, log) -> None:
@@ -73,13 +98,15 @@ class ParametricEventGenerator:
         self.log = log
 
         self.device = torch.device("cpu")
-        self.card: DelphesBaseCard = _CARD_REGISTRY[config.card]()
+        self.card: DelphesBaseCard = _CARD_REGISTRY[config.card](debug=config.debug)
         self._events: list[GenEvent] | None = None
         self._exit_stack: ExitStack | None = None
         self._progress_bar: ProgressBar | None = None
         self._task = None
 
-        self.log.info(f"Initialized ParametricEventGenerator with card='{config.card}'")
+        self.log.info(
+            f"Initialized ParametricEventGenerator with card='{config.card}', debug={config.debug}"
+        )
 
     def to(self, device: torch.device) -> Self:
         self.card = self.card.to(device)
@@ -123,9 +150,8 @@ class ParametricEventGenerator:
             self._events.extend(
                 _tensors_to_gen_events(
                     truth=all_particles,
-                    pflow=results["EFlowObject"],
-                    tracks=results["Track"],
-                    towers=results["Tower"],
+                    results=results,
+                    debug=self.config.debug,
                 )
             )
 
@@ -140,20 +166,51 @@ class ParametricEventGenerator:
         return self._events
 
     def get_accessors(self) -> dict[str, list[Accessor]]:
-        return {
+        accessors: dict[str, list[Accessor]] = {
             "Truth": AccessorListBuilder.for_particles("truth_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
             "Pflow": AccessorListBuilder.for_particles("pflow_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Track": AccessorListBuilder.for_collection("tracks")
+            "Track": AccessorListBuilder.for_collection("Track")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Tower": AccessorListBuilder.for_collection("towers")
+            "Tower": AccessorListBuilder.for_collection("Tower")
             .add_from_specs(_TOWER_SPECS)
             .build(),
         }
+        if self.config.debug:
+            # Add accessors for all intermediate card outputs stored in collections.
+            # Card output key == collection key == ROOT branch name.
+            debug_card_keys = {
+                # Particle-type
+                "ParticleBeforeProp",
+                "ParticleAfterProp",
+                "ChargedHadron",
+                "Electron",
+                "Muon",
+                "NeutralParticle",
+                "ChargedHadronEfficiency",
+                "ElectronEfficiency",
+                "MuonEfficiency",
+                "ChargedHadronSmeared",
+                "ElectronSmeared",
+                "MuonSmeared",
+                "ECal_EFlowTrack",
+                "EFlowTrack",
+                # Tower-type
+                "ECalTower",
+                "HCalTower",
+                "EFlowPhoton",
+                "EFlowNeutralHadron",
+            }
+            for key in debug_card_keys:
+                specs = _TOWER_SPECS if key in _TOWER_OUTPUT_KEYS else _PARTICLE_SPECS
+                accessors[key] = (
+                    AccessorListBuilder.for_collection(key).add_from_specs(specs).build()
+                )
+        return accessors
 
 
 # ---------------------------------------------------------------------------
@@ -163,25 +220,52 @@ class ParametricEventGenerator:
 
 def _tensors_to_gen_events(
     truth: torch.Tensor,
-    pflow: torch.Tensor,
-    tracks: torch.Tensor,
-    towers: torch.Tensor,
+    results: dict[str, torch.Tensor],
+    debug: bool = False,
 ) -> list[GenEvent]:
+    """Convert a batch of card outputs into a list of GenEvent objects.
+
+    Parameters
+    ----------
+    truth:
+        All-particle truth tensor (ColumnMap format, all events concatenated).
+    results:
+        Output dict from the detector card forward pass.
+    debug:
+        When True, every card output key is stored in ``GenEvent.collections``.
+        When False, only ``Track`` and ``Tower`` are stored in collections.
+
+    Returns
+    -------
+    list[GenEvent]
+        One GenEvent per unique event number in the truth tensor.
+    """
     truth_np = truth.cpu().numpy()
-    pflow_np = pflow.cpu().numpy()
-    tracks_np = tracks.cpu().numpy()
-    towers_np = towers.cpu().numpy()
+    pflow_np = results["EFlowObject"].cpu().numpy()
+
+    # Pre-convert all extra tensors to numpy once, outside the per-event loop.
+    extra_np: dict[str, np.ndarray] = {
+        key: tensor.cpu().numpy()
+        for key, tensor in results.items()
+        if key != "EFlowObject"
+        and (debug or key in _ALWAYS_COLLECTIONS)
+        and (debug or key not in _NORMAL_MODE_SKIP)
+    }
 
     event_nums = np.unique(truth_np[:, ColumnMap.EVENT_NUMBER].astype(np.int32))
     events = []
     for ev in event_nums:
         collections: dict = {}
-        track = _make_track_collection(tracks_np, ev)
-        if track is not None:
-            collections["tracks"] = track
-        tower = _make_tower_collection(towers_np, ev)
-        if tower is not None:
-            collections["towers"] = tower
+
+        for key, arr in extra_np.items():
+            if key in _TOWER_OUTPUT_KEYS:
+                col = _make_tower_collection(arr, ev, name=key)
+            elif key == "Track":
+                col = _make_track_collection(arr, ev)
+            else:
+                col = _make_particle_collection(arr, ev, name=key) if arr.shape[0] > 0 else None
+            if col is not None:
+                collections[key] = col
         events.append(
             GenEvent(
                 event_number=int(ev),
@@ -230,7 +314,7 @@ def _make_track_collection(arr: np.ndarray, event_num: int) -> GenTrackCollectio
     if a.shape[0] == 0:
         return None
     return GenTrackCollection(
-        name="tracks",
+        name="Track",
         pt=a[:, ColumnMap.PT].astype(np.float32),
         eta=a[:, ColumnMap.ETA].astype(np.float32),
         phi=a[:, ColumnMap.PHI].astype(np.float32),
@@ -245,14 +329,16 @@ def _make_track_collection(arr: np.ndarray, event_num: int) -> GenTrackCollectio
     )
 
 
-def _make_tower_collection(arr: np.ndarray, event_num: int) -> GenTowerCollection | None:
+def _make_tower_collection(
+    arr: np.ndarray, event_num: int, name: str = "Tower"
+) -> GenTowerCollection | None:
     a = arr[_mask_for_event(arr, event_num)]
     if a.shape[0] == 0:
         return None
     eta = a[:, ColumnMap.ETA].astype(np.float32)
     e = a[:, ColumnMap.E].astype(np.float32)
     return GenTowerCollection(
-        name="towers",
+        name=name,
         e=e,
         et=(e / np.cosh(eta)).astype(np.float32),  # ET = E / cosh(η), matching Delphes convention
         eta=eta,

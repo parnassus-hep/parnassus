@@ -28,6 +28,7 @@ class ParametricGeneratorConfig(GeneratorConfig):
     card: str  # "cms" or "atlas"
     max_particles: int = 100
     seed: int | None = None
+    debug: bool = False
 
     def get_max_particles(self) -> int:
         """Get maximum particles for parametric generator.
