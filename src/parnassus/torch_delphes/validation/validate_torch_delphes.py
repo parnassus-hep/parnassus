@@ -68,9 +68,9 @@ TORCH_MAP_DICT = {
 
 
 def validate_against_benchmark(
-    torch_output_file: str,
-    benchmark_file: str,
-    output_dir: str,
+    torch_output_file: str | Path,
+    benchmark_file: str | Path,
+    output_dir: str | Path,
     debug: bool = False,
     event_number: int | None = None,
     validate_pid: bool = False,
@@ -128,8 +128,8 @@ def validate_against_benchmark(
         torch_key = TORCH_MAP_DICT.get(torch_key, torch_key)  # Map to PyTorch branch name
         print(torch_tree.keys())
         if torch_key in torch_tree:
-            n_events_torch = len(torch_tree[torch_key + ".PT"].array())
-            n_events_benchmark = len(benchmark_tree[sample_branch].array())
+            n_events_torch = len(torch_tree[torch_key + ".PT"].array())  # pyright: ignore[reportAttributeAccessIssue]
+            n_events_benchmark = len(benchmark_tree[sample_branch].array())  # pyright: ignore[reportAttributeAccessIssue]
 
             if event_number >= n_events_torch or event_number >= n_events_benchmark:
                 raise ValueError(
@@ -242,7 +242,7 @@ def validate_against_benchmark(
 
         # Check if branch exists in PyTorch output
         torch_branch_name = TORCH_MAP_DICT.get(branch_name, branch_name)
-        torch_branch_keys = [k for k in torch_tree.keys() if k.startswith(f"{torch_branch_name}")]
+        torch_branch_keys = [k for k in torch_tree.keys() if k.startswith(f"{torch_branch_name}")]  # noqa: SIM118
         if not torch_branch_keys:
             print(f"  ⚠ {branch_name} not found in PyTorch output, skipping...")
             continue
@@ -253,18 +253,18 @@ def validate_against_benchmark(
             torch_key = f"{torch_branch_name}.{var}"
             benchmark_key = f"{branch_name}/{branch_name}.{var}"
 
-            if torch_key not in torch_tree.keys():
+            if torch_key not in torch_tree:
                 print(f"  ⚠ {var} not found in PyTorch {branch_name}, skipping...")
                 continue
 
-            if benchmark_key not in benchmark_tree.keys():
+            if benchmark_key not in benchmark_tree:
                 print(f"  ⚠ {var} not found in C++ {branch_name}, skipping...")
                 continue
 
             try:
                 # Load data from both sources
-                torch_data_events = torch_tree[torch_key].array()
-                benchmark_data_events = benchmark_tree[benchmark_key].array()
+                torch_data_events = torch_tree[torch_key].array()  # pyright: ignore[reportAttributeAccessIssue]
+                benchmark_data_events = benchmark_tree[benchmark_key].array()  # pyright: ignore[reportAttributeAccessIssue]
 
                 # Handle single-event vs all-events mode
                 if event_number is not None:
@@ -297,6 +297,7 @@ def validate_against_benchmark(
                 ax_hist = fig.add_subplot(gs[0])
                 ax_ratio = fig.add_subplot(gs[1], sharex=ax_hist)
 
+                width = 0.35
                 # Special handling for PID: use discrete bins
                 if var == "PID":
                     # Get unique PIDs across both datasets
@@ -345,7 +346,15 @@ def validate_against_benchmark(
                         where=benchmark_counts > 0,
                     )
 
-                elif var in ["Charge", "Status"]:
+                    ax_ratio.axhline(y=1.0, color="orange", linewidth=2)
+                    ax_ratio.bar(bin_centers, ratio, width * 2, color="blue", alpha=0.7)
+                    ax_ratio.set_xticks(bin_centers)
+                    ax_ratio.set_xticklabels(
+                        [f"{int(pid)}" for pid in unique_pids], rotation=45, ha="right"
+                    )
+                    ax_ratio.set_ylim(0.9 * min(ratio), 1.1 * max(ratio))  # Focus on ±10% range
+
+                elif var in {"Charge", "Status"}:
                     # Charge and Status are discrete integer values - use bar chart like PID
                     # Get unique values across both datasets
                     unique_vals = np.unique(np.concatenate([torch_np, benchmark_np]))
@@ -358,7 +367,6 @@ def validate_against_benchmark(
 
                     # Create bar positions
                     x = np.arange(len(unique_vals))
-                    width = 0.35
 
                     # Plot bars
                     ax_hist.bar(
@@ -391,13 +399,19 @@ def validate_against_benchmark(
                         where=benchmark_counts > 0,
                     )
 
+                    ax_ratio.axhline(y=1.0, color="orange", linewidth=2)
+                    ax_ratio.bar(bin_centers, ratio, width * 2, color="blue", alpha=0.7)
+                    ax_ratio.set_xticks(bin_centers)
+                    ax_ratio.set_xticklabels([f"{int(val)}" for val in unique_vals])
+                    ax_ratio.set_ylim(0.9 * min(ratio), 1.1 * max(ratio))  # Focus on ±10% range
+
                 else:
                     # Standard continuous histogram
                     # Determine bin range
                     all_data = np.concatenate([torch_np, benchmark_np])
                     if len(all_data) > 0:
-                        bins = np.linspace(
-                            np.percentile(all_data, 1), np.percentile(all_data, 99), 50
+                        bins = list(
+                            np.linspace(np.percentile(all_data, 1), np.percentile(all_data, 99), 50)
                         )
                     else:
                         bins = 50
@@ -422,6 +436,8 @@ def validate_against_benchmark(
                         label="Parnassus.TorchDelphes",
                         density=False,
                     )
+                    benchmark_counts = np.array(benchmark_counts)
+                    torch_counts = np.array(torch_counts)
 
                     # For ratio plot
                     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -432,6 +448,11 @@ def validate_against_benchmark(
                         where=benchmark_counts > 0,
                     )
 
+                    # Line plot for continuous variables
+                    ax_ratio.axhline(y=1.0, color="orange", linewidth=2)
+                    ax_ratio.plot(bin_centers, ratio, color="blue", markersize=4, linewidth=2)
+                    ax_ratio.set_ylim(0.9 * min(ratio), 1.1 * max(ratio))  # Focus on ±20% range
+
                 ax_hist.set_ylabel("Counts", fontsize=12)
                 title = f"{branch_name}: {var}"
                 if event_number is not None:
@@ -439,11 +460,18 @@ def validate_against_benchmark(
                 ax_hist.set_title(title, fontsize=14, fontweight="bold")
                 ax_hist.legend(fontsize=11)
                 ax_hist.grid(True, alpha=0.3)
-                if var not in ["PID", "Charge", "Status"]:
+                if var not in {"PID", "Charge", "Status"}:
                     ax_hist.tick_params(labelbottom=False)  # Hide x-axis labels for top plot
 
+                ax_ratio.set_xlabel(var, fontsize=12)
+                ax_ratio.set_ylabel("Torch / C++", fontsize=10)
+                ax_ratio.grid(True, alpha=0.3)
+
                 # Add statistics text
-                stats_text = f"PyTorch: {len(torch_np)} particles\nC++ Delphes: {len(benchmark_np)} particles"
+                stats_text = (
+                    f"PyTorch: {len(torch_np)} particles\n"
+                    f"C++ Delphes: {len(benchmark_np)} particles"
+                )
                 ax_hist.text(
                     0.95,
                     0.95,
@@ -452,35 +480,8 @@ def validate_against_benchmark(
                     fontsize=10,
                     verticalalignment="top",
                     horizontalalignment="right",
-                    bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+                    bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
                 )
-
-                # Plot ratio: TorchDelphes / C++ Delphes
-                if var == "PID":
-                    # Bar plot for PID
-                    ax_ratio.axhline(y=1.0, color="orange", linewidth=2)
-                    ax_ratio.bar(bin_centers, ratio, width * 2, color="blue", alpha=0.7)
-                    ax_ratio.set_xticks(bin_centers)
-                    ax_ratio.set_xticklabels(
-                        [f"{int(pid)}" for pid in unique_pids], rotation=45, ha="right"
-                    )
-                    ax_ratio.set_ylim([0.9 * min(ratio), 1.1 * max(ratio)])  # Focus on ±10% range
-                elif var in ["Charge", "Status"]:
-                    # Bar plot for discrete integer values
-                    ax_ratio.axhline(y=1.0, color="orange", linewidth=2)
-                    ax_ratio.bar(bin_centers, ratio, width * 2, color="blue", alpha=0.7)
-                    ax_ratio.set_xticks(bin_centers)
-                    ax_ratio.set_xticklabels([f"{int(val)}" for val in unique_vals])
-                    ax_ratio.set_ylim([0.9 * min(ratio), 1.1 * max(ratio)])  # Focus on ±10% range
-                else:
-                    # Line plot for continuous variables
-                    ax_ratio.axhline(y=1.0, color="orange", linewidth=2)
-                    ax_ratio.plot(bin_centers, ratio, color="blue", markersize=4, linewidth=2)
-                    ax_ratio.set_ylim([0.9 * min(ratio), 1.1 * max(ratio)])  # Focus on ±20% range
-
-                ax_ratio.set_xlabel(var, fontsize=12)
-                ax_ratio.set_ylabel("Torch / C++", fontsize=10)
-                ax_ratio.grid(True, alpha=0.3)
 
                 # Save plot
                 plot_file = branch_dir / f"{var}.png"
@@ -489,10 +490,11 @@ def validate_against_benchmark(
                 plt.close()
 
                 print(
-                    f"  ✓ {var}: PyTorch={len(torch_np)}, C++={len(benchmark_np)} → {plot_file.name}"
+                    f"  ✓ {var}: PyTorch={len(torch_np)}, "
+                    f"C++={len(benchmark_np)} → {plot_file.name}"
                 )
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"  ✗ {var}: Error - {e}")
                 continue
 
@@ -529,8 +531,8 @@ def validate_against_benchmark(
 
             try:
                 # Load data
-                torch_data_events = torch_tree[torch_key].array()
-                benchmark_data_events = benchmark_tree[benchmark_key].array()
+                torch_data_events = torch_tree[torch_key].array()  # pyright: ignore[reportAttributeAccessIssue]
+                benchmark_data_events = benchmark_tree[benchmark_key].array()  # pyright: ignore[reportAttributeAccessIssue]
 
                 # Handle single-event vs all-events mode
                 if event_number is not None:
@@ -546,7 +548,7 @@ def validate_against_benchmark(
 
                 # Create subplot with histogram on top, ratio below
                 # Use 4 rows to match the 3:1 height ratio, columns for each variable
-                gs = plt.GridSpec(
+                gs = plt.GridSpec(  # pyright: ignore[reportPrivateImportUsage]
                     4,
                     4,
                     figure=fig,
@@ -566,7 +568,9 @@ def validate_against_benchmark(
                 # Determine bin range
                 all_data = np.concatenate([torch_np, benchmark_np])
                 if len(all_data) > 0:
-                    bins = np.linspace(np.percentile(all_data, 1), np.percentile(all_data, 99), 40)
+                    bins = list(
+                        np.linspace(np.percentile(all_data, 1), np.percentile(all_data, 99), 40)
+                    )
                 else:
                     bins = 40
 
@@ -611,10 +615,10 @@ def validate_against_benchmark(
                 ax_ratio.plot(bin_centers, ratio, color="blue", markersize=3, linewidth=2)
                 ax_ratio.set_xlabel(var, fontsize=11)
                 ax_ratio.set_ylabel("Torch/C++", fontsize=9)
-                ax_ratio.set_ylim([0.9 * min(ratio), 1.1 * max(ratio)])
+                ax_ratio.set_ylim(0.9 * min(ratio), 1.1 * max(ratio))
                 ax_ratio.grid(True, alpha=0.3)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"    ✗ Error plotting {var} in combined plot: {e}")
                 continue
 
@@ -638,10 +642,10 @@ def validate_against_benchmark(
         torch_pid_key = f"{branch_name}/{branch_name}.PID"
         benchmark_pid_key = f"{branch_name}/{branch_name}.PID"
 
-        if torch_pid_key in torch_tree.keys() and benchmark_pid_key in benchmark_tree.keys():
+        if torch_pid_key in torch_tree and benchmark_pid_key in benchmark_tree:
             # Load PID data to get unique PIDs
-            torch_pids = torch_tree[torch_pid_key].array()
-            benchmark_pids = benchmark_tree[benchmark_pid_key].array()
+            torch_pids = torch_tree[torch_pid_key].array()  # pyright: ignore[reportAttributeAccessIssue]
+            benchmark_pids = benchmark_tree[benchmark_pid_key].array()  # pyright: ignore[reportAttributeAccessIssue]
 
             # Get unique PIDs (handle single-event vs all-events mode)
             if event_number is not None:
@@ -665,19 +669,16 @@ def validate_against_benchmark(
                     torch_key = f"{branch_name}/{branch_name}.{var}"
                     benchmark_key = f"{branch_name}/{branch_name}.{var}"
 
-                    if (
-                        torch_key not in torch_tree.keys()
-                        or benchmark_key not in benchmark_tree.keys()
-                    ):
+                    if torch_key not in torch_tree or benchmark_key not in benchmark_tree:
                         continue
 
                     # Load data (event-wise, not flattened yet)
-                    torch_data_events = torch_tree[torch_key].array()
-                    benchmark_data_events = benchmark_tree[benchmark_key].array()
+                    torch_data_events = torch_tree[torch_key].array()  # pyright: ignore[reportAttributeAccessIssue]
+                    benchmark_data_events = benchmark_tree[benchmark_key].array()  # pyright: ignore[reportAttributeAccessIssue]
 
                     # Filter by PID
-                    torch_pid_events = torch_tree[torch_pid_key].array()
-                    benchmark_pid_events = benchmark_tree[benchmark_pid_key].array()
+                    torch_pid_events = torch_tree[torch_pid_key].array()  # pyright: ignore[reportAttributeAccessIssue]
+                    benchmark_pid_events = benchmark_tree[benchmark_pid_key].array()  # pyright: ignore[reportAttributeAccessIssue]
 
                     # Handle single-event vs all-events mode
                     if event_number is not None:
@@ -709,7 +710,7 @@ def validate_against_benchmark(
                         continue
 
                     # Create subplot with histogram on top, ratio below
-                    gs = plt.GridSpec(
+                    gs = plt.GridSpec(  # pyright: ignore[reportPrivateImportUsage]
                         4,
                         4,
                         figure=fig,
@@ -729,8 +730,8 @@ def validate_against_benchmark(
                     # Determine bin range
                     all_data = np.concatenate([torch_np, benchmark_np])
                     if len(all_data) > 0:
-                        bins = np.linspace(
-                            np.percentile(all_data, 1), np.percentile(all_data, 99), 40
+                        bins = list(
+                            np.linspace(np.percentile(all_data, 1), np.percentile(all_data, 99), 40)
                         )
                     else:
                         bins = 40
@@ -776,7 +777,7 @@ def validate_against_benchmark(
                     ax_ratio.plot(bin_centers, ratio, color="blue", markersize=3, linewidth=2)
                     ax_ratio.set_xlabel(var, fontsize=11)
                     ax_ratio.set_ylabel("Torch/C++", fontsize=9)
-                    ax_ratio.set_ylim([0.9 * min(ratio), 1.1 * max(ratio)])
+                    ax_ratio.set_ylim(0.9 * min(ratio), 1.1 * max(ratio))
                     ax_ratio.grid(True, alpha=0.3)
 
                 # Add overall title with PID
@@ -791,7 +792,7 @@ def validate_against_benchmark(
                 plt.close()
 
         else:
-            print("  ℹ No PID field - skipping PID-specific plots (normal for Tower objects)")
+            print("  i No PID field - skipping PID-specific plots (normal for Tower objects)")
 
     print(f"\n{'=' * 70}")
     if event_number is not None:
@@ -802,9 +803,9 @@ def validate_against_benchmark(
 
 
 def main(
-    input_file: str,
-    output_file: str,
-    benchmark_file: str,
+    input_file: str | Path,
+    output_file: str | Path,
+    benchmark_file: str | Path,
     validation_dir: Path,
     detector: str,
     max_events: int | None = None,
@@ -882,6 +883,12 @@ def main(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments.
+
+    Returns
+    -------
+        argparse.Namespace: Parsed arguments
+    """
     parser = argparse.ArgumentParser(description="Parnassus TorchDelphes HepMC Processing")
     parser.add_argument(
         "--num-events",
@@ -922,17 +929,26 @@ def parse_args() -> argparse.Namespace:
         "--specific-event",
         type=int,
         default=None,
-        help="Validate a specific event by index (0-based). If not set, validates all events aggregated.",
+        help=(
+            "Validate a specific event by index (0-based). "
+            "If not set, validates all events aggregated."
+        ),
     )
     parser.add_argument(
         "--skip-gen",
         action="store_true",
-        help="Skip Torch generation and ROOT writing, jump directly to validation (requires existing output file)",
+        help=(
+            "Skip Torch generation and ROOT writing, jump directly to validation "
+            "(requires existing output file)"
+        ),
     )
     parser.add_argument(
         "--validate-pid",
         action="store_true",
-        help="Create PID-specific combined plots for each unique PID (can be slow for large datasets)",
+        help=(
+            "Create PID-specific combined plots for each unique PID "
+            "(can be slow for large datasets)"
+        ),
     )
     return parser.parse_args()
 
@@ -989,7 +1005,8 @@ if __name__ == "__main__":
             print(f"  Output: {output_fpath}")
             print(f"  Benchmark: {benchmark_fpath}")
             print(
-                "  Please run the full pipeline first (without --skip-gen) to generate output files."
+                "  Please run the full pipeline first "
+                "(without --skip-gen) to generate output files."
             )
     else:
         main(

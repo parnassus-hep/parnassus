@@ -33,6 +33,23 @@ def mock_particles(
     num_particles: int = 40,
     rng: Generator | None = None,
 ) -> dict[str, list[FloatArray]]:
+    """Generate mock particle data for testing.
+
+    Parameters
+    ----------
+    num_events : int, optional
+        Number of events to generate. Defaults to 1000.
+    num_particles : int, optional
+        Number of particles per event. Defaults to 40.
+    rng : Generator | None, optional
+        Optional random number generator for reproducibility.
+        If None, a default generator with a fixed seed will be used. Defaults to None.
+
+    Returns
+    -------
+    dict[str, list[FloatArray]]
+        Dictionary containing lists of particle variable arrays for each event.
+    """
     if rng is None:
         rng = np.random.default_rng(42)
     particles: dict[str, FloatArray | IntArray] = {}
@@ -52,7 +69,6 @@ def mock_particles(
                 ],
                 dtype=np.float32,
             ).reshape(num_events, num_particles)
-            # value = rng.integers(0, 5, size=(num_events, num_particles)).astype(np.int32)
         else:
             value = rng.random((num_events, num_particles)).astype(np.float32) + 1
         particles[var] = value
@@ -71,6 +87,24 @@ def get_4momentum(
     phi: FloatArray | float,
     mass: FloatArray | float,
 ) -> FloatArray:
+    """Calculate the 4-momentum of a particle.
+
+    Parameters
+    ----------
+    pt : FloatArray | float
+        Transverse momentum of the particle.
+    y : FloatArray | float
+        Rapidity of the particle.
+    phi : FloatArray | float
+        Azimuthal angle of the particle.
+    mass : FloatArray | float
+        Mass of the particle.
+
+    Returns
+    -------
+    FloatArray
+        The 4-momentum of the particle.
+    """
     mt = np.sqrt(pt**2 + mass**2)
     px = pt * np.cos(phi)
     py = pt * np.sin(phi)
@@ -86,6 +120,26 @@ def getParticleHepMC(
     pid: FloatArray | float,
     status: int = 1,
 ) -> pyhepmc.GenParticle:
+    """Create a GenParticle with the given kinematics and PID.
+
+    Parameters
+    ----------
+    pt : FloatArray | float
+        Transverse momentum of the particle.
+    y : FloatArray | float
+        Rapidity of the particle.
+    phi : FloatArray | float
+        Azimuthal angle of the particle.
+    pid : FloatArray | float
+        PDG ID of the particle.
+    status : int, optional
+        Status code of the particle. Defaults to 1.
+
+    Returns
+    -------
+    pyhepmc.GenParticle
+        A GenParticle with the specified kinematics and PID.
+    """
     p = pyhepmc.GenParticle()
     p.momentum = pyhepmc.FourVector(get_4momentum(pt, y, phi, 0))
     p.pid = int(pid)
@@ -98,12 +152,42 @@ def getVertexHepMC(
     vy: FloatArray | float,
     vz: FloatArray | float,
 ) -> pyhepmc.GenVertex:
+    """Create a GenVertex with the given position.
+
+    Parameters
+    ----------
+    vx : FloatArray | float
+        x-coordinate of the vertex position.
+    vy : FloatArray | float
+        y-coordinate of the vertex position.
+    vz : FloatArray | float
+        z-coordinate of the vertex position.
+
+    Returns
+    -------
+    pyhepmc.GenVertex
+        A GenVertex with the specified position.
+    """
     v = pyhepmc.GenVertex()
     v.position = pyhepmc.FourVector([vx, vy, vz, 0])
     return v
 
 
 def getEventHepMC(event_data: list[FloatArray], event_number: int) -> pyhepmc.GenEvent:
+    """Build a GenEvent from the given event data.
+
+    Parameters
+    ----------
+    event_data : list[FloatArray]
+        List of arrays containing particle data in the order: pt, y, phi, pid, vx, vy, vz.
+    event_number : int
+        The event number to assign to the GenEvent.
+
+    Returns
+    -------
+    pyhepmc.GenEvent
+        The constructed GenEvent with particles and vertices.
+    """
     event = pyhepmc.GenEvent()
     vtx_dict: dict[int, pyhepmc.GenVertex] = {}
     for pt, y, phi, pid, vx, vy, vz in zip(*event_data, strict=True):
@@ -130,6 +214,25 @@ def get_mock_root_file(
     ttree_name: str = "evt_tree",
     num_particles: int = 40,
 ) -> str:
+    """Generate a mock ROOT file with random events for testing.
+
+    Parameters
+    ----------
+    num_events : int, optional
+        Number of events to generate. Defaults to 1000.
+    fname : str | None, optional
+        Optional filename for the mock ROOT file. If None, a temporary file will be created
+        in a new temporary directory. Defaults to None.
+    ttree_name : str, optional
+        Name of the TTree to create in the ROOT file. Defaults to "evt_tree".
+    num_particles : int, optional
+        Number of particles per event. Defaults to 40.
+
+    Returns
+    -------
+    str
+        Path to the generated mock ROOT file.
+    """
     rng = np.random.default_rng(42)
     truth_particles = mock_particles(num_events=num_events, num_particles=num_particles)
     event_numbers = rng.integers(0, num_events * 4, num_events)
@@ -152,6 +255,23 @@ def get_mock_hepmc_file(
     fname: str | None = None,
     num_particles: int = 40,
 ) -> str:
+    """Generate a mock HepMC file with random events for testing.
+
+    Parameters
+    ----------
+    num_events : int, optional
+        Number of events to generate. Defaults to 1000.
+    fname : str | None, optional
+        Optional filename for the mock HepMC file. If None, a temporary file will be created
+        in a new temporary directory. Defaults to None.
+    num_particles : int, optional
+        Number of particles per event. Defaults to 40.
+
+    Returns
+    -------
+    str
+        Path to the generated mock HepMC file.
+    """
     rng = np.random.default_rng(42)
     truth_particles = mock_particles(num_events=num_events, num_particles=num_particles)
     event_numbers = rng.integers(0, num_events * 4, num_events)
@@ -176,6 +296,19 @@ def get_mock_hepmc_file(
 def get_mock_pythia_file(
     fname: str | None = None,
 ) -> str:
+    """Generate a mock Pythia configuration file for testing.
+
+    Parameters
+    ----------
+    fname : str | None, optional
+        Optional filename for the mock Pythia configuration file. If None, a temporary file will
+        be created in a new temporary directory. Defaults to None.
+
+    Returns
+    -------
+    str
+        Path to the generated mock Pythia configuration file.
+    """
     if fname is None:
         fname = NamedTemporaryFile(suffix=".cmnd", dir=mkdtemp()).name
     else:
@@ -247,6 +380,8 @@ def get_mock_variable_requirements() -> VariableRequirements:
 
 @final
 class MockModel(nn.Module):
+    """A mock model for testing that produces deterministic outputs based on the input data."""
+
     def __init__(self, mode: str):
         super().__init__()
         self.net = nn.Identity()
@@ -280,8 +415,28 @@ class MockModel(nn.Module):
 def get_mock_input_data(
     mode: str, num_fs_feats: int, num_ctxt_feats: int = 12, num_global_feats: int = 8
 ) -> dict[str, Tensor]:
+    """Generate mock input data for testing.
+
+    Parameters
+    ----------
+    mode : str
+        Mode of the mock data, either "evt" for event-level or "part" for
+        particle-level.
+    num_fs_feats : int
+        Number of features in the fs_data tensor.
+    num_ctxt_feats : int, optional
+        Number of features in the ctxt_data tensor. Defaults to 12.
+    num_global_feats : int, optional
+        Number of features in the ctxt_global_data tensor. Defaults to 8.
+
+    Returns
+    -------
+    dict[str, Tensor]
+        Dictionary containing mock input tensors for fs_data, ctxt_data,
+        ctxt_global_data, mask, and timestep.
+    """
     rng = np.random.default_rng(42)
-    BS, L = 2, 400
+    BS, L = 2, 400  # noqa: N806
     assert mode in {"evt", "part"}, "Mode should be either evt or part."
     mask = rng.random((BS, L)) > 0.5 if mode == "evt" else rng.random((BS, L, 2)) > 0.5
     fs_data = rng.random((BS, num_fs_feats)) if mode == "evt" else rng.random((BS, L, num_fs_feats))
@@ -295,6 +450,22 @@ def get_mock_input_data(
 
 
 def get_mock_model_file(fname: str | None = None, mode: str = "evt") -> str:
+    """Create a mock model file for testing.
+
+    Parameters
+    ----------
+    fname : str | None, optional
+        Optional filename for the mock model. If None, a temporary file will be created. Defaults
+        to None.
+    mode : str, optional
+        Mode of the mock model, either "evt" for event-level or "part" for particle-level. Defaults
+        to "evt".
+
+    Returns
+    -------
+    str
+        Path to the saved mock model file.
+    """
     if fname is None:
         fname = NamedTemporaryFile(suffix=".pt", dir=mkdtemp()).name
     else:

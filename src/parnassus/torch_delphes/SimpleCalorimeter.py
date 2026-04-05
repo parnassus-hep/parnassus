@@ -63,16 +63,19 @@ class SimpleCalorimeter(nn.Module):
         self.smear_tower_center = smear_tower_center
 
         # Store eta bins as tensor
-        self.register_buffer("eta_bins", torch.tensor(eta_bins, dtype=torch.float64))
+        self.eta_bins = nn.Buffer(torch.tensor(eta_bins, dtype=torch.float64))  # (n_eta_bins,)
 
         # Store phi bins as padded 2D tensor for vectorized operations
         # phi_bins_2d[eta_bin_idx, :] gives phi bin edges for that eta bin
         # Padded with +inf so searchsorted returns max index for out-of-range values
+        self._phi_bins_2d: nn.Buffer  # (n_eta_bins, max_n_phi_bins) padded with +inf
+        self._n_phi_bins_per_eta: nn.Buffer  # (n_eta_bins,) number of valid phi bins per eta bin
         self._setup_phi_bins_2d(phi_bins)
 
         # Store energy fractions as lookup table
         self.energy_fractions = energy_fractions
         self.default_fraction = energy_fractions.get(0, 0.0)
+        self._fraction_lut: nn.Buffer  # (max_pdg_id + 1,) lookup table for energy fractions
         self._setup_fraction_lookup()
 
         # Resolution formula
@@ -114,8 +117,8 @@ class SimpleCalorimeter(nn.Module):
             phi_bins_2d[i, :n_bins] = torch.tensor(pb, dtype=torch.float64)
             n_phi_bins_per_eta[i] = n_bins
 
-        self.register_buffer("_phi_bins_2d", phi_bins_2d)
-        self.register_buffer("_n_phi_bins_per_eta", n_phi_bins_per_eta)
+        self._phi_bins_2d = nn.Buffer(phi_bins_2d)
+        self._n_phi_bins_per_eta = nn.Buffer(n_phi_bins_per_eta)
         self._max_n_phi_bins = max_n_phi_bins
 
     def forward(
@@ -205,15 +208,15 @@ class SimpleCalorimeter(nn.Module):
         # C++ Delphes:
         #   - Sorts all hits by (etaBin, phiBin)
         #   - For each tower (unique etaBin, phiBin):
-        #       fTowerEnergy += momentum.E() * fTowerFractions[number]  (particles)
-        #       fTrackEnergy += momentum.E() * fTrackFractions[number]  (tracks with fraction > 1e-9)
+        #       fTowerEnergy += momentum.E() * fTowerFractions[number] (particles)
+        #       fTrackEnergy += momentum.E() * fTrackFractions[number] (tracks with fraction > 1e-9)
         #   - Time weighting is also done but we handle that separately
 
         # Get energies
         particle_energy = particles[:, ColumnMap.E]
         track_energy = tracks[:, ColumnMap.E]
 
-        # Compute weighted energies (energy × fraction)
+        # Compute weighted energies (energy x fraction)
         particle_weighted_energy = particle_energy * particle_energy_fractions
         track_weighted_energy = track_energy * track_energy_fractions
 
@@ -265,7 +268,8 @@ class SimpleCalorimeter(nn.Module):
         tower_idx_map[unique_tower_idx] = torch.arange(n_towers, device=particles.device)
 
         # Map particles and tracks to compact tower indices
-        # Clamp tower indices to valid range before lookup (invalid particles have valid=False anyway)
+        # Clamp tower indices to valid range before lookup
+        # (invalid particles have valid=False anyway)
         max_idx = max_global_tower_idx - 1
         particle_tower_idx_clamped = particle_tower_idx.clamp(0, max_idx)
         track_tower_idx_clamped = track_tower_idx.clamp(0, max_idx)
@@ -376,7 +380,7 @@ class SimpleCalorimeter(nn.Module):
         # C++:
         #   sigma = fResolutionFormula->Eval(0.0, fTowerEta, 0.0, fTowerEnergy);
         #   energy = LogNormal(fTowerEnergy, sigma);
-        #   sigma = fResolutionFormula->Eval(0.0, fTowerEta, 0.0, energy);  // recompute with smeared
+        #   sigma = fResolutionFormula->Eval(0.0, fTowerEta, 0.0, energy); // recompute with smeared
         #   if(energy < fEnergyMin || energy < fEnergySignificanceMin * sigma) energy = 0.0;
         #
         # IMPORTANT: C++ uses bin CENTER (fTowerEta) for resolution, then smears position AFTER
@@ -424,7 +428,9 @@ class SimpleCalorimeter(nn.Module):
         #       energyGuess = energy;  // energy = momentum.E() * fraction
         #   else
         #       energyGuess = momentum.E();
-        #   fTrackSigma += (track->TrackResolution * energyGuess) * (track->TrackResolution * energyGuess);
+        #   fTrackSigma += (
+        #       (track->TrackResolution * energyGuess) * (track->TrackResolution * energyGuess);
+        #   )
         #   ...
         #   fTrackSigma = TMath::Sqrt(fTrackSigma);  // in FinalizeTower
         #
@@ -459,7 +465,9 @@ class SimpleCalorimeter(nn.Module):
         )
 
         # Determine energy_guess based on resolution comparison
-        # C++: if(sigma / momentum.E() < track->TrackResolution) energyGuess = energy; else energyGuess = momentum.E()
+        # C++:  if(sigma / momentum.E() < track->TrackResolution)
+        #           energyGuess = energy;
+        #       else energyGuess = momentum.E()
         calo_relative_sigma = track_calo_sigma / (track_energy + 1e-30)  # Avoid div by zero
         use_weighted_energy = calo_relative_sigma < track_momentum_resolution
 
@@ -494,7 +502,8 @@ class SimpleCalorimeter(nn.Module):
         #       // Rescale tracks based on weighted average of calo and track measurements
         #       weightTrack = 1 / (fTrackSigma^2)
         #       weightCalo = 1 / (sigma^2)
-        #       bestEnergyEstimate = (weightTrack * fTrackEnergy + weightCalo * energy) / (weightTrack + weightCalo)
+        #       bestEnergyEstimate =
+        #           (weightTrack * fTrackEnergy + weightCalo * energy) / (weightTrack + weightCalo)
         #       rescaleFactor = bestEnergyEstimate / fTrackEnergy
         #       // Clone tracks to EFlowTrack with rescaled pT
         #   }
@@ -525,7 +534,8 @@ class SimpleCalorimeter(nn.Module):
 
         # Compute rescale factor for Case B towers
         # weightTrack = 1 / (trackSigma^2), weightCalo = 1 / (sigma^2)
-        # bestEnergyEstimate = (weightTrack * trackEnergy + weightCalo * energy) / (weightTrack + weightCalo)
+        # bestEnergyEstimate =
+        # (weightTrack * trackEnergy + weightCalo * energy) / (weightTrack + weightCalo)
         weight_track = torch.where(
             tower_track_sigma > 0, 1.0 / (tower_track_sigma**2), torch.zeros_like(tower_track_sigma)
         )
@@ -553,11 +563,11 @@ class SimpleCalorimeter(nn.Module):
         tower_pt = tower_energy_final / torch.cosh(tower_eta)
 
         # Build tower output (towers with energy > 0)
-        n_valid_towers = tower_has_energy.sum()
+        n_valid_towers = int(tower_has_energy.sum())
 
         # ===== Create EFlowTower output (neutral excess) =====
         # Only for towers with significant neutral excess
-        n_eflow_towers = significant_neutral.sum()
+        n_eflow_towers = int(significant_neutral.sum())
 
         eflow_tower_energy = neutral_energy[significant_neutral]
         eflow_tower_eta = tower_eta[significant_neutral]
@@ -833,7 +843,7 @@ class SimpleCalorimeter(nn.Module):
         for pid, frac in self.energy_fractions.items():
             lut[abs(pid)] = frac
 
-        self.register_buffer("_fraction_lut", lut)
+        self._fraction_lut = nn.Buffer(lut)
         self._max_pdg_id = max_pdg_id
 
     def _compute_energy_fractions(self, pids: torch.Tensor) -> torch.Tensor:
@@ -907,7 +917,8 @@ class SimpleCalorimeter(nn.Module):
         sigma = torch.where(
             abs_eta <= 1.5, barrel_sigma, torch.where(abs_eta <= 2.5, endcap_sigma, forward_sigma)
         )
-        # TODO: Should it be zero if eta>5.0, i.e. the below? See delphes_cards/delphes_card_CMS_6_1.tcl, lines 267->269
+        # TODO: Should it be zero if eta>5.0, i.e. the below?
+        # See delphes_cards/delphes_card_CMS_6_1.tcl, lines 267->269
         # sigma = torch.where(abs_eta <= 1.5, barrel_sigma,
         #             torch.where(abs_eta <= 2.5, endcap_sigma,
         #                     torch.where(abs_eta <= 5.0, forward_sigma, 0)))
@@ -946,7 +957,8 @@ class SimpleCalorimeter(nn.Module):
         # Select based on eta region
         sigma = torch.where(abs_eta <= 3.2, barrel_endcap_sigma, forward_sigma)
 
-        # TODO: Should it be zero if eta>4.9, i.e. the below? See delphes_cards/delphes_card_ATLAS_6_1.tcl, lines 260->261
+        # TODO: Should it be zero if eta>4.9, i.e. the below?
+        # See delphes_cards/delphes_card_ATLAS_6_1.tcl, lines 260->261
         # sigma = torch.where(abs_eta <= 3.2, barrel_endcap_sigma,
         #             torch.where(abs_eta <= 4.9, forward_sigma, 0))
 
@@ -983,7 +995,8 @@ class SimpleCalorimeter(nn.Module):
         # Select based on eta region
         sigma = torch.where(abs_eta <= 3.0, central_sigma, forward_sigma)
 
-        # TODO: Should it be zero if eta>5.0, i.e. the below? See delphes_cards/delphes_card_CMS_6_1.tcl, lines 347->348
+        # TODO: Should it be zero if eta>5.0, i.e. the below?
+        # See delphes_cards/delphes_card_CMS_6_1.tcl, lines 347->348
         # sigma = torch.where(abs_eta <= 3.0, central_sigma,
         #             torch.where(abs_eta <= 5.0, forward_sigma, 0))
 
@@ -1026,7 +1039,8 @@ class SimpleCalorimeter(nn.Module):
             abs_eta <= 1.7, inner_sigma, torch.where(abs_eta <= 3.2, central_sigma, forward_sigma)
         )
 
-        # TODO: Should it be zero if eta>4.9, i.e. the below? See delphes_cards/delphes_card_ATLAS_6_1.tcl, lines 334->336
+        # TODO: Should it be zero if eta>4.9, i.e. the below?
+        # See delphes_cards/delphes_card_ATLAS_6_1.tcl, lines 334->336
         # sigma = torch.where(abs_eta <= 1.7, inner_sigma,
         #             torch.where(abs_eta <= 3.2, central_sigma,
         #                 torch.where(abs_eta <= 4.9, forward_sigma, 0)))

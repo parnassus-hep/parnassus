@@ -191,7 +191,7 @@ class ATLASEnergyFlowDefault(DelphesBaseCard):
             - 'ECal_EFlowTrack', 'ECalTower', 'HCalTower'
             - 'EFlowObject'
         """
-        n_part, n_dim = stable_particles.shape
+        _, n_dim = stable_particles.shape
 
         # ParticlePropagator
         particles = stable_particles.reshape(-1, n_dim)

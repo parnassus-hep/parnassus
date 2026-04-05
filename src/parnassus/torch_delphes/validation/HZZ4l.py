@@ -7,7 +7,10 @@ N_EVENTS = 1000
 N_JOBS = 10
 
 
-def main():  # Tests HepMC3Generator end-to-end: top-level configuration, parallelization, and merging of hepmc files.
+def main():
+    """Test the HepMC3Generator by generating a sample dataset
+    and verifying the number of events in the merged output file.
+    """
     generator = HepMC3Generator(
         cmnd_file="pythia_cards/HZZ4l.cmnd",
         output_dir="data/HZZ4l",

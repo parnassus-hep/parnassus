@@ -78,7 +78,7 @@ def test_pipeline_run_wires_dataset_dataloader_generator(monkeypatch, stub_event
     dataloader = StubDataLoader(dataset_len=1, batches=[{}])
     pipeline = GenerationPipeline(config)  # pyright: ignore[reportArgumentType]
     monkeypatch.setattr(pipeline, "_build_dataset", lambda: dataloader.dataset)
-    monkeypatch.setattr(pipeline, "_build_dataloader", lambda ds: dataloader)
+    monkeypatch.setattr(pipeline, "_build_dataloader", lambda _: dataloader)
     monkeypatch.setattr(pipeline, "_init_generator", lambda: stub_event_generator)
 
     events, accessors = pipeline.run()
@@ -118,11 +118,11 @@ def test_progress_bar_closed_on_process_batch_exception(monkeypatch):
         def get_accessors(self):
             return {}
 
-        def initialize(self, n_events, n_batches):
+        def initialize(self, n_events, n_batches):  # noqa: ARG002
             self._pb_stack = __import__("contextlib").ExitStack()
             self._pb_stack.enter_context(ProgressBar())
 
-        def process_batch(self, batch):
+        def process_batch(self, batch):  # noqa: ARG002
             raise RuntimeError("boom")
 
         def get_events(self):
@@ -132,8 +132,8 @@ def test_progress_bar_closed_on_process_batch_exception(monkeypatch):
     dataloader = StubDataLoader(dataset_len=1, batches=[{}])
     pipeline = GenerationPipeline(config)  # pyright: ignore[reportArgumentType]
     monkeypatch.setattr(pipeline, "_build_dataset", lambda: dataloader.dataset)
-    monkeypatch.setattr(pipeline, "_build_dataloader", lambda ds: dataloader)
-    monkeypatch.setattr(pipeline, "_init_generator", lambda: _BoomGenerator())
+    monkeypatch.setattr(pipeline, "_build_dataloader", lambda _: dataloader)
+    monkeypatch.setattr(pipeline, "_init_generator", _BoomGenerator)
 
     with pytest.raises(RuntimeError, match="boom"):
         pipeline.run()
@@ -156,7 +156,7 @@ def test_pipeline_run_multiple_batches(monkeypatch):
 
     pipeline = GenerationPipeline(config)  # pyright: ignore[reportArgumentType]
     monkeypatch.setattr(pipeline, "_build_dataset", lambda: dataloader.dataset)
-    monkeypatch.setattr(pipeline, "_build_dataloader", lambda ds: dataloader)
+    monkeypatch.setattr(pipeline, "_build_dataloader", lambda _: dataloader)
     monkeypatch.setattr(pipeline, "_init_generator", lambda: generator)
 
     events, _ = pipeline.run()

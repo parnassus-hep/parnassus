@@ -98,7 +98,7 @@ def test_generator_smoke_generation(cms_generator):
 
     # ctxt_vars = [ptrel, eta, phi, vx, vy, vz, class]
     # After encoding: phi → (sin, cos) = 2 values; class → one_hot(5) = 5 values; others = 1 each
-    # Total: 1 + 1 + 2 + 1 + 1 + 1 + 5 = 12
+    # Total is: 1 + 1 + 2 + 1 + 1 + 1 + 5 = 12
     N_CTXT = 12
 
     # ctxt_global_vars_stripped filters pflow_* → ["means", "ht", "met_x", "met_y", "ntruth"]

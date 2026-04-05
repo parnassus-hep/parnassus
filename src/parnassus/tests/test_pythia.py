@@ -264,7 +264,8 @@ def compare_events(
 
             if not found_particle_match:
                 # Skip detached or non-stable particles
-                # (pyhepmc bindings don't allow us to add these on Python side; but not relevant to physics)
+                # pyhepmc bindings don't allow us to add these on Python side;
+                # but not relevant to physics
                 if exclude_detached and particle_c.status == 42:
                     n_particles_mismatch -= 1
                     continue
@@ -285,7 +286,10 @@ def compare_events(
     # Build particle map by physics properties for vertex comparison
     def get_particle_signature(p: pyhepmc.GenParticle) -> str:
         """Create a unique signature for a particle based on physics properties."""
-        return f"{p.pid}_{p.status}_{p.momentum.x:.6e}_{p.momentum.y:.6e}_{p.momentum.z:.6e}_{p.momentum.t:.6e}"
+        return (
+            f"{p.pid}_{p.status}_{p.momentum.x:.6e}_{p.momentum.y:.6e}"
+            f"_{p.momentum.z:.6e}_{p.momentum.t:.6e}"
+        )
 
     # Check that vertices have equivalent connections
     vertices_c_list = list(evt_c.vertices)
@@ -314,13 +318,15 @@ def compare_events(
 
         if not found_vertex_match:
             # Skip detached or non-stable particles
-            # (pyhepmc bindings don't allow us to add these on Python side; but not relevant to physics)
+            # pyhepmc bindings don't allow us to add these on Python side;
+            # but not relevant to physics
             if exclude_detached and len(v_c.particles_in) == 1 and v_c.particles_in[0].status == 42:
                 n_vertices_mismatch -= 1
                 continue
             event_match = False
             mismatch_messages.append(
-                f"Vertex {i} with {len(v_c.particles_in)} in, {len(v_c.particles_out)} out has no match in python event"
+                f"Vertex {i} with {len(v_c.particles_in)} in, {len(v_c.particles_out)} out "
+                "has no match in python event"
             )
 
     # Check other event-level info (if present) #######################
@@ -330,10 +336,13 @@ def compare_events(
     #     pdf_c = evt_c.pdf_info
     #     pdf_py = evt_py.pdf_info
 
-    #     if pdf_c.parton_id1[0] != pdf_py.parton_id1[0] or pdf_c.parton_id2[1] != pdf_py.parton_id2[1]:
+    #     if (
+    #         pdf_c.parton_id1[0] != pdf_py.parton_id1[0]
+    #         or pdf_c.parton_id2[1] != pdf_py.parton_id2[1]
+    #     ):
     #         return False, f"PDF parton ID mismatch: {pdf_c.parton_id} vs {pdf_py.parton_id}"
 
-    #     for attr in ['x', 'scale', 'xf']:
+    #     for attr in ["x", "scale", "xf"]:
     #         val_c = getattr(pdf_c, attr)
     #         val_py = getattr(pdf_py, attr)
     #         if isinstance(val_c, (list, tuple)):
@@ -355,7 +364,8 @@ def compare_events(
     # Event weights: TODO
     # if len(evt_c.weights) != len(evt_py.weights):
     #     event_match = False
-    #     mismatch_messages.append(f"Number of weights mismatch: {len(evt_c.weights)} vs {len(evt_py.weights)}")
+    #     mismatch_messages.append("Number of weights mismatch: "
+    #       f"{len(evt_c.weights)} vs {len(evt_py.weights)}")
 
     # for i, (w_c, w_py) in enumerate(zip(evt_c.weights, evt_py.weights)):
     #     if not math.isclose(w_c, w_py, rel_tol=rel_tol, abs_tol=abs_tol):
@@ -456,7 +466,8 @@ def test_pythia8_to_hepmc3():
     # ._topological_sort_vertices()
     # ._check_if_free_particle()
     # ._store_event_info()
-    # This leaves Pythia8ToHepMC3._add_color(), which is currently broken due to HepMC3 Python bindings limitations
+    # This leaves Pythia8ToHepMC3._add_color(),
+    # which is currently broken due to HepMC3 Python bindings limitations
 
     # Generate events with our interface #############
     with suppress_stdout_stderr():
@@ -497,8 +508,8 @@ def test_pythia8_to_hepmc3():
             if not pythia.next():
                 continue  # event failed, try again
 
-            hepmcEvent = converter.fill_next_event(pythia, idx_event)
-            writer.write_event(hepmcEvent)
+            hepmc_event = converter.fill_next_event(pythia, idx_event)
+            writer.write_event(hepmc_event)
             n_written += 1
             idx_event += 1
 

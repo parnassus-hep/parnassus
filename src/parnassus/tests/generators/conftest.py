@@ -35,7 +35,7 @@ class StubEventGenerator:
         Particle-array width (unused for logic, kept for API parity).
     """
 
-    def __init__(self, *, with_impact: bool = False, max_particles: int = 2):
+    def __init__(self, *, with_impact: bool = False, max_particles: int = 2):  # noqa: ARG002
         self._events: list[GenEvent] = []
         self.calls = 0
         self._with_impact = with_impact
@@ -46,10 +46,10 @@ class StubEventGenerator:
     def __exit__(self, *_):
         pass
 
-    def initialize(self, n_events: int, n_batches: int) -> None:
+    def initialize(self, n_events: int, n_batches: int) -> None:  # noqa: ARG002
         self._events = []
 
-    def process_batch(self, batch) -> None:
+    def process_batch(self, batch) -> None:  # noqa: ARG002
         self.calls += 1
         val = float(self.calls)
         pt = np.array([val], dtype=np.float32)

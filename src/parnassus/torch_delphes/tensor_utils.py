@@ -10,6 +10,7 @@ live in ``parnassus.data.particle_io`` (a dependency-free leaf module).
 They are re-exported here so all existing callers continue to work unchanged.
 """
 
+import struct
 from pathlib import Path
 
 import awkward as ak
@@ -295,8 +296,8 @@ def tensor_to_root_dict(
         event_slices = dict.fromkeys(event_nums_to_process)
 
     # Helper function to compute attribute values for a single event
-    def compute_attr_values(event_np, attr):
-        """Compute attribute values for particles in one event."""
+    def compute_attr_values(event_np, attr):  # noqa: PLR0911
+        """Compute attribute values for particles in one event."""  # noqa: DOC201
         if event_np is None or len(event_np) == 0:
             return np.array([], dtype=np.float64)
 
@@ -306,11 +307,10 @@ def tensor_to_root_dict(
                 # C++ Delphes never sets P for GenParticles, leaving it uninitialized
                 # The uninitialized value is 0x99999999 = -1.58818668e-23
                 # We use the same sentinel value for exact validation match
-                import struct
 
                 sentinel = struct.unpack("f", bytes.fromhex("99999999"))[0]
                 return np.full(event_np.shape[0], sentinel, dtype=np.float32)
-            if attr in ["PID", "Status"]:
+            if attr in {"PID", "Status"}:
                 return event_np[:, column_map[attr]].astype(np.int32)
             if attr in column_map and column_map[attr] is not None:
                 return event_np[:, column_map[attr]]

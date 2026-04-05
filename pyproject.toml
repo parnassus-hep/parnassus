@@ -53,7 +53,9 @@ lint.ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Ignore specific rules in all files under the tests/ directory
-"src/parnassus/tests/*" = ["PLC2701", "D103", "DOC201", "PLC0415"]
+"src/parnassus/tests/*" = ["PLC2701", "D103", "DOC201", "PLC0415", "PGH003", "N806", "D104"]
+"src/parnassus/torch_delphes/*" = ["N999", "ERA001"]
+"src/parnassus/tests/test_pythia.py" = ["ERA001"]
 
 
 [tool.ruff.lint.pydocstyle]

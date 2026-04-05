@@ -23,17 +23,17 @@ def sample_data() -> IsolationInputData:
     pt = np.array([10.0, 20.0, 5.0, 15.0, 8.0])
     eta = np.array([0.1, 1.1, 0.2, -0.5, 0.3])
     phi = np.array([0.1, 2.1, 0.3, -1.0, 0.5])
-    dR_matrix = calculate_dr(eta[:, None], phi[:, None], eta[None, :], phi[None, :])
+    dr_matrix = calculate_dr(eta[:, None], phi[:, None], eta[None, :], phi[None, :])
     # class_id: 0=charged hadron, 1=electron, 2=muon, 3=neutral hadron, 4=photon
     class_id = np.array([0, 1, 3, 4, 2])
-    return pt, dR_matrix, class_id
+    return pt, dr_matrix, class_id
 
 
 @pytest.mark.parametrize("dr_cut", [0.3, 0.4, 0.5])
 def test_calculate_photon_isolation(sample_data: IsolationInputData, dr_cut: float):
-    pt, dR_matrix, class_id = sample_data
+    pt, dr_matrix, class_id = sample_data
 
-    iso_scores = calculate_photon_isolation(pt, dR_matrix, class_id, dr_cut)
+    iso_scores = calculate_photon_isolation(pt, dr_matrix, class_id, dr_cut)
 
     # Test photon isolation calculation
     assert isinstance(iso_scores, np.ndarray)
@@ -47,12 +47,12 @@ def test_calculate_photon_isolation(sample_data: IsolationInputData, dr_cut: flo
 @pytest.mark.parametrize("lepton_id", [1, 2])
 @pytest.mark.parametrize("dr_cut", [0.3, 0.4, 0.5])
 def test_calculate_lepton_isolation(sample_data: IsolationInputData, lepton_id: int, dr_cut: float):
-    pt, dR_matrix, class_id = sample_data
-    iso_data = calculate_lepton_isolation(lepton_id, pt, dR_matrix, class_id, dr_cut)
+    pt, dr_matrix, class_id = sample_data
+    iso_data = calculate_lepton_isolation(lepton_id, pt, dr_matrix, class_id, dr_cut)
 
     # Check shape and content
     assert isinstance(iso_data, np.ndarray)
-    # (n_leptons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
+    # vars are (n_leptons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
     assert iso_data.shape == (1, 4)
 
     # Test that isolation scores are non-negative
@@ -90,7 +90,7 @@ def test_calculate_isolation(lepton_id: int, dr_cut: float):
     iso_data = calculate_isolation(lepton_id, particle_data, config)
 
     assert isinstance(iso_data, np.ndarray)
-    # (n_leptons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
+    # vars are (n_leptons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
     if lepton_id == 1:
         assert iso_data.shape == (1, 4)
     elif lepton_id == 2:
@@ -197,7 +197,7 @@ def test_calculate_isolation_batch():
 
     assert len(electrons_data) == len(particle_data_batch)
     assert len(muons_data) == len(particle_data_batch)
-    # (n_electrons/muons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
+    # vars are (n_electrons/muons, [pt_sum, pt_sum_ch, pt_sum_neut, iso_score])
     assert electrons_data[0].shape == (1, 4)
     assert muons_data[0].shape == (2, 4)
 

@@ -26,7 +26,7 @@ def test_get_cluster_sequence(mock_particle_collection: GenParticleCollection):
     four_vectors = mock_particle_collection.get4vecs_awkward()
     user_indices = list(range(len(mock_particle_collection)))
     # Extract numpy arrays from awkward array
-    px = np.array([v.px.item() for v in four_vectors])
+    px = np.array([v.px.item() for v in four_vectors])  # type: ignore
     py = np.array([v.py.item() for v in four_vectors])
     pz = np.array([v.pz.item() for v in four_vectors])
     E = np.array([v.E.item() for v in four_vectors])

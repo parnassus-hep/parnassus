@@ -38,12 +38,8 @@ def _create_model_config(model_path: str, mode: str = "part") -> ModelConfig:
     # Define variables based on mode
     if mode == "part":
         fs_vars = ("pflow_pt", "pflow_eta", "pflow_phi", "pflow_class")
-        ctxt_vars = ("truth_pt", "truth_eta", "truth_phi")
-        ctxt_global_vars = ("met_pt", "met_phi")
     else:  # evt mode
         fs_vars = ("truth_pt", "truth_eta", "truth_phi", "npflow")
-        ctxt_vars = ("truth_pt", "truth_eta", "truth_phi")
-        ctxt_global_vars = ("met_pt", "met_phi")
 
     sampler_config = SamplerConfig(
         type="euler",
@@ -126,7 +122,7 @@ def test_particle_model_wrapper_load(mock_particle_model: ModelConfig):
     """Test that particle model wrapper loads successfully."""
     model = ModelWrapper(mock_particle_model)
     assert model is not None
-    # fs_vars: (pflow_pt, pflow_eta, pflow_phi, pflow_class)
+    # fs_vars: pflow_pt, pflow_eta, pflow_phi, pflow_class
     # = 4 base + 1 (sin/cos phi adds 1) + 4 (class adds 4) = 9
     assert model.num_fs_vars == 9
     assert isinstance(model.sampler, EulerSampler)
@@ -182,7 +178,7 @@ def test_model_wrapper_num_fs_vars_calculation():
     model_path = get_mock_model_file(mode="part")
     config = _create_model_config(model_path, mode="part")
     model = ModelWrapper(config)
-    # fs_vars: (pflow_pt, pflow_eta, pflow_phi, pflow_class)
+    # fs_vars: pflow_pt, pflow_eta, pflow_phi, pflow_class
     # = 4 base + 1 (phi becomes sin/cos, net +1) + 4 (class expands to 5, net +4) = 9
     assert model.num_fs_vars == 9
 
