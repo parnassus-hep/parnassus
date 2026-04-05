@@ -14,7 +14,6 @@ from parnassus.configs.scheme import (
     GenEvent,
     GenParticleCollection,
     GenTowerCollection,
-    GenTrackCollection,
 )
 from parnassus.data.particle_io import ColumnMap
 from parnassus.torch_delphes.defaults import (
@@ -309,11 +308,11 @@ def _make_particle_collection(
     )
 
 
-def _make_track_collection(arr: np.ndarray, event_num: int) -> GenTrackCollection | None:
+def _make_track_collection(arr: np.ndarray, event_num: int) -> GenParticleCollection | None:
     a = arr[_mask_for_event(arr, event_num)]
     if a.shape[0] == 0:
         return None
-    return GenTrackCollection(
+    return GenParticleCollection(
         name="Track",
         pt=a[:, ColumnMap.PT].astype(np.float32),
         eta=a[:, ColumnMap.ETA].astype(np.float32),
