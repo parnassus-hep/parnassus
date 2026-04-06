@@ -105,7 +105,8 @@ class StubEventGenerator:
         from parnassus.configs.accessors import AccessorListBuilder
 
         builder = (
-            AccessorListBuilder.for_particles("pflow_particles")
+            AccessorListBuilder
+            .for_particles("pflow_particles")
             .add(["pt", "eta", "phi", "vx", "vy", "vz"])
             .add(["class_id"], dtype="int32")
         )

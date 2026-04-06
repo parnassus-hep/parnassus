@@ -226,7 +226,8 @@ class IsolationPipeline(GenPipeline):
             List of accessors for isolation variables.
         """
         return (
-            AccessorListBuilder.for_particles(collection)
+            AccessorListBuilder
+            .for_particles(collection)
             .add_from_specs(AccessorTemplates.ISOLATION)
             .build()
         )

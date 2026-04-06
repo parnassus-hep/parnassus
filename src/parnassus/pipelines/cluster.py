@@ -280,7 +280,8 @@ class JetClusteringPipeline(GenPipeline):
     def get_accessors(self) -> dict[str, list[Accessor]]:
         return {
             self.config.name: (
-                AccessorListBuilder.for_jets(self.config.name)
+                AccessorListBuilder
+                .for_jets(self.config.name)
                 .add_from_specs(AccessorTemplates.KINEMATICS)
                 .add_from_specs(AccessorTemplates.JET_SUBSTRUCTURE)
                 .build()

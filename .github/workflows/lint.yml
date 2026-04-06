@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/ruff-action@v3
         with:
-          version: "0.14.6"
+          version: "0.15.7"
           src: "./src"
           args: "check --exit-non-zero-on-fix --exclude src/parnassus/tests --exclude src/parnassus/utils/mock.py --fix --show-fixes"
 
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/ruff-action@v3
         with:
-          version: "0.14.6"
+          version: "0.15.7"
           src: "./src"
           args: "format --check"
 

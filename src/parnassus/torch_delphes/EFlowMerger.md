@@ -46,8 +46,8 @@ ParticleFlow algorithms need consistent position-based pseudorapidity for matchi
 ### Implementation
 ```python
 # In tensor_utils.py:
-Eem = E if PID==22 else 0  # Photons only
-Ehad = E if PID==0 else 0   # Neutral hadrons only
+Eem = E if PID == 22 else 0  # Photons only
+Ehad = E if PID == 0 else 0  # Neutral hadrons only
 ```
 
 ### Validation

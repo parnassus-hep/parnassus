@@ -61,7 +61,10 @@ def suppress_stdout_stderr():
 
 
 def compare_four_vectors(
-    v_c: pyhepmc.FourVector, v_py: pyhepmc.FourVector, rel_tol: float = 1e-6, abs_tol: float = 1e-9
+    v_c: pyhepmc.FourVector,
+    v_py: pyhepmc.FourVector,
+    rel_tol: float = 1e-6,
+    abs_tol: float = 1e-9,
 ) -> tuple[bool, str]:
     """Compare two four-vectors with tolerance."""
     for attr in ["x", "y", "z", "t"]:
@@ -99,8 +102,10 @@ def compare_particles(
     if particle_c.status != particle_py.status:
         return (
             False,
-            f"Particle {particle_idx}: "
-            f"Status mismatch: {particle_c.status} vs {particle_py.status}",
+            (
+                f"Particle {particle_idx}: "
+                f"Status mismatch: {particle_c.status} vs {particle_py.status}"
+            ),
         )
 
     # Check momentum
@@ -110,17 +115,25 @@ def compare_particles(
 
     # Check generated mass
     if not math.isclose(
-        particle_c.generated_mass, particle_py.generated_mass, rel_tol=rel_tol, abs_tol=abs_tol
+        particle_c.generated_mass,
+        particle_py.generated_mass,
+        rel_tol=rel_tol,
+        abs_tol=abs_tol,
     ):
         return (
             False,
-            f"Particle {particle_idx}: "
-            f"Mass mismatch: {particle_c.generated_mass} vs {particle_py.generated_mass}",
+            (
+                f"Particle {particle_idx}: "
+                f"Mass mismatch: {particle_c.generated_mass} vs {particle_py.generated_mass}"
+            ),
         )
 
     # Check particle ID (if not ignoring)
     if not ignore_id and particle_c.id != particle_py.id:
-        return False, f"Particle {particle_idx}: ID mismatch: {particle_c.id} vs {particle_py.id}"
+        return (
+            False,
+            f"Particle {particle_idx}: ID mismatch: {particle_c.id} vs {particle_py.id}",
+        )
 
     return True, ""
 
@@ -474,10 +487,10 @@ def test_pythia8_to_hepmc3():
         pythia = pythia8mc.Pythia()
 
         # Check version number to select benchmark file
-        pythia_version = pythia.settings.parm("Pythia:versionNumber")
-        if pythia_version == 8.316:
+        pythia_version = str(pythia.settings.parm("Pythia:versionNumber"))
+        if pythia_version == "8.316":
             fpath_benchmark = f"src/parnassus/tests/expected_results/HZZ4l_{N_EVENTS}_8316.hepmc"
-        elif pythia_version == 8.315:
+        elif pythia_version == "8.315":
             fpath_benchmark = f"src/parnassus/tests/expected_results/HZZ4l_{N_EVENTS}_8315.hepmc"
         else:
             raise NotImplementedError(

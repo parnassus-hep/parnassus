@@ -43,6 +43,19 @@ def log_normal_sample(mean: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
         Shape: same as input
         For invalid inputs (mean ≤ 0), returns zero
 
+    Notes
+    -----
+    - Uses small epsilon (1e-10) to avoid log(0) errors
+    - For mean ≤ 0, returns 0 (physically invalid values)
+    - Fully differentiable for gradient-based optimization
+    - Device-agnostic (works on CPU and GPU)
+
+    Used by:
+    - MomentumSmearing: PT resolution smearing
+    - SimpleCalorimeter.Tower: Energy resolution smearing
+    - SimpleCalorimeter.EFlowTrack: Energy flow resolution
+    - SimpleCalorimeter.EFlowPhoton: Photon energy resolution
+
     Examples
     --------
     >>> # Smear particle momenta
@@ -63,18 +76,6 @@ def log_normal_sample(mean: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
     >>> loss.backward()
     >>> print(pt.grad)  # Gradient flows through!
 
-    Notes
-    -----
-    - Uses small epsilon (1e-10) to avoid log(0) errors
-    - For mean ≤ 0, returns 0 (physically invalid values)
-    - Fully differentiable for gradient-based optimization
-    - Device-agnostic (works on CPU and GPU)
-
-    Used by:
-    - MomentumSmearing: PT resolution smearing
-    - SimpleCalorimeter.Tower: Energy resolution smearing
-    - SimpleCalorimeter.EFlowTrack: Energy flow resolution
-    - SimpleCalorimeter.EFlowPhoton: Photon energy resolution
     """
     # Identify valid inputs (positive mean values)
     mask_positive = mean > 0.0

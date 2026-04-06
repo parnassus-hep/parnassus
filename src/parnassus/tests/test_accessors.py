@@ -177,7 +177,8 @@ class TestAccessorListBuilder:
     def test_add_with_dtype_list(self):
         """Test adding accessors with different dtypes."""
         accessors = (
-            AccessorListBuilder.for_particles("electrons")
+            AccessorListBuilder
+            .for_particles("electrons")
             .add(["pt", "class_id"], dtype=["float32", "int32"])
             .build()
         )
@@ -194,7 +195,8 @@ class TestAccessorListBuilder:
     def test_add_with_output(self):
         """Test adding accessor with custom output name."""
         accessors = (
-            AccessorListBuilder.for_particles("electrons")
+            AccessorListBuilder
+            .for_particles("electrons")
             .add_with_output("pt", "electron_pt", dtype="float64")
             .build()
         )
@@ -216,7 +218,8 @@ class TestAccessorListBuilder:
     def test_chaining_multiple_operations(self):
         """Test chaining multiple builder operations."""
         accessors = (
-            AccessorListBuilder.for_particles("electrons")
+            AccessorListBuilder
+            .for_particles("electrons")
             .add(["pt", "eta"])
             .add_with_output("phi", "azimuth")
             .add(["class_id"], dtype=["int32"])
@@ -246,7 +249,8 @@ class TestAccessorTemplates:
     def test_templates_can_be_used_with_builder(self):
         """Test that templates work with builder."""
         accessors = (
-            AccessorListBuilder.for_particles("electrons")
+            AccessorListBuilder
+            .for_particles("electrons")
             .add_from_specs(AccessorTemplates.KINEMATICS)
             .build()
         )

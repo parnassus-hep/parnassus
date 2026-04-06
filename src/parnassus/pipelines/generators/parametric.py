@@ -168,16 +168,20 @@ class ParametricEventGenerator:
 
     def get_accessors(self) -> dict[str, list[Accessor]]:
         accessors: dict[str, list[Accessor]] = {
-            "Truth": AccessorListBuilder.for_particles("truth_particles")
+            "Truth": AccessorListBuilder
+            .for_particles("truth_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Pflow": AccessorListBuilder.for_particles("pflow_particles")
+            "Pflow": AccessorListBuilder
+            .for_particles("pflow_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Track": AccessorListBuilder.for_collection("Track")
+            "Track": AccessorListBuilder
+            .for_collection("Track")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Tower": AccessorListBuilder.for_collection("Tower")
+            "Tower": AccessorListBuilder
+            .for_collection("Tower")
             .add_from_specs(_TOWER_SPECS)
             .build(),
         }

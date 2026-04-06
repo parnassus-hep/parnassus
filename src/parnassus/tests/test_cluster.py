@@ -91,7 +91,7 @@ def test_jet_init_basic(mock_fj_jet_cs):
     """Test basic Jet initialization without substructure calculation."""
     mock_fj_jet, _ = mock_fj_jet_cs
     jet = Jet(mock_fj_jet[0], dr=0.4, calc_substructure=False)
-    assert jet.dR == 0.4
+    assert jet.dR == 0.4  # noqa: RUF069
     assert jet.nconstituents == 3
     assert len(jet.constituents_pt) == 3
     assert len(jet.constituents_eta) == 3
