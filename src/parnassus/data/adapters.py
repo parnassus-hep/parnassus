@@ -1,22 +1,21 @@
-"""Lightweight adapters from :class:`HepMCRawDataset` to generator-specific formats.
+"""Lightweight adapters from :class:`RawDataset` to generator-specific formats.
 
 Two adapters are provided:
 
 * :class:`NeuralAdapter` — standalone ``Dataset`` that applies particle selection
-  cuts and variable transforms, producing the same
-  ``{ctxt_data, ctxt_global_data, mask, event_number}`` dict that
-  :class:`~parnassus.data.base.BaseDataset` subclasses produce.
+  cuts and variable transforms at ``__getitem__`` time, producing
+  ``{ctxt_data, ctxt_global_data, mask, event_number}`` batches.
 
 * :class:`ParametricAdapter` — thin wrapper that returns per-event particle
   tensors in ColumnMap format.  Use with :func:`parametric_collate_fn` to
   concatenate events into the flat tensor expected by the torch_delphes modules.
 """
 
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from torch import Tensor
 from torch.utils.data import Dataset
 
@@ -24,18 +23,9 @@ from parnassus.configs.data import DatasetConfig
 from parnassus.data.particle_io import N_FEATURES, ColumnMap
 from parnassus.utils import pid_to_class
 from parnassus.utils.transform import VarTransform
-from parnassus.utils.typing import FloatArray
 
-from .hepmc_raw import HepMCRawDataset
-from .transforms import (
-    SCALAR_KEYS,
-    get_event_data,
-    prepare_ctxt_global_data,
-    preprocess_flat_arrays,
-)
-
-if TYPE_CHECKING:
-    from parnassus.utils.typing import IntArray, LongArray
+from .base import RawDataset
+from .transforms import do_padding
 
 _pid_to_class_vec = np.vectorize(pid_to_class)
 
@@ -44,16 +34,22 @@ _pid_to_class_vec = np.vectorize(pid_to_class)
 
 
 class NeuralAdapter(Dataset[dict[str, Tensor]]):
-    """Standalone dataset that wraps :class:`HepMCRawDataset` for neural generation.
+    """Dataset adapter that applies neural selection cuts and variable transforms.
 
-    Applies particle selection cuts, computes derived variables (``ptrel``,
-    ``ht``, ``met_x``, ``met_y``), scales variables via ``VarTransform``, and
-    returns padded, masked batches identical to those produced by
-    :class:`~parnassus.data.base.BaseDataset` subclasses.
+    Wraps any :class:`~parnassus.data.base.RawDataset` and converts per-event
+    ColumnMap tensors to padded, masked batches suitable for neural generation.
+
+    Selection cuts applied at both init (for filtering) and ``__getitem__``
+    (for actual data extraction):
+
+    * ``status == 1`` (final-state particles only)
+    * ``|eta| < 2.7``
+    * ``pt > 0.25 GeV``
+    * Neutrino PIDs (12, 14, 16) excluded
 
     Parameters
     ----------
-    raw : HepMCRawDataset
+    raw : RawDataset
         Pre-loaded raw dataset to read particles from.
     cfg : DatasetConfig
         Dataset configuration (max_particles, truth_vars_to_load, etc.).
@@ -63,7 +59,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
 
     def __init__(
         self,
-        raw: HepMCRawDataset,
+        raw: RawDataset,
         cfg: DatasetConfig,
         var_transform_dict: dict[str, VarTransform] | None = None,
     ) -> None:
@@ -73,149 +69,161 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self.ctxt_vars: list[str] = cfg.variable_requirements.ctxt_vars_stripped
         self.ctxt_global_vars: list[str] = cfg.variable_requirements.ctxt_global_vars_stripped
 
-        self.full_data_array: dict[str, FloatArray] = {}
-        self.n_truth_particles: IntArray
-        self.truth_cumsum: LongArray
-        self.eventNumber: LongArray
+        self._raw = raw
+        # Lightweight pre-pass: record which raw event indices survive the cuts.
+        # No particle data is copied — only integer indices are stored.
+        self._valid_idx: list[int] = []
+        self._event_numbers: list[int] = []
+        for i in range(len(raw)):
+            item = raw[i]
+            p: Tensor = item["particles"]
+            if p.shape[0] == 0:
+                continue
+            mask = self._selection_mask(p)
+            n_filtered = int(mask.sum())
+            if 0 < n_filtered < cfg.max_particles:
+                self._valid_idx.append(i)
+                self._event_numbers.append(int(item["event_number"]))
 
-        if not Path(cfg.file_path).exists():
-            raise FileNotFoundError(f"Trying to load file {cfg.file_path}, no file exists!")
+    @staticmethod
+    def _selection_mask(p: Tensor) -> Tensor:
+        """Return boolean mask selecting neural-cut particles from a ColumnMap tensor.
 
-        self._load_data(raw)
-        preprocess_flat_arrays(self.full_data_array, SCALAR_KEYS)
-
-        self.n_events = len(self.n_truth_particles)
-        self.scaled_ctxt_global_data: Tensor = prepare_ctxt_global_data(
-            self.full_data_array,
-            self.n_truth_particles,
-            self.truth_cumsum,
-            self.ctxt_vars,
-            self.ctxt_global_vars,
-            self.var_transform_dict,
+        Returns
+        -------
+        Tensor
+            Boolean mask of shape ``(N,)``.
+        """
+        abs_pid = p[:, ColumnMap.PID].abs()
+        return (
+            (p[:, ColumnMap.STATUS] == 1)
+            & (p[:, ColumnMap.ETA].abs() < 2.7)
+            & (p[:, ColumnMap.PT] > 0.25)
+            & (abs_pid != 12)
+            & (abs_pid != 14)
+            & (abs_pid != 16)
         )
-
-    def _load_data(self, raw: HepMCRawDataset) -> None:
-        """Load particles from the raw dataset, applying neural selection cuts."""
-        n_events_raw = len(raw)
-        n_alloc = n_events_raw * self.cfg.max_particles
-
-        self.n_truth_particles = np.zeros(n_events_raw, dtype=np.int32)
-        for var in (*self.cfg.truth_vars_to_load, "ptrel"):
-            self.full_data_array[var] = np.zeros(n_alloc, dtype=np.float32)
-
-        self.eventNumber = np.zeros(n_events_raw, dtype=np.int64)
-        self.full_data_array["ht"] = np.zeros(n_events_raw, dtype=np.float32)
-        self.full_data_array["met_x"] = np.zeros(n_events_raw, dtype=np.float32)
-        self.full_data_array["met_y"] = np.zeros(n_events_raw, dtype=np.float32)
-
-        curr_event_idx = 0
-        curr_particle_idx = 0
-
-        for raw_idx in range(n_events_raw):
-            item = raw[raw_idx]
-            particles: Tensor = item["particles"]  # (N_i, N_FEATURES), float32
-            event_number: int = item["event_number"]
-
-            if particles.shape[0] == 0:
-                continue
-
-            pids_np = particles[:, ColumnMap.PID].numpy()
-            status_np = particles[:, ColumnMap.STATUS].numpy()
-            pt_np = particles[:, ColumnMap.PT].numpy()
-            eta_np = particles[:, ColumnMap.ETA].numpy()
-            phi_np = particles[:, ColumnMap.PHI].numpy()
-
-            # Neural selection cuts
-            mask = (
-                (status_np == 1)
-                & (np.abs(eta_np) < 2.7)
-                & (pt_np > 0.25)
-                & ~np.isin(np.abs(pids_np), [12, 14, 16])
-            )
-            num_particles = int(mask.sum())
-
-            if num_particles >= self.cfg.max_particles:
-                # Drop this event — too many particles
-                continue
-
-            # Write particle data to flat arrays
-            event_start = curr_particle_idx
-            end = curr_particle_idx + num_particles
-            self.full_data_array["pt"][event_start:end] = pt_np[mask]
-            self.full_data_array["eta"][event_start:end] = eta_np[mask]
-            self.full_data_array["phi"][event_start:end] = phi_np[mask]
-            self.full_data_array["class"][event_start:end] = _pid_to_class_vec(
-                pids_np[mask].astype(int)
-            )
-            if "vx" in self.cfg.truth_vars_to_load:
-                self.full_data_array["vx"][event_start:end] = particles[:, ColumnMap.X].numpy()[
-                    mask
-                ]
-            if "vy" in self.cfg.truth_vars_to_load:
-                self.full_data_array["vy"][event_start:end] = particles[:, ColumnMap.Y].numpy()[
-                    mask
-                ]
-            if "vz" in self.cfg.truth_vars_to_load:
-                self.full_data_array["vz"][event_start:end] = particles[:, ColumnMap.Z].numpy()[
-                    mask
-                ]
-            curr_particle_idx = end
-
-            pt_slice = self.full_data_array["pt"][event_start:curr_particle_idx]
-            ht = float(pt_slice.sum())
-            self.full_data_array["ht"][curr_event_idx] = ht
-            self.full_data_array["ptrel"][event_start:curr_particle_idx] = (
-                pt_slice / ht if ht > 0 else pt_slice
-            )
-            phi_slice = self.full_data_array["phi"][event_start:curr_particle_idx]
-            self.full_data_array["met_x"][curr_event_idx] = float(
-                (pt_slice * np.cos(phi_slice)).sum()
-            )
-            self.full_data_array["met_y"][curr_event_idx] = float(
-                (pt_slice * np.sin(phi_slice)).sum()
-            )
-            self.n_truth_particles[curr_event_idx] = num_particles
-            self.eventNumber[curr_event_idx] = event_number
-            curr_event_idx += 1
-
-        # Trim to actual size and drop raw pt (use ptrel instead)
-        _ = self.full_data_array.pop("pt")
-        for key in self.ctxt_vars:
-            self.full_data_array[key] = self.full_data_array[key][:curr_particle_idx]
-        for key in ("ht", "met_x", "met_y"):
-            self.full_data_array[key] = self.full_data_array[key][:curr_event_idx]
-        self.eventNumber = self.eventNumber[:curr_event_idx]
-        self.n_truth_particles = self.n_truth_particles[:curr_event_idx]
-        self.truth_cumsum = np.cumsum([0, *list(self.n_truth_particles)])
 
     def __len__(self) -> int:
-        return len(self.n_truth_particles)
+        return len(self._valid_idx)
 
     def __getitem__(self, idx: Any) -> dict[str, Tensor]:  # pyright: ignore[reportImplicitOverride]
-        ctxt_data, ctxt_global_data, mask = get_event_data(
-            idx,
-            self.full_data_array,
-            self.n_truth_particles,
-            self.truth_cumsum,
-            self.ctxt_vars,
-            self.scaled_ctxt_global_data,
-            self.cfg.max_particles,
-            self.var_transform_dict,
+        raw_idx = self._valid_idx[idx]
+        particles: Tensor = self._raw[raw_idx]["particles"]
+
+        # Apply selection and extract as float32 numpy
+        mask = self._selection_mask(particles)
+        filtered = particles[mask]
+        n_part = filtered.shape[0]
+
+        pt = filtered[:, ColumnMap.PT].float()
+        eta = torch.clip(filtered[:, ColumnMap.ETA].float(), -3.0, 3.0)
+        phi_raw = filtered[:, ColumnMap.PHI].float()
+        phi = torch.arctan2(torch.sin(phi_raw), torch.cos(phi_raw))
+        pid = filtered[:, ColumnMap.PID].long()
+
+        # Derived event quantities
+        ht = pt.sum()
+        ptrel = pt / ht if ht > 0.0 else pt
+        met_x = (pt * torch.cos(phi)).sum()
+        met_y = (pt * torch.sin(phi)).sum()
+
+        # Sort particles by descending ptrel
+        sort_idx = torch.argsort(ptrel, descending=True)
+
+        # Build per-variable sorted arrays (used for ctxt_data and means)
+        var_arrays: dict[str, torch.Tensor] = {
+            "ptrel": ptrel[sort_idx],
+            "eta": eta[sort_idx],
+            "phi": phi[sort_idx],
+            "class": torch.tensor(_pid_to_class_vec(pid[sort_idx].numpy())),
+        }
+        for vname, col in (("vx", ColumnMap.X), ("vy", ColumnMap.Y), ("vz", ColumnMap.Z)):
+            if vname in self.ctxt_vars:
+                var_arrays[vname] = filtered[:, col].float()[sort_idx]
+
+        # Build per-particle context tensor
+        apply_transforms = bool(self.var_transform_dict)
+        ctxt_data_list: list[Tensor] = []
+        for var in self.ctxt_vars:
+            x = var_arrays[var].view(-1, 1)
+            if var == "phi" and apply_transforms:
+                ctxt_data_list.extend([torch.sin(x), torch.cos(x)])
+            elif var == "class" and apply_transforms:
+                ctxt_data_list.append(F.one_hot(x.long().squeeze(-1), num_classes=5).float())
+            elif apply_transforms and var in self.var_transform_dict:
+                ctxt_data_list.append(self.var_transform_dict[var].transform(x).float())
+            else:
+                ctxt_data_list.append(x)
+
+        ctxt_data = do_padding(torch.cat(ctxt_data_list, dim=-1), self.cfg.max_particles)
+
+        # Per-event global context
+        ctxt_global_data = self._compute_global_context(
+            n_part, ht, met_x, met_y, var_arrays, apply_transforms
         )
-        event_number = torch.tensor(self.eventNumber[idx], dtype=torch.long).unsqueeze(-1)
+
+        mask_tensor = torch.zeros(self.cfg.max_particles, dtype=torch.bool)
+        mask_tensor[:n_part] = True
+
+        event_number = torch.tensor(self._event_numbers[idx], dtype=torch.long).unsqueeze(-1)
+
         return {
             "ctxt_data": ctxt_data,
             "ctxt_global_data": ctxt_global_data,
-            "mask": mask,
+            "mask": mask_tensor,
             "event_number": event_number,
         }
+
+    def _compute_global_context(
+        self,
+        n_part: int,
+        ht: Tensor,
+        met_x: Tensor,
+        met_y: Tensor,
+        var_arrays: dict[str, Tensor],
+        apply_transforms: bool,
+    ) -> Tensor:
+        """Build the global context vector for a single event.
+
+        Returns
+        -------
+        Tensor
+            Shape ``(n_global_features,)``.
+        """
+        scalar_map = {"ht": ht, "met_x": met_x, "met_y": met_y}
+        parts: list[Tensor] = []
+
+        for var in self.ctxt_global_vars:
+            if var == "means":
+                # Mean of each non-class per-particle ctxt_var
+                mean_vals: list[Tensor] = []
+                for cv in self.ctxt_vars:
+                    if "class" not in cv and cv in var_arrays:
+                        arr = var_arrays[cv]
+                        mean_vals.append(
+                            arr.mean() if len(arr) > 0 else torch.tensor(0.0, dtype=torch.float32)
+                        )
+                parts.append(torch.stack(mean_vals))
+            elif var.startswith("ntruth"):
+                data = torch.tensor(float(n_part), dtype=torch.float32)
+                if apply_transforms:
+                    data = self.var_transform_dict["npart"].transform(data)
+                parts.append(data.view(1))  # shape (1,)
+            else:
+                data = scalar_map[var]
+                if apply_transforms and var in self.var_transform_dict:
+                    data = self.var_transform_dict[var].transform(data)
+                parts.append(data.view(1))  # shape (1,)
+
+        return torch.cat(parts, dim=0)
 
 
 # ==================== PARAMETRIC ADAPTER ====================
 
 
 class ParametricAdapter(Dataset):
-    """Thin wrapper around :class:`HepMCRawDataset` for parametric simulation.
+    """Thin wrapper around :class:`RawDataset` for parametric simulation.
 
     Returns per-event particle tensors in ColumnMap format without any cuts
     or transforms.  Use :func:`parametric_collate_fn` as the ``collate_fn``
@@ -223,11 +231,11 @@ class ParametricAdapter(Dataset):
 
     Parameters
     ----------
-    raw : HepMCRawDataset
+    raw : RawDataset
         Pre-loaded raw dataset.
     """
 
-    def __init__(self, raw: HepMCRawDataset) -> None:
+    def __init__(self, raw: RawDataset) -> None:
         self._raw = raw
 
     def __len__(self) -> int:

@@ -1,4 +1,4 @@
-"""Low-level HepMC particle → tensor conversion utilities.
+"""Low-level particle → tensor conversion utilities.
 
 This module is a dependency-free leaf: it imports only standard libraries,
 numpy, torch, and pyhepmc. It intentionally has no parnassus imports so that
@@ -9,11 +9,13 @@ Provides
 --------
 - ``ColumnMap`` — IntEnum of column indices in the particle tensor
 - ``N_FEATURES`` — total number of features per particle
-- ``_particles_to_tensor`` — convert a list of pyhepmc particles to a tensor
+- ``hepmc_particles_to_tensor`` — convert a list of pyhepmc particles to a tensor
+- ``pythia_particles_to_tensor`` — convert a Pythia8 event to a tensor
 - PDG lookup utilities: ``get_charge_from_pdg_id``, ``get_mass_from_pdg_id``
 """
 
 from enum import IntEnum
+from typing import Any
 
 import numpy as np
 import particle
@@ -198,7 +200,7 @@ def get_mass_from_pdg_id(pids: np.ndarray) -> np.ndarray:
 # ==================== PARTICLE CONVERSION ====================
 
 
-def particles_to_tensor(
+def hepmc_particles_to_tensor(
     particles_list: list,
     event_number: int,
     use_hepmc_mass: bool = True,
@@ -301,3 +303,76 @@ def particles_to_tensor(
     # ETA_OUTER, PHI_OUTER computed by ParticlePropagator
 
     return torch.from_numpy(particles).to(dtype)
+
+
+def pythia_particles_to_tensor(
+    event: Any,
+    event_idx: int,
+    dtype: torch.dtype = torch.float64,
+) -> torch.Tensor:
+    """Convert a Pythia8 event to a ColumnMap tensor.
+
+    Stores **all** particles in the event (including intermediates), mirroring
+    what a Pythia→HepMC write would produce.  Final-state particles receive
+    ``STATUS = 1``; all others keep their Pythia status code.
+
+    Parameters
+    ----------
+    event : pythia8mc event object
+        The ``pythia.event`` iterable for a single generated event.
+    event_idx : int
+        Event index assigned to all particles in the output tensor.
+    dtype : torch.dtype, optional
+        Output tensor dtype.  Default ``torch.float64`` matches
+        :func:`particles_to_tensor`.
+
+    Returns
+    -------
+    torch.Tensor
+        Shape ``(n_particles, N_FEATURES)``.
+    """
+    if event.size() == 0:
+        return torch.zeros((0, N_FEATURES), dtype=dtype)
+
+    rows = np.zeros((event.size(), N_FEATURES), dtype=np.float64)
+
+    for i, part in enumerate(event):
+        pid = int(part.id())
+        status = 1 if part.isFinal() else int(part.status())
+        charge = float(part.charge())
+        e = float(part.e())
+        px = float(part.px())
+        py = float(part.py())
+        pz = float(part.pz())
+        pt = float(part.pT())
+        phi = float(part.phi())
+
+        # Match C++ Delphes: use ±999.9 for zero-pt particles
+        # np.sign(0.0) == 0.0, so eta is naturally 0.0 when pz==0
+        eta = float(np.sign(pz) * 999.9) if pt < PT_MIN else float(part.eta())
+
+        t = float(part.tProd())
+        x = float(part.xProd())
+        y = float(part.yProd())
+        z = float(part.zProd())
+        mass = float(part.m())
+
+        rows[i, ColumnMap.PID] = float(pid)
+        rows[i, ColumnMap.STATUS] = float(status)
+        rows[i, ColumnMap.CHARGE] = charge
+        rows[i, ColumnMap.E] = e
+        rows[i, ColumnMap.PX] = px
+        rows[i, ColumnMap.PY] = py
+        rows[i, ColumnMap.PZ] = pz
+        rows[i, ColumnMap.PT] = pt
+        rows[i, ColumnMap.ETA] = eta
+        rows[i, ColumnMap.PHI] = phi
+        rows[i, ColumnMap.T] = t
+        rows[i, ColumnMap.X] = x
+        rows[i, ColumnMap.Y] = y
+        rows[i, ColumnMap.Z] = z
+        rows[i, ColumnMap.MASS] = mass
+        rows[i, ColumnMap.EVENT_NUMBER] = float(event_idx)
+        # ETA_OUTER, PHI_OUTER, PASS_PROP, TRACK_RESOLUTION left as 0.0
+
+    return torch.from_numpy(rows).to(dtype)

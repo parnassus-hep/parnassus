@@ -17,27 +17,15 @@ from .conftest import StubDataLoader, StubEventGenerator
 
 
 def test_build_dataset_uses_custom_builder(tmp_path):
-    """build_dataset dispatches to the correct builder based on file extension."""
-    called = {}
-
-    class DummyDataset:
-        def __init__(self, cfg, var_transform_dict):
-            called["cfg"] = cfg
-            called["vars"] = var_transform_dict
-
-    dataset_config = SimpleNamespace(file_path=tmp_path / "data.root")
-    dataset_config.file_path.touch()
+    """build_dataset raises FileNotFoundError for missing ROOT files."""
     transform_registry = SimpleNamespace(to_var_transform_dict=lambda: {"a": 1})
 
-    dataset = build_dataset(
-        dataset_config,  # pyright: ignore[reportArgumentType]
-        transform_registry,  # pyright: ignore[reportArgumentType]
-        dataset_builders={".root": DummyDataset},  # pyright: ignore[reportArgumentType]
-    )
-
-    assert isinstance(dataset, DummyDataset)
-    assert called["cfg"] is dataset_config
-    assert called["vars"] == {"a": 1}
+    missing_config = SimpleNamespace(file_path=tmp_path / "missing.root")
+    with pytest.raises(FileNotFoundError):
+        build_dataset(
+            missing_config,  # pyright: ignore[reportArgumentType]
+            transform_registry,  # pyright: ignore[reportArgumentType]
+        )
 
 
 def test_build_dataset_validates_path_and_extension(tmp_path):
@@ -49,7 +37,6 @@ def test_build_dataset_validates_path_and_extension(tmp_path):
         build_dataset(
             missing_config,  # pyright: ignore[reportArgumentType]
             transform_registry,  # pyright: ignore[reportArgumentType]
-            dataset_builders={".root": lambda *_: None},  # pyright: ignore[reportArgumentType]
         )
 
     bad_ext_path = tmp_path / "data.txt"
@@ -59,7 +46,6 @@ def test_build_dataset_validates_path_and_extension(tmp_path):
         build_dataset(
             bad_ext_config,  # pyright: ignore[reportArgumentType]
             transform_registry,  # pyright: ignore[reportArgumentType]
-            dataset_builders={".root": lambda *_: None},  # pyright: ignore[reportArgumentType]
         )
 
 

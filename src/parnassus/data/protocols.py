@@ -21,9 +21,8 @@ class NeuralDataset(Protocol):
     ``__getitem__`` must return a dict with keys:
     ``ctxt_data``, ``ctxt_global_data``, ``mask``, ``event_number``.
 
-    Satisfied by :class:`~parnassus.data.adapters.NeuralAdapter`,
-    :class:`~parnassus.data.root.RootDataset`,
-    and :class:`~parnassus.data.pythia.PythiaDataset`.
+    Satisfied by :class:`~parnassus.data.adapters.NeuralAdapter`
+    and :class:`~parnassus.data.root.RootDataset`.
     """
 
     def __len__(self) -> int: ...
@@ -42,8 +41,9 @@ class ParametricDataset(Protocol):
     ``__getitem__`` must return a dict with keys:
     ``particles`` (``Tensor[N, N_FEATURES]``), ``event_number``, ``n_particles``.
 
-    Satisfied by :class:`~parnassus.data.adapters.ParametricAdapter`
-    and :class:`~parnassus.data.hepmc_raw.HepMCRawDataset`.
+    Satisfied by :class:`~parnassus.data.adapters.ParametricAdapter`,
+    :class:`~parnassus.data.hepmc.HepMCDataset`,
+    and :class:`~parnassus.data.pythia.PythiaDataset`.
     """
 
     def __len__(self) -> int: ...

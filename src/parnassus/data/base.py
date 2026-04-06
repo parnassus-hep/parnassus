@@ -1,120 +1,59 @@
-from abc import abstractmethod
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
+"""Abstract base dataset for raw per-event ColumnMap tensor datasets."""
 
-import numpy as np
-import torch
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
+
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from parnassus.configs.data import DatasetConfig
-from parnassus.utils.transform import VarTransform
-from parnassus.utils.typing import FloatArray, VarNameTuple
-
-from .transforms import (
-    SCALAR_KEYS,
-    do_padding,  # re-exported for backward compatibility
-    get_event_data,
-    prepare_ctxt_global_data,
-    preprocess_flat_arrays,
-)
-
-if TYPE_CHECKING:
-    from parnassus.utils.typing import BoolArray, IntArray, LongArray
-
-__all__ = ["BaseDataset", "do_padding"]
+from .particle_io import N_FEATURES
 
 
-class BaseDataset(Dataset[dict[str, Tensor]]):
-    """Base dataset class for loading event data."""
+class RawDataset(Dataset[dict[str, Any]], ABC):
+    """Abstract base for raw per-event ColumnMap datasets.
 
-    def __init__(
-        self, cfg: DatasetConfig, var_transform_dict: dict[str, VarTransform] | None = None
-    ):
+    Subclasses implement :meth:`_load` to populate ``_event_tensors`` and
+    ``_event_numbers``.  No selection cuts or variable transforms are applied —
+    the raw physics variables are stored as-is.
+
+    Parameters
+    ----------
+    file_path : Path | str
+        Path to the input file.
+    num_events : int | None
+        Maximum number of events to load.  ``None`` loads all events.
+    """
+
+    def __init__(self, file_path: Path | str, num_events: int | None = None) -> None:
         super().__init__()
-        self.cfg: DatasetConfig = cfg
-
-        self.var_transform_dict: dict[str, VarTransform] = var_transform_dict or {}
-
-        self.truth_vars_to_load: VarNameTuple = cfg.truth_vars_to_load
-        self.ctxt_vars: list[str] = cfg.variable_requirements.ctxt_vars_stripped
-        self.ctxt_global_vars: list[str] = cfg.variable_requirements.ctxt_global_vars_stripped
-
-        self.full_data_array: dict[str, FloatArray] = {}
-
-        self.n_particle_mask: BoolArray
-        self.n_truth_particles: IntArray
-        self.truth_cumsum: LongArray
-        self.eventNumber: LongArray
-
-        if not Path(self.cfg.file_path).exists():
-            raise FileNotFoundError(f"Trying to load file {self.cfg.file_path}, no file exist!")
-        self._load_data()
-        self._validate_required_attributes()
-
-        preprocess_flat_arrays(
-            self.full_data_array,
-            SCALAR_KEYS,
-            getattr(self, "n_particle_mask", None),
-        )
-
-        self.n_events = len(self.n_truth_particles)
-        self.scaled_ctxt_global_data: Tensor = prepare_ctxt_global_data(
-            self.full_data_array,
-            self.n_truth_particles,
-            self.truth_cumsum,
-            self.ctxt_vars,
-            self.ctxt_global_vars,
-            self.var_transform_dict,
-        )
-
-    def _validate_required_attributes(self) -> None:
-        """Validate that all required attributes are set by load_data().
-
-        Raises
-        ------
-        AttributeError
-            If any required attribute is not set or is None.
-        """
-        required_attrs = {
-            "n_truth_particles": "IntArray",
-            "truth_cumsum": "LongArray",
-            "eventNumber": "IntArray",
-        }
-
-        for attr_name, expected_type in required_attrs.items():
-            if not hasattr(self, attr_name):
-                raise AttributeError(
-                    f"'{attr_name}' not set in load_data(). Expected type: {expected_type}"
-                )
-            attr_value = getattr(self, attr_name)
-            if attr_value is None:
-                raise AttributeError(
-                    f"'{attr_name}' is None after load_data(). Expected type: {expected_type}"
-                )
-
-    def __len__(self):
-        return len(self.n_truth_particles)
-
-    def __getitem__(self, idx: Any) -> dict[str, Tensor]:  # pyright: ignore[reportImplicitOverride]
-        ctxt_data, ctxt_global_data, mask = get_event_data(
-            idx,
-            self.full_data_array,
-            self.n_truth_particles,
-            self.truth_cumsum,
-            self.ctxt_vars,
-            self.scaled_ctxt_global_data,
-            self.cfg.max_particles,
-            self.var_transform_dict,
-        )
-        event_number = np.asarray(self.eventNumber[idx])
-        return {
-            "ctxt_data": ctxt_data,
-            "ctxt_global_data": ctxt_global_data,
-            "mask": mask,
-            "event_number": torch.tensor(event_number, dtype=torch.long).unsqueeze(-1),
-        }
+        self.file_path = Path(file_path)
+        self.num_events = num_events
+        if not self.file_path.exists():
+            raise FileNotFoundError(f"File not found: {self.file_path}")
+        self._event_tensors: list[Tensor] = []
+        self._event_numbers: list[int] = []
+        self._load()
 
     @abstractmethod
-    def _load_data(self):
-        pass
+    def _load(self) -> None:
+        """Load events into ``_event_tensors`` and ``_event_numbers``."""
+
+    def __len__(self) -> int:
+        return len(self._event_tensors)
+
+    def __getitem__(self, idx: Any) -> dict[str, Any]:
+        particles = self._event_tensors[idx]
+        return {
+            "particles": particles,  # Tensor(N_i, N_FEATURES)
+            "event_number": self._event_numbers[idx],
+            "n_particles": particles.shape[0],
+        }
+
+    @property
+    def n_features(self) -> int:
+        """Number of features per particle (= ``N_FEATURES``)."""
+        return N_FEATURES
+
+
+__all__ = ["RawDataset"]

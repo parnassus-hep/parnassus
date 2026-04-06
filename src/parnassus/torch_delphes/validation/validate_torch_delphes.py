@@ -9,7 +9,7 @@ Supported detectors:
     - ATLAS: Uses delphes_cards/delphes_card_ATLAS_eflow.tcl configuration
 
 Processing pipeline:
-    1. Load HepMC events via HepMCRawDataset + ParametricAdapter
+    1. Load HepMC events via HepMCDataset + ParametricAdapter
     2. Apply detector simulation via ParametricEventGenerator
     3. Write output to ROOT file via RootWriter
     4. Generate validation histograms comparing to C++ Delphes benchmark
@@ -48,7 +48,7 @@ from parnassus.configs.accessors import AccessorStore
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
 from parnassus.configs.writer import WriterConfig
 from parnassus.data.adapters import ParametricAdapter, parametric_collate_fn
-from parnassus.data.hepmc_raw import HepMCRawDataset
+from parnassus.data.hepmc import HepMCDataset
 from parnassus.pipelines.generators.parametric import ParametricEventGenerator
 from parnassus.utils.logger import setup_logger
 from parnassus.writers.root import RootWriter
@@ -840,7 +840,7 @@ def main(
     # -------------------------------------------------------------------------
     # 1. Load HepMC via dataset stack
     # -------------------------------------------------------------------------
-    raw = HepMCRawDataset(input_file, num_events=max_events)
+    raw = HepMCDataset(input_file, num_events=max_events)
     dataset = ParametricAdapter(raw)
     dataloader = DataLoader(
         dataset,
