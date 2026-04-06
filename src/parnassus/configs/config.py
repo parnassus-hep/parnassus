@@ -5,8 +5,6 @@ from typing import Any, Self
 
 import yaml
 
-from parnassus.utils.logger import setup_logger
-
 from .data import DatasetConfig
 from .generators import GENERATORS_REGISTRY, GeneratorConfig
 from .pipeline import GenPipelineConfig, get_pipeline_config
@@ -52,7 +50,7 @@ class Config:
 
     # Execution parameters
     batch_size: int = 2000
-    device: str = "mps"
+    device: str = "cpu"
     gpu_id: int = 0
 
     def __post_init__(self):
@@ -108,8 +106,6 @@ class Config:
         ValueError
             If the specified generator name is not found in GENERATORS_REGISTRY.
         """
-        log = setup_logger()
-
         output_config_dict = config_dict["output"]
         pipeline_config_dict = config_dict["pipelines"]
         dataset_config_dict = config_dict["dataset"]
@@ -137,20 +133,10 @@ class Config:
         from .generators import NeuralGeneratorConfig, ParametricGeneratorConfig  # noqa: PLC0415
 
         if isinstance(gen_config, NeuralGeneratorConfig):
-            num_steps = gen_config_dict.get("num_steps")
-            if num_steps is not None:
-                gen_config.set_num_steps(num_steps)
+            gen_config.update_from_dict(gen_config_dict)  # Update common parameters
         elif isinstance(gen_config, ParametricGeneratorConfig):
             # Handle parametric-specific overrides here
-            num_steps = gen_config_dict.get("num_steps")
-            if num_steps is not None:
-                log.warning(
-                    f"'num_steps' parameter is ignored for parametric generator '{gen_name}'. "
-                    "This parameter only applies to neural generators.",
-                )
-            seed = gen_config_dict.get("seed")
-            if seed is not None:
-                gen_config.seed = seed
+            gen_config.update_from_dict(gen_config_dict)  # Update common parameters
 
         # Create dataset config with variables and max_particles from generator
         dataset_config = DatasetConfig.from_dict_and_model(dataset_config_dict, gen_config)

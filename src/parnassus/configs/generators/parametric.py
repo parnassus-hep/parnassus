@@ -30,6 +30,22 @@ class ParametricGeneratorConfig(GeneratorConfig):
     seed: int | None = None
     debug: bool = False
 
+    def update_from_dict(self, config_dict: dict) -> None:
+        """Update common generator parameters from a dict.
+
+        This method allows updating parameters like `seed` from a dict,
+        which is useful when loading from YAML or other sources.
+
+        Parameters
+        ----------
+        config_dict : dict
+            Dictionary containing generator parameters to update.
+        """
+        if "seed" in config_dict:
+            self.seed = config_dict["seed"]
+        if "debug" in config_dict:
+            self.debug = config_dict["debug"]
+
     def get_max_particles(self) -> int:
         """Get maximum particles for parametric generator.
 

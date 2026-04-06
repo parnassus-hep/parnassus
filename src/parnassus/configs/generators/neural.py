@@ -66,6 +66,21 @@ class NeuralGeneratorConfig(GeneratorConfig):
                 f"Transform config file not found: {self.transform_config_path}"
             )
 
+    def update_from_dict(self, config_dict: dict) -> None:
+        """Update configuration parameters from a dictionary.
+
+        This method allows updating specific parameters of the generator
+        configuration at runtime, such as the number of sampling steps.
+
+        Parameters
+        ----------
+        config_dict : dict
+            Dictionary containing configuration parameters to update. Supported keys:
+            - "num_steps": int, number of sampling steps for all models.
+        """
+        if "num_steps" in config_dict:
+            self.set_num_steps(config_dict["num_steps"])
+
     def set_num_steps(self, num_steps: int) -> None:
         """Set the number of sampler steps for all models.
 
