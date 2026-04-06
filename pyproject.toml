@@ -69,10 +69,8 @@ mark-parentheses = false
 builtins-allowed-modules = ["typing"]
 
 [tool.mypy]
-exclude = "parnassus/models/modules"
-[[tool.mypy.overrides]]
-module = ['awkward', 'uproot']
 ignore_missing_imports = true
+exclude = ["src/parnassus/tests/.*"]
 
 [tool.pytest.ini_options]
 log_cli = true
@@ -95,4 +93,5 @@ dev = [
     "scipy",
     "gdown",
     "pytest-cov>=6.3.0",
+    "types-tqdm>=4.67.3.20260402",
 ]
