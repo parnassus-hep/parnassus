@@ -7,7 +7,6 @@ from collections.abc import Callable
 from contextlib import contextmanager
 from functools import partial
 from io import TextIOWrapper
-from typing import TypeAlias
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -21,7 +20,7 @@ from rich.progress import (
 )
 
 is_terminal = Console().is_terminal
-ProgressFactory: TypeAlias = Callable[[], Progress]
+type ProgressFactory = Callable[[], Progress]
 
 ProgressBar: ProgressFactory = partial(
     Progress,
