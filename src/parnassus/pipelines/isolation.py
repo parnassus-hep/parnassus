@@ -128,10 +128,10 @@ def calculate_isolation(
     IsolationData
         Array of shape (n_leptons, 4) with columns: pt_sum, pt_sum_ch, pt_sum_neut, iso_score.
     """
-    pt: FloatArray = particle_data["pt"]  # pyright: ignore[reportAssignmentType]
-    eta: FloatArray = particle_data["eta"]  # pyright: ignore[reportAssignmentType]
-    phi: FloatArray = particle_data["phi"]  # pyright: ignore[reportAssignmentType]
-    class_id: IntArray = particle_data["class_id"]  # pyright: ignore[reportAssignmentType]
+    pt: FloatArray = particle_data["pt"].astype(np.float32)
+    eta: FloatArray = particle_data["eta"].astype(np.float32)
+    phi: FloatArray = particle_data["phi"].astype(np.float32)
+    class_id: IntArray = particle_data["class_id"].astype(np.int32)
 
     dR_matrix = calculate_dr(  # noqa: N806
         eta[:, None],

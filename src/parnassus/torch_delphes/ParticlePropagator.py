@@ -25,9 +25,8 @@ Reference:
 import torch
 from torch import nn
 
+from parnassus.data.particle_io import ColumnMap
 from parnassus.torch_delphes import pdg_filters
-
-from .tensor_utils import ColumnMap
 
 
 class ParticlePropagator(nn.Module):

@@ -24,7 +24,7 @@ from collections.abc import Callable
 import torch
 from torch import nn
 
-from .tensor_utils import ColumnMap
+from parnassus.data.particle_io import ColumnMap
 
 N_FEATURES = len(ColumnMap)
 

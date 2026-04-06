@@ -18,9 +18,8 @@ from collections.abc import Callable
 import torch
 from torch import nn
 
+from parnassus.data.particle_io import ColumnMap
 from parnassus.torch_delphes.stochastic_utils import log_normal_sample
-
-from .tensor_utils import ColumnMap
 
 
 class MomentumSmearing(nn.Module):
@@ -76,6 +75,7 @@ class MomentumSmearing(nn.Module):
         """
         super().__init__()
 
+        self.resolution_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
         # Load resolution formula
         if resolution_formula == "charged_hadron_cms":
             self.resolution_func = self._charged_hadron_cms_momentum_resolution

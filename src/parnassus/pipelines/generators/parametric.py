@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Self, final
 
 import numpy as np
 import torch
+from rich.progress import Progress, TaskID
 
 from parnassus.configs.accessors import Accessor, AccessorListBuilder, AccessorSpec
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
@@ -100,8 +101,8 @@ class ParametricEventGenerator:
         self.card: DelphesBaseCard = _CARD_REGISTRY[config.card](debug=config.debug)
         self._events: list[GenEvent] | None = None
         self._exit_stack: ExitStack | None = None
-        self._progress_bar: ProgressBar | None = None
-        self._task = None
+        self._progress_bar: Progress | None = None
+        self._task: TaskID | None = None
 
         self.log.info(
             f"Initialized ParametricEventGenerator with card='{config.card}', debug={config.debug}"
@@ -141,6 +142,7 @@ class ParametricEventGenerator:
     def process_batch(self, batch: TensorDict) -> None:
         assert self._events is not None, "Call initialize() before process_batch()"
         assert self._progress_bar is not None
+        assert self._task is not None
 
         all_particles: torch.Tensor = batch["all_particles"]
         stable_particles: torch.Tensor = batch["stable_particles"].to(self.device)

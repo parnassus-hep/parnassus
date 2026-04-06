@@ -21,9 +21,8 @@ from collections.abc import Callable
 import torch
 from torch import nn
 
+from parnassus.data.particle_io import ColumnMap
 from parnassus.torch_delphes import pdg_filters
-
-from .tensor_utils import ColumnMap
 
 
 class Efficiency(nn.Module):
@@ -75,6 +74,8 @@ class Efficiency(nn.Module):
         """
         super().__init__()
         self.efficiency_formula = efficiency_formula
+        self.efficiency_func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+        self.pdg_filter_func: Callable[[torch.Tensor], torch.Tensor] | None
 
         # Load efficiency formula
         if self.efficiency_formula == "charged_hadron_cms":

@@ -408,6 +408,7 @@ def validate_against_benchmark(
                 else:
                     # Standard continuous histogram
                     # Determine bin range
+                    bins: int | list[float]
                     all_data = np.concatenate([torch_np, benchmark_np])
                     if len(all_data) > 0:
                         bins = list(
@@ -417,7 +418,7 @@ def validate_against_benchmark(
                         bins = 50
 
                     # Plot histograms
-                    benchmark_counts, bin_edges, _ = ax_hist.hist(
+                    benchmark_hist = ax_hist.hist(
                         benchmark_np,
                         bins=bins,
                         histtype="stepfilled",
@@ -427,7 +428,7 @@ def validate_against_benchmark(
                         label="C++ Delphes",
                         density=False,
                     )
-                    torch_counts, _, _ = ax_hist.hist(
+                    torch_hist = ax_hist.hist(
                         torch_np,
                         bins=bins,
                         histtype="step",
@@ -436,8 +437,9 @@ def validate_against_benchmark(
                         label="Parnassus.TorchDelphes",
                         density=False,
                     )
-                    benchmark_counts = np.array(benchmark_counts)
-                    torch_counts = np.array(torch_counts)
+                    benchmark_counts = np.asarray(benchmark_hist[0])
+                    bin_edges = np.asarray(benchmark_hist[1])
+                    torch_counts = np.asarray(torch_hist[0])
 
                     # For ratio plot
                     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
@@ -575,7 +577,7 @@ def validate_against_benchmark(
                     bins = 40
 
                 # Plot histograms
-                benchmark_counts, bin_edges, _ = ax_hist.hist(
+                benchmark_hist = ax_hist.hist(
                     benchmark_np,
                     bins=bins,
                     histtype="stepfilled",
@@ -585,7 +587,7 @@ def validate_against_benchmark(
                     label=f"C++ Delphes: {len(benchmark_np)} particles",
                     density=False,
                 )
-                torch_counts, _, _ = ax_hist.hist(
+                torch_hist = ax_hist.hist(
                     torch_np,
                     bins=bins,
                     histtype="step",
@@ -594,6 +596,9 @@ def validate_against_benchmark(
                     label=f"Parnassus.TorchDelphes: {len(torch_np)} particles",
                     density=False,
                 )
+                benchmark_counts = np.asarray(benchmark_hist[0])
+                bin_edges = np.asarray(benchmark_hist[1])
+                torch_counts = np.asarray(torch_hist[0])
 
                 ax_hist.set_ylabel("Counts", fontsize=11)
                 ax_hist.set_title(f"{var}", fontsize=13, fontweight="bold")
@@ -737,7 +742,7 @@ def validate_against_benchmark(
                         bins = 40
 
                     # Plot histograms
-                    benchmark_counts, bin_edges, _ = ax_hist.hist(
+                    benchmark_hist = ax_hist.hist(
                         benchmark_np,
                         bins=bins,
                         histtype="stepfilled",
@@ -747,7 +752,7 @@ def validate_against_benchmark(
                         label=f"C++ Delphes, {len(benchmark_np)} particles",
                         density=False,
                     )
-                    torch_counts, _, _ = ax_hist.hist(
+                    torch_hist = ax_hist.hist(
                         torch_np,
                         bins=bins,
                         histtype="step",
@@ -756,6 +761,9 @@ def validate_against_benchmark(
                         label=f"Parnassus.TorchDelphes, {len(torch_np)} particles",
                         density=False,
                     )
+                    benchmark_counts = np.asarray(benchmark_hist[0])
+                    bin_edges = np.asarray(benchmark_hist[1])
+                    torch_counts = np.asarray(torch_hist[0])
 
                     ax_hist.set_ylabel("Counts", fontsize=11)
                     ax_hist.set_title(f"{var}", fontsize=13, fontweight="bold")

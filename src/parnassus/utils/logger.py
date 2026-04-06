@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 import os
 import sys
+from collections.abc import Callable
 from contextlib import contextmanager
 from functools import partial
 from io import TextIOWrapper
-from typing import TYPE_CHECKING
+from typing import TypeAlias
 
 from rich.console import Console
 from rich.logging import RichHandler
@@ -19,11 +20,10 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-if TYPE_CHECKING:
-    from collections.abc import Callable
-
 is_terminal = Console().is_terminal
-ProgressBar = partial(
+ProgressFactory: TypeAlias = Callable[[], Progress]
+
+ProgressBar: ProgressFactory = partial(
     Progress,
     TextColumn("[task.description]{task.description}"),
     BarColumn(),

@@ -59,11 +59,11 @@ def mock_particles(
                 [-11, 11, -13, 13, 211, -211, 111, 130, 22],
                 size=(num_events, num_particles),
                 replace=True,
-            ).astype(np.int32)
+            )
         elif var == "class":
             value = np.array(
                 [
-                    pid_to_class(particles["pdgId"][i, j])
+                    pid_to_class(int(particles["pdgId"][i, j]))
                     for i in range(num_events)
                     for j in range(num_particles)
                 ],

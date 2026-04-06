@@ -7,7 +7,7 @@ to separate particles into different categories.
 
 import torch
 
-from .tensor_utils import ColumnMap
+from parnassus.data.particle_io import ColumnMap
 
 
 def charged_hadron_filter(particles: torch.Tensor) -> torch.Tensor:

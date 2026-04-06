@@ -7,6 +7,7 @@ from typing import Self, final
 
 import numpy as np
 import torch
+from rich.progress import Progress, TaskID
 
 from parnassus.configs.accessors import (
     Accessor,
@@ -80,11 +81,11 @@ class NeuralEventGenerator:
         # State managed across initialize / process_batch / get_events
         self._buffers: _GenerationBuffers | None = None
         self._exit_stack: ExitStack | None = None
-        self._progress_bar: ProgressBar | None = None
-        self._total_gen_task = None
-        self._evt_sampler_task = None
-        self._part_sampler_task = None
-        self._impact_sampler_task = None
+        self._progress_bar: Progress | None = None
+        self._total_gen_task: TaskID | None = None
+        self._evt_sampler_task: TaskID | None = None
+        self._part_sampler_task: TaskID | None = None
+        self._impact_sampler_task: TaskID | None = None
 
     # ------------------------------------------------------------------ #
     # Internal-use properties (not part of the public protocol)           #
@@ -237,6 +238,7 @@ class NeuralEventGenerator:
         """
         assert self._buffers is not None, "Call initialize() before process_batch()"
         assert self._progress_bar is not None
+        assert self._total_gen_task is not None
 
         if self._evt_sampler_task is not None:
             self._progress_bar.reset(self._evt_sampler_task)

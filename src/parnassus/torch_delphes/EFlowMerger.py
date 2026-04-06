@@ -20,7 +20,7 @@ Reference:
 import torch
 from torch import nn
 
-from .tensor_utils import ColumnMap
+from parnassus.data.particle_io import ColumnMap
 
 
 class EFlowMerger(nn.Module):

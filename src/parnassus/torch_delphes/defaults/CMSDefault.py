@@ -102,8 +102,6 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
         super().__init__()
         self.debug = debug
 
-        self.params = {}
-
         # ParticlePropagator
         self.ParticlePropagator = ParticlePropagator(
             radius=1.29,

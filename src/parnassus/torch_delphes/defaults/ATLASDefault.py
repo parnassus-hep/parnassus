@@ -111,8 +111,6 @@ class ATLASEnergyFlowDefault(DelphesBaseCard):
         super().__init__()
         self.debug = debug
 
-        self.params = {}
-
         # ParticlePropagator - ATLAS geometry
         self.ParticlePropagator = ParticlePropagator(
             radius=1.15,
