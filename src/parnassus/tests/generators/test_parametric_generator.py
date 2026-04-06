@@ -184,6 +184,42 @@ def test_generator_to_moves_card_and_returns_self():
     assert gen.device == cpu
 
 
+@pytest.mark.parametrize("same_seed", [True, False])
+def test_generator_random_seed_reproducibility(same_seed: bool):
+    N_PARTICLES = 100
+    batch = {
+        "stable_particles": torch.rand((N_PARTICLES, N_FEATURES), dtype=torch.float64),
+        "all_particles": torch.rand((N_PARTICLES, N_FEATURES), dtype=torch.float64),
+    }
+    batch["stable_particles"][:, ColumnMap.EVENT_NUMBER] = 1
+    batch["all_particles"][:, ColumnMap.EVENT_NUMBER] = 1
+
+    events_list = []
+    for _ in range(2):
+        gen_batch = {k: v.clone() for k, v in batch.items()}  # clone to ensure same input
+        with ParametricEventGenerator(
+            _make_config("cms", seed=123 if same_seed else None), _STUB_LOG
+        ) as gen:
+            gen.initialize(n_events=1, n_batches=1)
+            gen.process_batch(gen_batch)
+            events_list.append(gen.get_events())
+
+    events1, events2 = events_list
+    assert len(events1) == len(events2) == 1
+    for var in ["pt", "eta", "phi", "status"]:
+        if same_seed:
+            np.testing.assert_allclose(
+                getattr(events1[0].pflow_particles, var),
+                getattr(events2[0].pflow_particles, var),
+            )
+        else:
+            with pytest.raises(AssertionError):
+                np.testing.assert_allclose(
+                    getattr(events1[0].pflow_particles, var),
+                    getattr(events2[0].pflow_particles, var),
+                )
+
+
 def test_generator_process_batch_accumulates_events():
     gen = ParametricEventGenerator(_make_config(), _STUB_LOG)
     t1 = _particle_torch(3, event_number=1)

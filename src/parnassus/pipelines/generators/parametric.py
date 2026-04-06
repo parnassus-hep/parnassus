@@ -127,9 +127,14 @@ class ParametricEventGenerator:
         # Move card back to CPU to free GPU memory, if applicable
         self.to(torch.device("cpu"))
 
+    def set_seed(self, seed: int) -> None:
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+
     def initialize(self, n_events: int, n_batches: int) -> None:  # noqa: ARG002
         if self.config.seed is not None:
-            torch.manual_seed(self.config.seed)
+            self.set_seed(self.config.seed)
+            self.log.info(f"Set random seed to {self.config.seed}")
         self.log.debug("[green]Setting precision to float64.")
         torch.set_default_dtype(torch.float64)
         self.card.eval()
