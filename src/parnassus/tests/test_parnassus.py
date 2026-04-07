@@ -19,7 +19,7 @@ def test_main_help(capsys):
 def test_main_init(tmp_path):
     """Test the init command of the main function."""
     main(["init", tmp_path.as_posix()])
-    assert (tmp_path / "default_config.yaml").exists()
+    assert (tmp_path / "neural_config.yaml").exists()
 
 
 def test_main_run_with_invalid_config():
@@ -28,14 +28,21 @@ def test_main_run_with_invalid_config():
         main(["run", "-c", "non_existent_config.yaml"])
 
 
+EXPECTED_FILE_MAP = {
+    "neural_config.yaml": "expected_results/h4lep_test_neural.root",
+    "parametric_config.yaml": "expected_results/h4lep_test_parametric.root",
+}
+
+
 @pytest.mark.parametrize("ds_file", ["h4lep_test_100.hepmc", "HZZ4l.cmnd"])
-def test_main_run(tmp_path, ds_file: str):
+@pytest.mark.parametrize("config_file", ["neural_config.yaml", "parametric_config.yaml"])
+def test_main_run(tmp_path, ds_file: str, config_file: str):
     output_path = Path(tmp_path) / "test.root"
     current_dir = Path(__file__).parent
     args = [
         "run",
         "-c",
-        (current_dir.parent / "configs/default_config.yaml").as_posix(),
+        (current_dir.parent / "configs" / config_file).as_posix(),
         "-i",
         (current_dir / ds_file).as_posix(),
         "-ne",
@@ -44,6 +51,8 @@ def test_main_run(tmp_path, ds_file: str):
         "2",
         "-o",
         output_path.as_posix(),
+        "--random_seed",
+        "42",
     ]
     main(args)
     assert output_path.exists(), "Output file was not created"
@@ -52,12 +61,20 @@ def test_main_run(tmp_path, ds_file: str):
     # Verify that the output ROOT file contains expected trees
     with uproot.open(output_path) as file:
         generated = file["Parnassus"].arrays(library="np")
-    with uproot.open(current_dir / "expected_results/h4lep_test.root") as expected_file:
+    with uproot.open(current_dir / EXPECTED_FILE_MAP[config_file]) as expected_file:
         expected = expected_file["Parnassus"].arrays(library="np")
     assert set(generated.keys()) == set(expected.keys()), "Output keys do not match expected keys"
     if ds_file == "h4lep_test_100.hepmc":
         for key in expected:
             if "Truth" in key:
+                for i in range(4):
+                    np.testing.assert_allclose(
+                        generated[key][i],
+                        expected[key][i],
+                        err_msg=f"Mismatch in key '{key}' for event {i}",
+                        rtol=1e-6,
+                    )
+            if config_file == "parametric_config.yaml":
                 for i in range(4):
                     np.testing.assert_allclose(
                         generated[key][i],

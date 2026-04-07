@@ -2,7 +2,7 @@ from pathlib import Path
 
 from parnassus.configs import Config
 
-DEFAULT_CONFIG_PATH = Path(__file__).cwd().joinpath("src/parnassus/configs/default_config.yaml")
+DEFAULT_CONFIG_PATH = Path(__file__).cwd().joinpath("src/parnassus/configs/neural_config.yaml")
 
 
 def test_config_from_yaml():

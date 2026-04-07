@@ -1,0 +1,44 @@
+dataset:
+  file_path: ""
+  num_events: 1000
+  entry_start: 0
+
+generator:
+  type: "parametric" # Generator type: "neural" or "parametric"
+  name: "cms" # Specific generator name from the registry
+  seed: 42 # Parametric-specific: random seed for reproducibility, remove for true randomness
+
+pipelines:
+  TruthJetsAntiKt05:
+    type: "cluster"
+    collection: truth
+    dr: 0.5
+    algorithm: antikt
+    pt_min: 10
+    nconst_min: 2
+  TruthJetsAntiKt08:
+    type: "cluster"
+    collection: truth
+    dr: 0.8
+    algorithm: antikt
+    pt_min: 10
+    nconst_min: 2
+  PflowJetsAntiKt05:
+    type: "cluster"
+    collection: pflow
+    dr: 0.5
+    algorithm: antikt
+    pt_min: 10
+    nconst_min: 2
+  ElectronIsolation:
+    type: "isolation"
+    collection: "electrons"
+    dr: 0.4
+  MuonIsolation:
+    type: "isolation"
+    collection: "muons"
+    dr: 0.4
+
+output:
+  file_path: ""
+  format: default
