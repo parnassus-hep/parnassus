@@ -76,7 +76,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         self._event_numbers: list[int] = []
         for i in range(len(raw)):
             item = raw[i]
-            p: Tensor = item["particles"]
+            p: Tensor = item["particles"].float()
             if p.shape[0] == 0:
                 continue
             mask = self._selection_mask(p)
@@ -109,7 +109,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
 
     def __getitem__(self, idx: Any) -> dict[str, Tensor]:  # pyright: ignore[reportImplicitOverride]
         raw_idx = self._valid_idx[idx]
-        particles: Tensor = self._raw[raw_idx]["particles"]
+        particles: Tensor = self._raw[raw_idx]["particles"].float()
 
         # Apply selection and extract as float32 numpy
         mask = self._selection_mask(particles)

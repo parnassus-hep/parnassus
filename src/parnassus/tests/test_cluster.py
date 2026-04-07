@@ -42,7 +42,7 @@ def test_cluster_jets(mock_particle_collection: GenParticleCollection):
     from parnassus.pipelines.cluster import cluster_jets
 
     config = JetClusteringConfig(
-        name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, min_pt=0
+        name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, pt_min=0
     )
     # Convert GenParticleCollection to particle data dictionary
     four_vectors = mock_particle_collection.get4vecs_numpy()
@@ -154,7 +154,7 @@ def test_jet_clustering_batch(mock_particle_collection: GenParticleCollection):
     from parnassus.pipelines.cluster import cluster_jets_batch
 
     config = JetClusteringConfig(
-        name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, min_pt=0
+        name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, pt_min=0
     )
     # Convert GenParticleCollection to particle data dictionary
     four_vectors = mock_particle_collection.get4vecs_numpy()
@@ -185,7 +185,7 @@ def test_jet_clustering_pipeline(
         algorithm="antikt",
         dr=0.4,
         nconst_min=2,
-        min_pt=0,
+        pt_min=0,
         redirect_stdout=True,
         batch_size=50,
         num_processes=num_processes,

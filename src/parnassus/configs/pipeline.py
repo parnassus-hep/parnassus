@@ -40,7 +40,7 @@ class JetClusteringConfig(GenPipelineConfig):
         Jet radius parameter, by default 0.5.
     nconst_min : int, optional
         Minimum number of constituents for a jet to be kept, by default 2.
-    min_pt : float, optional
+    pt_min : float, optional
         Minimum jet transverse momentum to be kept, by default 0.
     num_processes : int, optional
         Number of processes for parallel execution, by default 1.
@@ -53,7 +53,7 @@ class JetClusteringConfig(GenPipelineConfig):
     collection: str = "pflow"
     dr: float = 0.5
     nconst_min: int = 2
-    min_pt: float = 0
+    pt_min: float = 0
     num_processes: int = 1
 
     redirect_stdout: bool = True
