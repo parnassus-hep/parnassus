@@ -11,7 +11,7 @@ from parnassus.pipelines import GenerationPipeline, IsolationPipeline, JetCluste
 from parnassus.utils.logger import setup_logger
 from parnassus.writers import RootWriter
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent.joinpath("configs/default_config.yaml")
+DEFAULT_CONFIG_PATH = Path(__file__).parent.joinpath("configs/neural_config.yaml")
 
 
 def parse_args(args: Sequence[str] | None) -> argparse.Namespace:
@@ -78,6 +78,15 @@ def parse_args(args: Sequence[str] | None) -> argparse.Namespace:
         default=None,
         help="Batch size for processing (overrides config)",
     )
+    _ = parser_run.add_argument(
+        "--random_seed",
+        type=int,
+        default=None,
+        help=(
+            "Random seed for reproducibility "
+            "(overrides config, only applies to parametric generators)"
+        ),
+    )
     return parser.parse_args(args)
 
 
@@ -109,17 +118,18 @@ def main(args: Sequence[str] | None = None) -> None:
             config.dataset_config.num_events = parsed_args.num_events
         if parsed_args.batch_size:
             config.batch_size = parsed_args.batch_size
-        if parsed_args.num_steps:
-            # Override num_steps for neural generator configs
-            if isinstance(config.generator_config, NeuralGeneratorConfig):
+        if isinstance(config.generator_config, NeuralGeneratorConfig):
+            if parsed_args.num_steps:
                 config.generator_config.set_num_steps(parsed_args.num_steps)
-            elif isinstance(config.generator_config, ParametricGeneratorConfig):
+            if parsed_args.random_seed is not None:
                 log.warning(
-                    f"--num_steps is ignored for parametric generator "
+                    f"--random_seed is ignored for neural generator "
                     f"'{config.generator_config.name}'. "
-                    "This parameter only applies to neural generators.",
+                    "This parameter only applies to parametric generators.",
                 )
-
+        elif isinstance(config.generator_config, ParametricGeneratorConfig):
+            if parsed_args.random_seed is not None:
+                config.generator_config.seed = parsed_args.random_seed
         generation_pipeline = GenerationPipeline(config)
         gen_events, accessors_dict = generation_pipeline.run()
         accessor_store.update_from_dict(accessors_dict)
