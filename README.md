@@ -7,116 +7,101 @@
 
 ## Installation
 
-To install the `Parnassus` package, ensure you have Python 3.10 or 3.11 installed. Then, run the following commands:
+To install the `Parnassus` package, ensure you have Python 3.10 or 3.11 and [uv](https://github.com/astral-sh/uv) installed. Then run:
 
 ```bash
 # Clone the repository
 git clone https://github.com/parnassus-hep/parnassus.git
 cd parnassus
 
-# Install package
-pip install -e .
-```
-
-To additionally install the development dependencies (for formatting and linting) use
-```bash
-pip install -e '.[dev]'
+# Install package and all dependencies
+uv sync --all-extras
 ```
 
 ## Development
 
-You can set up and run pre-commit hooks with
+Set up and run pre-commit hooks (ruff, mypy, basedpyright) with:
 
 ```bash
-pre-commit install
-pre-commmit run --all-files
+uv run pre-commit install
+uv run pre-commit run --all-files
 ```
 
-To run the tests you can use the `pytest` or `coverage` command, for example
+To run the tests:
 
 ```bash
-pytest .
+uv run pytest .
+# or with coverage
+uv run coverage run -m pytest
 ```
 
 To download the testbench data for the pythia pytest:
-```gdown --folder https://drive.google.com/drive/folders/1W-V_rU6lRmtuaOclj3gYB1qJSn4J11qM?usp=sharing -O src/parnassus/tests/benchmark_data/
+```bash
+gdown --folder https://drive.google.com/drive/folders/1W-V_rU6lRmtuaOclj3gYB1qJSn4J11qM?usp=sharing -O src/parnassus/tests/benchmark_data/
 ```
 
 ## Running the Package
-To init working directory, run the following command:
+
+To copy the default configuration file to the current directory:
 
 ```bash
-parnassus init
+uv run parnassus init
 ```
-This will copy the default configuration file to the current directory.
 
-To run the `parnassus` package, use the following command:
+To run the `parnassus` package:
 
 ```bash
-parnassus run -c <config-file> -i <input-file> -ne <num-events> -bs <batch-size> -o <output-file>
+uv run parnassus run -c <config-file> -i <input-file> -ne <num-events> -bs <batch-size> -o <output-file>
 ```
 
-### Example Command
+### Generator Modes
+
+Parnassus supports two simulation backends, selected via the `generator.type` field in the config:
+
+**Neural** (`generator.type: "neural"`): uses flow-based generative models to simulate detector response.
 
 ```bash
-parnassus run -c src/parnassus/configs/neural_config.yaml -i src/tests/h4lep_test_1k.hepmc -ne 4 -bs 2 -o test.root
+uv run parnassus run -c src/parnassus/configs/neural_config.yaml -i input.hepmc -ne 100 -bs 10 -o output.root
 ```
+
+**Parametric** (`generator.type: "parametric"`): uses `torch_delphes`, a PyTorch-based fast detector simulation that reproduces Delphes-like smearing and efficiencies. Supported detector cards: `"cms"` and `"atlas"`.
+
+```bash
+uv run parnassus run -c src/parnassus/configs/parametric_config.yaml -i input.hepmc -ne 100 -bs 10 -o output.root
+```
+
+### Input Formats
+
+- **HepMC3** (`.hepmc`): standard HEP event record format.
+- **ROOT** (`.root`): preprocessed input files used by `parnassus-core` to train/evaluate.
+- **Pythia8 card** (`.cmnd`): Pythia8 configuration file; events are generated on-the-fly using the `pythia` module before passing to the simulation pipeline.
 
 ### Command-Line Arguments
 
-- `-c, --config`: Path to the configuration file (e.g., `src/parnassus/configs/neural_config.yaml`).
-- `-i, --input-path`: Path to the input file (e.g., `.hepmc` file).
+- `-c, --config`: Path to the configuration file.
+- `-i, --input-path`: Path to the input file (`.hepmc`, `.cmnd` or `.root`).
 - `-ne, --num-events`: Number of events to process.
 - `-bs, --batch-size`: Batch size for processing.
-- `-o, --output-path`: Path to the output file (e.g., `.root` file).
+- `-o, --output-path`: Path to the output ROOT file.
+- `--random_seed`: Random seed for reproducibility (parametric mode only; overrides config).
+- `--num_steps`: Number of ODE steps (neural mode only; overrides config).
 
 ## Project Structure
 
-This project is structured in the following way:
-
-- `docs/`
-- `src/`
-	- `parnassus/`
-		- `main.py`
-		- `configs/`
-			- `config.py`
-			- `data.py`
-			- `pipeline.py`
-			- `writer.py`
-			- `accessors.py`
-			- `scheme.py`
-			- `generators/`
-				- `base.py` - Base generator configuration
-				- `neural.py` - Neural network generator config
-				- `parametric.py` - Parametric generator config
-				- `model.py` - Model and sampler configurations
-		- `pipelines/`
-			- `base.py` - EventGenerator protocol
-			- `generate.py` - Generation pipeline orchestration
-			- `cluster.py` - Jet clustering pipeline
-			- `isolation.py` - Lepton isolation pipeline
-			- `generators/`
-				- `neural.py` - Neural network event generator
-		- `nn/`
-			- `wrapper.py`
-			- `sampler.py`
-		- `data/`
-			- `base.py`
-			- `hepmc.py`
-			- `root.py`
-		- `writers/`
-			- `base.py`
-			- `root.py`
-		- `pythia/`
-		- `utils/`
-		- `tests/`
-	- `pretrained_models/`
-		- `cms_2011/`
-			- `metadata.yaml`
-			- `var_transform.yaml`
-			- `event.pt2`
-			- `particle.pt2`
-			- `impact.pt2`
+- `src/parnassus/`
+	- `configs/` - Dataclass configs with `from_yaml()`; neural and parametric YAML presets
+		- `generators/` - Per-generator configs (neural, parametric, model/sampler)
+		- `scheme.py` - Core data structures: `GenEvent`, `GenParticleCollection`, `GenTowerCollection`
+	- `pipelines/` - `GenerationPipeline` orchestration, jet clustering, lepton isolation
+		- `generators/` - `NeuralEventGenerator` and `ParametricEventGenerator`
+	- `torch_delphes/` - PyTorch detector simulation (propagator, efficiency, smearing, calorimeter)
+		- `defaults/` - `CMSEnergyFlowDefault` and `ATLASEnergyFlowDefault` detector cards
+		- `validation/` - Comparison scripts against C++ Delphes
+	- `nn/` - `ModelWrapper` (`.pt2` models) and `EulerSampler` (flow sampling)
+	- `data/` - Dataset backends (HepMC3, ROOT, Pythia8) and adapters (neural/parametric)
+	- `pythia/` - Parallel Pythia8 → HepMC3 event generation
+	- `writers/` - ROOT output via uproot
+	- `pretrained_models/cms_2011/` - Pretrained flow models (`event.pt2`, `particle.pt2`, `impact.pt2`)
 
 ## License
 
