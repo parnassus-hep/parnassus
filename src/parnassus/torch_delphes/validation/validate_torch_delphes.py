@@ -60,7 +60,7 @@ print(f"Using device: {DEVICE}")
 # MAP DICT
 
 TORCH_MAP_DICT = {
-    "Particle": "Truth",
+    "Particle": "AllParticles",
     "Track": "Track",
     "Tower": "Tower",
     "EFlowObject": "Pflow",

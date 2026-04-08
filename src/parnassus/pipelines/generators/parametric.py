@@ -71,7 +71,7 @@ _TOWER_OUTPUT_KEYS: frozenset[str] = frozenset({
 
 # Keys that are always handled specially: truth/pflow live on GenEvent directly,
 # Track and Tower go to collections in both normal and debug mode.
-_ALWAYS_COLLECTIONS = ("Track", "Tower")
+_ALWAYS_COLLECTIONS = ("AllParticles", "Track", "Tower")
 
 # Keys present in normal (non-debug) card output that we skip in normal mode —
 # they would be redundant with EFlowObject (pflow) and are only stored in debug.
@@ -150,13 +150,13 @@ class ParametricEventGenerator:
         assert self._task is not None
 
         all_particles: torch.Tensor = batch["all_particles"]
-        stable_particles: torch.Tensor = batch["stable_particles"].to(self.device)
+        stable_particles: torch.Tensor = batch["stable_particles"]
         if stable_particles.shape[0] > 0:
-            results = self.card(stable_particles)
+            results = self.card(stable_particles.to(self.device))
             self._events.extend(
                 _tensors_to_gen_events(
-                    truth=all_particles,
-                    results=results,
+                    truth=stable_particles,
+                    results=results | {"AllParticles": all_particles},
                     debug=self.config.debug,
                 )
             )
