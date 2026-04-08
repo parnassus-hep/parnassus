@@ -249,9 +249,10 @@ def _split_by_event(arr: np.ndarray) -> dict[int, np.ndarray]:
     if arr.shape[0] == 0:
         return {}
     event_col = arr[:, ColumnMap.EVENT_NUMBER].astype(np.int32)
-    unique_evs, first_idx = np.unique(event_col, return_index=True)
-    sub_arrays = np.split(arr, first_idx[1:])
-    return {int(ev): sub for ev, sub in zip(unique_evs, sub_arrays, strict=True)}
+    result: dict[int, np.ndarray] = {}
+    for ev in np.unique(event_col):
+        result[int(ev)] = arr[event_col == ev]
+    return result
 
 
 def _tensors_to_gen_events(
