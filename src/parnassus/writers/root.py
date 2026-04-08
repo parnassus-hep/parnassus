@@ -32,6 +32,8 @@ def _make_collection_array(var_data: dict[str, list[Any]]) -> ak.Array:
     ak.Array
         An Awkward Array with a ListOffsetArray structure, where each record contains the variables.
     """
+    if not var_data:
+        return ak.Array([])  # Return an empty array if there are no variables
     first = next(iter(var_data.values()))
     counts = np.fromiter((len(arr) for arr in first), dtype=np.int64, count=len(first))
     offsets = np.zeros(len(counts) + 1, dtype=np.int64)
