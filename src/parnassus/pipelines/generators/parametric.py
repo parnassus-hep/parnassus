@@ -77,6 +77,27 @@ _ALWAYS_COLLECTIONS = ("AllParticles", "Track", "Tower")
 # they would be redundant with EFlowObject (pflow) and are only stored in debug.
 _NORMAL_MODE_SKIP = frozenset({"EFlowTrack", "EFlowPhoton", "EFlowNeutralHadron"})
 
+_DEBUG_CARD_KEYS: frozenset[str] = frozenset({
+    "ParticleBeforeProp",
+    "ParticleAfterProp",
+    "ChargedHadron",
+    "Electron",
+    "Muon",
+    "NeutralParticle",
+    "ChargedHadronEfficiency",
+    "ElectronEfficiency",
+    "MuonEfficiency",
+    "ChargedHadronSmeared",
+    "ElectronSmeared",
+    "MuonSmeared",
+    "ECal_EFlowTrack",
+    "EFlowTrack",
+    "ECalTower",
+    "HCalTower",
+    "EFlowPhoton",
+    "EFlowNeutralHadron",
+})
+
 
 @final
 class ParametricEventGenerator:
@@ -151,15 +172,22 @@ class ParametricEventGenerator:
 
         all_particles: torch.Tensor = batch["all_particles"]
         stable_particles: torch.Tensor = batch["stable_particles"]
+        truth_particles = (
+            stable_particles.clone()
+        )  # Card may overwrite features in-place, so clone to preserve truth.
         if stable_particles.shape[0] > 0:
             results = self.card(stable_particles.to(self.device))
-            self._events.extend(
-                _tensors_to_gen_events(
-                    truth=stable_particles,
-                    results=results | {"AllParticles": all_particles},
-                    debug=self.config.debug,
-                )
+        else:
+            results = _empty_card_results(all_particles, debug=self.config.debug)
+
+        self._events.extend(
+            _tensors_to_gen_events(
+                truth=truth_particles,
+                event_numbers=batch["event_numbers"],
+                results=results | {"AllParticles": all_particles},
+                debug=self.config.debug,
             )
+        )
 
         self._progress_bar.update(self._task, advance=1)
 
@@ -193,29 +221,7 @@ class ParametricEventGenerator:
         if self.config.debug:
             # Add accessors for all intermediate card outputs stored in collections.
             # Card output key == collection key == ROOT branch name.
-            debug_card_keys = {
-                # Particle-type
-                "ParticleBeforeProp",
-                "ParticleAfterProp",
-                "ChargedHadron",
-                "Electron",
-                "Muon",
-                "NeutralParticle",
-                "ChargedHadronEfficiency",
-                "ElectronEfficiency",
-                "MuonEfficiency",
-                "ChargedHadronSmeared",
-                "ElectronSmeared",
-                "MuonSmeared",
-                "ECal_EFlowTrack",
-                "EFlowTrack",
-                # Tower-type
-                "ECalTower",
-                "HCalTower",
-                "EFlowPhoton",
-                "EFlowNeutralHadron",
-            }
-            for key in debug_card_keys:
+            for key in _DEBUG_CARD_KEYS:
                 specs = _TOWER_SPECS if key in _TOWER_OUTPUT_KEYS else _PARTICLE_SPECS
                 accessors[key] = (
                     AccessorListBuilder.for_collection(key).add_from_specs(specs).build()
@@ -231,9 +237,8 @@ class ParametricEventGenerator:
 def _split_by_event(arr: np.ndarray) -> dict[int, np.ndarray]:
     """Split a concatenated multi-event array into per-event sub-arrays.
 
-    Uses ``np.unique`` + ``np.split`` for a single O(rows) pass rather than
-    one boolean scan per event.  Assumes rows for each event are contiguous,
-    which is guaranteed by ``ParametricAdapter`` / torch_delphes cards.
+    Sorts by event number then uses ``np.split`` for a single O(N log N) pass.
+    Handles non-monotonic event numbers (e.g. card output reordering rows).
 
     Parameters
     ----------
@@ -249,14 +254,51 @@ def _split_by_event(arr: np.ndarray) -> dict[int, np.ndarray]:
     if arr.shape[0] == 0:
         return {}
     event_col = arr[:, ColumnMap.EVENT_NUMBER].astype(np.int32)
-    result: dict[int, np.ndarray] = {}
-    for ev in np.unique(event_col):
-        result[int(ev)] = arr[event_col == ev]
-    return result
+    sort_idx = np.argsort(event_col, kind="stable")
+    sorted_col = event_col[sort_idx]
+    sorted_arr = arr[sort_idx]
+    boundaries = np.flatnonzero(np.diff(sorted_col)) + 1
+    unique_evs = sorted_col[np.concatenate(([0], boundaries))]
+    return {
+        int(ev): sub for ev, sub in zip(unique_evs, np.split(sorted_arr, boundaries), strict=True)
+    }
+
+
+def _empty_card_results(
+    source: torch.Tensor,
+    debug: bool = False,
+) -> dict[str, torch.Tensor]:
+    """Create empty card outputs matching the non-debug/debug branch contract.
+
+    Parameters
+    ----------
+    source : torch.Tensor
+        The input tensor to the card, used to determine the number of features
+        and dtype for the empty outputs.
+    debug : bool, optional
+        Whether to include debug branches in the output. Defaults to False.
+
+    Returns
+    -------
+    dict[str, torch.Tensor]
+        A dictionary with keys for each expected card output,
+        where each value is an empty tensor of the appropriate shape and dtype.
+    """
+    empty = source.new_zeros((0, source.shape[1]))
+    results: dict[str, torch.Tensor] = {
+        "EFlowObject": empty,
+        "Track": empty,
+        "Tower": empty,
+    }
+    if debug:
+        for key in _DEBUG_CARD_KEYS:
+            results[key] = empty
+    return results
 
 
 def _tensors_to_gen_events(
     truth: torch.Tensor,
+    event_numbers: torch.Tensor,
     results: dict[str, torch.Tensor],
     debug: bool = False,
 ) -> list[GenEvent]:
@@ -265,7 +307,10 @@ def _tensors_to_gen_events(
     Parameters
     ----------
     truth:
-        All-particle truth tensor (ColumnMap format, all events concatenated).
+        Stable truth tensor in ColumnMap format, all events concatenated.
+    event_numbers:
+        Event numbers for the original batch order. Events with no stable particles
+        are still emitted with empty truth/pflow collections.
     results:
         Output dict from the detector card forward pass.
     debug:
@@ -275,7 +320,7 @@ def _tensors_to_gen_events(
     Returns
     -------
     list[GenEvent]
-        One GenEvent per unique event number in the truth tensor.
+        One GenEvent per input event number.
     """
     truth_np = truth.cpu().numpy()
     pflow_np = results["EFlowObject"].cpu().numpy()
@@ -297,7 +342,8 @@ def _tensors_to_gen_events(
 
     empty: np.ndarray = np.empty((0, truth_np.shape[1]), dtype=truth_np.dtype)
     events = []
-    for ev, truth_a in truth_splits.items():
+    for ev in event_numbers.cpu().numpy():
+        truth_a = truth_splits.get(ev, empty)
         collections: dict = {}
         for key, splits in extra_splits.items():
             a = splits.get(ev, empty)

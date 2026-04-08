@@ -124,6 +124,7 @@ def test_tensors_to_gen_events_produces_one_event_per_unique_event_number():
 
     events = _tensors_to_gen_events(
         truth=combined,
+        event_numbers=torch.tensor([10, 20]),
         results={"EFlowObject": combined, "Track": combined, "Tower": combined},
     )
 
@@ -139,6 +140,7 @@ def test_tensors_to_gen_events_empty_branches_have_zero_length():
 
     events = _tensors_to_gen_events(
         truth=truth,
+        event_numbers=torch.tensor([1]),
         results={"EFlowObject": truth, "Track": empty, "Tower": empty},
     )
 
@@ -190,13 +192,15 @@ def test_generator_random_seed_reproducibility(same_seed: bool):
     batch = {
         "stable_particles": torch.rand((N_PARTICLES, N_FEATURES), dtype=torch.float64),
         "all_particles": torch.rand((N_PARTICLES, N_FEATURES), dtype=torch.float64),
+        "event_numbers": torch.tensor([1]),
+        "n_particles": torch.tensor([N_PARTICLES]),
     }
     batch["stable_particles"][:, ColumnMap.EVENT_NUMBER] = 1
     batch["all_particles"][:, ColumnMap.EVENT_NUMBER] = 1
 
     events_list = []
     for _ in range(2):
-        gen_batch = {k: v.clone() for k, v in batch.items()}  # clone to ensure same input
+        gen_batch = {k: v.clone() for k, v in batch.items()}
         with ParametricEventGenerator(
             _make_config("cms", seed=123 if same_seed else None), _STUB_LOG
         ) as gen:
@@ -227,11 +231,70 @@ def test_generator_process_batch_accumulates_events():
     gen.card = _make_stub_card({"EFlowObject": t1, "Track": t1, "Tower": t1})
     gen.initialize(n_events=2, n_batches=2)
 
-    gen.process_batch({"stable_particles": t1, "all_particles": t1})
+    gen.process_batch({
+        "stable_particles": t1,
+        "all_particles": t1,
+        "event_numbers": torch.tensor([1]),
+        "n_particles": torch.tensor([len(t1)]),
+    })
     gen.card.return_value = {"EFlowObject": t2, "Track": t2, "Tower": t2}
-    gen.process_batch({"stable_particles": t2, "all_particles": t2})
+    gen.process_batch({
+        "stable_particles": t2,
+        "all_particles": t2,
+        "event_numbers": torch.tensor([2]),
+        "n_particles": torch.tensor([len(t2)]),
+    })
 
     assert len(gen.get_events()) == 2
+
+
+def test_generator_process_batch_preserves_truth_when_card_mutates_input():
+    gen = ParametricEventGenerator(_make_config(), _STUB_LOG)
+    truth = _particle_torch(2, event_number=1)
+    truth[:, ColumnMap.T] = 0.0
+
+    def _mutating_card(particles: torch.Tensor) -> dict[str, torch.Tensor]:
+        particles[:, ColumnMap.T] = 123.0
+        return {"EFlowObject": particles, "Track": particles[:0], "Tower": particles[:0]}
+
+    gen.card = _make_stub_card({})
+    gen.card.side_effect = _mutating_card
+    gen.initialize(n_events=1, n_batches=1)
+
+    gen.process_batch({
+        "stable_particles": truth,
+        "all_particles": truth.clone(),
+        "event_numbers": torch.tensor([1]),
+        "n_particles": torch.tensor([2]),
+    })
+
+    events = gen.get_events()
+    assert len(events) == 1
+    assert events[0].truth_particles.t is not None
+    np.testing.assert_allclose(
+        events[0].truth_particles.t, np.zeros_like(events[0].truth_particles.t)
+    )
+
+
+def test_generator_process_batch_preserves_events_without_stable_particles():
+    gen = ParametricEventGenerator(_make_config(), _STUB_LOG)
+    stable = _particle_torch(1, event_number=2)
+    all_particles = torch.cat([_particle_torch(1, event_number=1, status=2), stable])
+    gen.card = _make_stub_card({"EFlowObject": stable, "Track": stable[:0], "Tower": stable[:0]})
+    gen.initialize(n_events=2, n_batches=1)
+
+    gen.process_batch({
+        "stable_particles": stable,
+        "all_particles": all_particles,
+        "event_numbers": torch.tensor([1, 2]),
+        "n_particles": torch.tensor([1, 1]),
+    })
+
+    events = gen.get_events()
+    assert [event.event_number for event in events] == [1, 2]
+    assert len(events[0].truth_particles) == 0
+    assert len(events[0].pflow_particles) == 0
+    assert len(events[1].truth_particles) == 1
 
 
 def test_generator_process_batch_skips_empty_without_calling_card():
@@ -243,6 +306,8 @@ def test_generator_process_batch_skips_empty_without_calling_card():
     gen.process_batch({
         "stable_particles": torch.zeros((0, N_FEATURES), dtype=torch.float64),
         "all_particles": torch.zeros((0, N_FEATURES), dtype=torch.float64),
+        "event_numbers": torch.tensor([]),
+        "n_particles": torch.tensor([]),
     })
 
     stub_card.assert_not_called()

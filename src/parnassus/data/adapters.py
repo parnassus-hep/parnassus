@@ -286,6 +286,6 @@ def parametric_collate_fn(
     return {
         "all_particles": all_particles,
         "stable_particles": stable_particles,
-        "event_numbers": event_numbers,
-        "n_particles": n_particles,
+        "event_numbers": torch.tensor(event_numbers),
+        "n_particles": torch.tensor(n_particles),
     }
