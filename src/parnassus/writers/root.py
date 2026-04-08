@@ -33,7 +33,7 @@ def _make_collection_array(var_data: dict[str, list[Any]]) -> ak.Array:
         An Awkward Array with a ListOffsetArray structure, where each record contains the variables.
     """
     if not var_data:
-        return ak.Array([])  # Return an empty array if there are no variables
+        return ak.Array([])
     first = next(iter(var_data.values()))
     counts = np.fromiter((len(arr) for arr in first), dtype=np.int64, count=len(first))
     offsets = np.zeros(len(counts) + 1, dtype=np.int64)
@@ -88,15 +88,16 @@ class RootWriter(BaseWriter):
 
             data = accessor_store.init_data_dict()
             events_in_queue = 0
+            tree: WritableTree = f["Parnassus"]  # type: ignore[assignment]
             with ProgressBar() as progress:
                 task = progress.add_task("[green]Writing data to file", total=len(events))
                 for event in events:
                     accessor_store.update_data_dict(event, data)
                     events_in_queue += 1
                     if events_in_queue == BATCH_SIZE:
-                        self.write_to_tree(f["Parnassus"], data)  # pyright: ignore[reportArgumentType]
+                        self.write_to_tree(tree, data)
                         progress.update(task, advance=BATCH_SIZE)
                         events_in_queue = 0
                 if events_in_queue != 0:
-                    self.write_to_tree(f["Parnassus"], data)  # pyright: ignore[reportArgumentType]
+                    self.write_to_tree(tree, data)
                     progress.update(task, advance=events_in_queue)

@@ -12,6 +12,7 @@ from rich.progress import Progress, TaskID
 from parnassus.configs.accessors import Accessor, AccessorListBuilder, AccessorSpec
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
 from parnassus.configs.scheme import (
+    GenCollection,
     GenEvent,
     GenParticleCollection,
     GenTowerCollection,
@@ -71,7 +72,7 @@ _TOWER_OUTPUT_KEYS: frozenset[str] = frozenset({
 
 # Keys that are always handled specially: truth/pflow live on GenEvent directly,
 # Track and Tower go to collections in both normal and debug mode.
-_ALWAYS_COLLECTIONS = ("AllParticles", "Track", "Tower")
+_ALWAYS_COLLECTIONS: frozenset[str] = frozenset({"AllParticles", "Track", "Tower"})
 
 # Keys present in normal (non-debug) card output that we skip in normal mode —
 # they would be redundant with EFlowObject (pflow) and are only stored in debug.
@@ -172,9 +173,9 @@ class ParametricEventGenerator:
 
         all_particles: torch.Tensor = batch["all_particles"]
         stable_particles: torch.Tensor = batch["stable_particles"]
-        truth_particles = (
-            stable_particles.clone()
-        )  # Card may overwrite features in-place, so clone to preserve truth.
+        # Clone before passing to card: card may mutate input in-place, and
+        # .to(device) returns the same tensor when already on that device.
+        truth_particles = stable_particles.clone()
         if stable_particles.shape[0] > 0:
             results = self.card(stable_particles.to(self.device))
         else:
@@ -325,9 +326,9 @@ def _tensors_to_gen_events(
     truth_np = truth.cpu().numpy()
     pflow_np = results["EFlowObject"].cpu().numpy()
 
-    # Convert tensors to numpy once, then pre-split every array by event number.
-    # This replaces O(N_events x N_arrays) full-array boolean scans with a single
-    # O(rows) pass per array.
+    # Convert tensors to numpy once, then pre-split every array by event number
+    # (O(N log N) sort + single split pass), rather than O(N_events x N_arrays)
+    # repeated boolean scans.
     extra_np: dict[str, np.ndarray] = {
         key: tensor.cpu().numpy()
         for key, tensor in results.items()
@@ -344,7 +345,7 @@ def _tensors_to_gen_events(
     events = []
     for ev in event_numbers.cpu().numpy():
         truth_a = truth_splits.get(ev, empty)
-        collections: dict = {}
+        collections: dict[str, GenCollection] = {}
         for key, splits in extra_splits.items():
             a = splits.get(ev, empty)
             collections[key] = (
