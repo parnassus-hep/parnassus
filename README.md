@@ -59,12 +59,12 @@ parnassus run -c <config-file> -i <input-file> -ne <num-events> -bs <batch-size>
 ### Example Command
 
 ```bash
-parnassus run -c src/parnassus/configs/default_config.yaml -i src/tests/h4lep_test_1k.hepmc -ne 4 -bs 2 -o test.root
+parnassus run -c src/parnassus/configs/neural_config.yaml -i src/tests/h4lep_test_1k.hepmc -ne 4 -bs 2 -o test.root
 ```
 
 ### Command-Line Arguments
 
-- `-c, --config`: Path to the configuration file (e.g., `src/parnassus/configs/default_config.yaml`).
+- `-c, --config`: Path to the configuration file (e.g., `src/parnassus/configs/neural_config.yaml`).
 - `-i, --input-path`: Path to the input file (e.g., `.hepmc` file).
 - `-ne, --num-events`: Number of events to process.
 - `-bs, --batch-size`: Batch size for processing.
