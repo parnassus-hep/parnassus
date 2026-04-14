@@ -146,25 +146,29 @@ $^{b}$\textit{Lawrence Berkeley National Laboratory, Berkeley, CA, USA}
 % ── Abstract ─────────────────────────────────────────────────
 \begin{abstract}
 We present the public software release of \textsc{Parnassus}, a pure-Python,
-GPU-compatible framework for neural fast detector simulation and reconstruction
-in High Energy Physics. Parnassus replaces the computationally expensive
-\textsc{Geant4} simulation and reconstruction chain with conditional flow
+GPU-compatible framework for fast detector simulation and reconstruction in
+High Energy Physics. Parnassus replaces the computationally expensive
+\textsc{Geant4} simulation and reconstruction chain with two interchangeable
+generator backends: a \textbf{neural backend} based on conditional flow
 matching models that map truth-level particles directly to detector-level
-particle-flow objects. The framework is both process-agnostic and
-detector-agnostic: users select a detector model---analogous to choosing a
-detector card in \textsc{Delphes}---and the same pre-trained model can be
-applied to arbitrary physics processes without retraining. Unlike
-C++/ROOT-based tools such as \textsc{Delphes}, Parnassus runs natively on GPU
-(CUDA and Apple MPS) and requires no ROOT installation. The current release
-ships with a CMS detector model trained on 2011 open data; additional detector
-models will be provided in future releases. We describe the installation,
-command-line and Python API, configuration system, and demonstrate the
-framework on Standard Model and BSM processes.
+particle-flow objects, and a \textbf{parametric backend}
+(\textsc{TorchDelphes}) that re-implements the \textsc{Delphes} fast
+simulation chain in pure PyTorch. Both backends share the same
+process-agnostic and detector-agnostic API: users select a detector
+card---analogous to choosing a detector card in \textsc{Delphes}---and the
+same tool can be applied to arbitrary physics processes without retraining.
+Unlike C++/ROOT-based tools such as \textsc{Delphes}, Parnassus runs natively
+on GPU (CUDA and Apple MPS) and requires no ROOT installation. The current
+release ships with CMS and ATLAS parametric cards validated against
+C++~\textsc{Delphes} 3.5.0, and a CMS neural model trained on 2011 open data;
+additional detector models will be provided in future releases. We describe
+the installation, command-line and Python API, configuration system, and
+demonstrate the framework on Standard Model and BSM processes.
 \end{abstract}
 
 \noindent\textbf{Keywords:} fast simulation, detector simulation,
   particle flow, generative models, flow matching, diffusion models,
-  high energy physics
+  differentiable simulation, high energy physics
 
 % ── CPC Program Summary ─────────────────────────────────────
 \bigskip
@@ -198,25 +202,31 @@ framework on Standard Model and BSM processes.
   chain while being orders of magnitude faster.
 
 \item[Solution method:]
-  Parnassus trains conditional flow matching
+  Parnassus offers two interchangeable generator backends sharing a common
+  API. The \textit{neural backend} trains conditional flow matching
   models~\cite{lipman2023flow,liu2023flow} on full simulation and
-  reconstruction data. A neural detector model, conditioned on
-  truth-level particle properties, generates detector-level
-  particle-flow objects including kinematics, classification, and track
-  impact parameters. Generation is followed by physics-based
-  post-processing (jet clustering via
+  reconstruction data; the model is conditioned on truth-level particle
+  properties and generates detector-level particle-flow objects including
+  kinematics, classification, and track impact parameters. The
+  \textit{parametric backend}, \textsc{TorchDelphes}, re-implements the
+  \textsc{Delphes}~\cite{delphes} fast-simulation chain (particle
+  propagation, tracking efficiency, momentum smearing, calorimeter response,
+  energy-flow merging) in pure PyTorch, validated against C++
+  \textsc{Delphes} 3.5.0 for CMS and ATLAS cards. Both backends are
+  followed by physics-based post-processing (jet clustering via
   \textsc{FastJet}~\cite{fastjet}, lepton isolation). Users select a
-  detector model---analogous to a \textsc{Delphes} card---to target a
+  detector card---analogous to a \textsc{Delphes} card---to target a
   specific experiment.
 
 \item[Additional comments including restrictions and unusual features:]
   The framework is implemented entirely in Python with PyTorch and runs
   natively on CPU, CUDA GPU, and Apple MPS. It has no dependency on
   ROOT; output to ROOT format is optionally handled via
-  \texttt{uproot}~\cite{uproot}. The current release ships with a CMS
-  detector model trained on 2011 open data~\cite{cms_opendata}; additional
-  detector models for other experiments will be added in future releases.
-  The CMS model supports up to 400 truth particles per event; events
+  \texttt{uproot}~\cite{uproot}. The current release ships with CMS and
+  ATLAS parametric (\textsc{TorchDelphes}) cards and a CMS neural model
+  trained on 2011 open data~\cite{cms_opendata}; additional detector
+  models for other experiments will be added in future releases. The
+  neural CMS model supports up to 400 truth particles per event; events
   exceeding this limit retain the 400 highest-$p_\mathrm{T}$ particles.
 
 \end{description}
@@ -229,15 +239,29 @@ framework on Standard Model and BSM processes.
 Parnassus is a \textbf{pure-Python}, \textbf{fully GPU-compatible} framework for
 \textbf{fast detector simulation and reconstruction} in High Energy Physics
 (HEP). It replaces the computationally expensive full
-\textsc{Geant4}~\cite{geant4} simulation and reconstruction chain with neural
-network-based generative models that learn the mapping from truth-level
-(generator-level) particles directly to detector-level
-particle-flow~\cite{CMS-PRF-14-001,PERF-2015-09} (pflow) objects, bypassing
-intermediate steps such as hit simulation, digitisation, and track
+\textsc{Geant4}~\cite{geant4} simulation and reconstruction chain with
+generative models that map truth-level (generator-level) particles directly to
+detector-level particle-flow~\cite{CMS-PRF-14-001,PERF-2015-09} (pflow) objects,
+bypassing intermediate steps such as hit simulation, digitisation, and track
 reconstruction. The framework is both \textbf{process-agnostic} and
-\textbf{detector-agnostic}: the same architecture supports multiple detector
-models, and for each detector the pre-trained model can be applied to arbitrary
-physics processes by simply providing different input truth events.
+\textbf{detector-agnostic}: users select a detector card to target a specific
+experiment, and the same tool can be applied to arbitrary physics processes by
+simply providing different input truth events.
+
+Parnassus exposes two interchangeable \textbf{generator backends} sharing a
+common API:
+\begin{itemize}
+  \item A \textbf{neural backend} based on conditional flow
+    matching~\cite{lipman2023flow,liu2023flow} trained on full simulation and
+    reconstruction data, providing high-fidelity learned detector response.
+  \item A \textbf{parametric backend}, \textsc{TorchDelphes}, which
+    re-implements the \textsc{Delphes}~\cite{delphes} fast-simulation chain
+    (particle propagation, tracking efficiency, momentum smearing, calorimeter
+    response, energy-flow merging) in pure PyTorch. The implementation is
+    validated against C++~\textsc{Delphes} 3.5.0 for both CMS and ATLAS
+    detector cards and provides a fully differentiable, GPU-native drop-in
+    alternative to running C++ \textsc{Delphes}.
+\end{itemize}
 
 Unlike traditional fast simulation tools such as
 \textsc{Delphes}~\cite{delphes}, which are written in C++, require the ROOT
@@ -248,11 +272,11 @@ and significant acceleration on GPU hardware. ROOT I/O is supported via
 \texttt{uproot}~\cite{uproot} for writing output files, but is entirely
 optional --- Parnassus has no dependency on ROOT itself.
 
-Users select a \textbf{detector model} --- analogous to choosing a detector card
+Users select a \textbf{detector card} --- analogous to choosing a detector card
 in \textsc{Delphes} --- to target a specific experiment. The current release
-ships with a CMS detector model trained on 2011 open data~\cite{cms_opendata};
-additional detector models for other experiments will be added in future
-releases.
+ships with CMS and ATLAS \textsc{TorchDelphes} parametric cards, and a CMS
+neural model trained on 2011 open data~\cite{cms_opendata}; additional detector
+models will be added in future releases.
 
 The physics methodology underlying Parnassus has been described in detail in
 Refs.~\cite{parnassus_v1,parnassus_v2}, where we demonstrated that the approach
@@ -328,59 +352,94 @@ Event-level quantities & $H_\mathrm{T}$, $\vec{E}_\mathrm{T}^\mathrm{miss}$
 \section{Architecture overview}
 \label{sec:architecture}
 
-Parnassus passes truth-level events through a neural detector model followed by
-physics-based post-processing. The pipeline is illustrated in
-Fig.~\ref{fig:architecture}.
+Parnassus passes truth-level events through a detector model followed by
+physics-based post-processing. The detector model can be either a neural
+backend or the \textsc{TorchDelphes} parametric backend; both share the same
+input and output interface so that downstream post-processing is unchanged.
+The pipeline is illustrated in Fig.~\ref{fig:architecture}.
 
 \begin{figure}[htbp]
 \centering
 \begin{tikzpicture}[
-  node distance=1.4cm,
+  node distance=1.2cm,
   box/.style={rectangle, draw=parnblue, fill=parnblue!8, thick,
-    minimum width=5.5cm, minimum height=1.2cm, align=center,
+    minimum width=4.0cm, minimum height=1.8cm, align=center,
     font=\small},
+  bigbox/.style={rectangle, draw=parnblue!60, fill=parnblue!3, thick,
+    dashed, align=center},
   postbox/.style={rectangle, draw=parngreen, fill=parngreen!8, thick,
     minimum width=3.5cm, minimum height=1.0cm, align=center,
     font=\small},
   arr/.style={-{Stealth[length=3mm]}, thick, parnblue},
   arrg/.style={-{Stealth[length=3mm]}, thick, parngreen},
 ]
-  % Main pipeline
-  \node[box] (input) {Input Truth Events\\(HepMC or \textsc{Pythia8})};
-  \node[box, below=of input, minimum height=2.0cm] (detector)
-    {Neural Detector Model\\[2pt]
-     {\footnotesize Generates: kinematics ($p_\mathrm{T}$, $\eta$, $\phi$),
-      vertex, class, impact parameters}};
+  % Input
+  \node[rectangle, draw=parnblue, fill=parnblue!8, thick,
+    minimum width=9.2cm, minimum height=1.0cm, align=center, font=\small]
+    (input) {Input Truth Events (HepMC or \textsc{Pythia8})};
 
-  % Arrows
-  \draw[arr] (input) -- (detector);
+  % Two backends side by side
+  \node[box, below left=1.2cm and -1.5cm of input] (neural)
+    {Neural Backend\\[2pt]
+     {\footnotesize (conditional\\flow matching)}};
+  \node[box, below right=1.2cm and -1.5cm of input] (delphes)
+    {Parametric Backend\\[2pt]
+     {\footnotesize \textsc{TorchDelphes}\\(CMS / ATLAS)}};
 
-  % Post-processing
-  \node[postbox, below left=1.5cm and -0.5cm of detector] (jets) {Jet Clustering\\(\textsc{FastJet})};
-  \node[postbox, below=1.5cm of detector] (iso) {Lepton\\Isolation};
-  \node[postbox, below right=1.5cm and -0.5cm of detector] (root) {ROOT\\Writer};
+  % Arrows to backends
+  \draw[arr] (input.south) -- ++(0,-0.3) -| (neural.north);
+  \draw[arr] (input.south) -- ++(0,-0.3) -| (delphes.north);
 
-  \draw[arrg] (detector.south) -- ++(0,-0.6) -| (jets.north);
-  \draw[arrg] (detector.south) -- (iso.north);
-  \draw[arrg] (detector.south) -- ++(0,-0.6) -| (root.north);
+  % Merge arrow under backends
+  \coordinate (merge) at ($(neural.south)!0.5!(delphes.south) + (0,-0.6)$);
+  \draw[arr] (neural.south) |- (merge);
+  \draw[arr] (delphes.south) |- (merge);
+
+  % Output label
+  \node[below=0.05cm of merge, font=\scriptsize\itshape]
+    {particle-flow objects};
+
+  % Post-processing row
+  \node[postbox, below left=1.3cm and 0.2cm of merge] (jets)
+    {Jet Clustering\\(\textsc{FastJet})};
+  \node[postbox, below=1.3cm of merge] (iso) {Lepton\\Isolation};
+  \node[postbox, below right=1.3cm and 0.2cm of merge] (root)
+    {ROOT\\Writer};
+
+  \draw[arrg] (merge) -- ++(0,-0.3) -| (jets.north);
+  \draw[arrg] (merge) -- ++(0,-0.3) -- (iso.north);
+  \draw[arrg] (merge) -- ++(0,-0.3) -| (root.north);
 \end{tikzpicture}
-\caption{Parnassus generation pipeline. The neural detector model (blue)
-  produces detector-level particle-flow objects from truth-level input.
-  Physics-based post-processing stages (green) compute derived quantities and
-  write the final output.}
+\caption{Parnassus generation pipeline. Truth-level events are routed through
+  either the neural backend (conditional flow matching) or the parametric
+  backend (\textsc{TorchDelphes}), both producing particle-flow objects.
+  Physics-based post-processing (green) computes derived quantities and
+  writes the final output.}
 \label{fig:architecture}
 \end{figure}
 
-The neural detector model is a \textbf{diffusion model} trained with conditional
-flow matching~\cite{lipman2023flow,liu2023flow} and sampled via Euler
-integration. The model is conditioned on truth-level particle information,
-making the generation process inherently dependent on the input physics process
-without being tied to any specific one. Generated output variables include
-particle-flow kinematics ($p_\mathrm{T}$, $\eta$, $\phi$), vertex positions,
-particle classification, and track impact parameters ($d_0$, $z_0$).
+The \textbf{neural backend} is a diffusion model trained with conditional flow
+matching~\cite{lipman2023flow,liu2023flow} and sampled via Euler integration.
+The model is conditioned on truth-level particle information, making the
+generation process inherently dependent on the input physics process without
+being tied to any specific one. The number of diffusion steps is configurable
+at runtime via the \texttt{-{}-num\_steps} (\texttt{-n}) flag, allowing users
+to trade generation speed for quality.
 
-The number of diffusion steps is configurable at runtime via the \texttt{-{}-num\_steps}
-(\texttt{-n}) flag, allowing users to trade generation speed for quality.
+The \textbf{parametric backend}, \textsc{TorchDelphes}, is a pure-PyTorch
+re-implementation of the \textsc{Delphes}~\cite{delphes} fast-simulation chain.
+It models particle propagation through the magnetic field, tracking
+efficiency, momentum smearing, calorimeter response, and energy-flow merging,
+with per-module parameters loaded from the selected detector card. The
+current release provides CMS and ATLAS cards ported from their respective
+\textsc{Delphes} TCL cards and validated against C++~\textsc{Delphes}~3.5.0.
+Because \textsc{TorchDelphes} is implemented as differentiable PyTorch modules,
+it runs natively on GPU and can in principle be composed with gradient-based
+calibration or optimisation workflows.
+
+Both backends expose the same output contract (particle-flow kinematics,
+vertex positions, particle classification, and, where supported, track impact
+parameters), so downstream post-processing is identical.
 
 % ══════════════════════════════════════════════════════════════
 \section{Installation and quick start}
@@ -419,9 +478,30 @@ parnassus init .
 \end{lstlisting}
 
 This copies the default \texttt{default\_config.yaml} to the current directory.
-The default configuration uses the \texttt{cms\_2011\_flow\_v00} detector model
-with anti-$k_t$ jet clustering and lepton isolation. To target a different
-detector, change the \texttt{generator.name} field to the desired detector model.
+The default configuration uses the \texttt{cms\_2011\_flow\_v00} neural
+detector model with anti-$k_t$ jet clustering and lepton isolation. To target
+a different detector or to switch to the parametric
+(\textsc{TorchDelphes}) backend, change the \texttt{generator.type} and
+\texttt{generator.name} fields in the YAML configuration. The two generator
+backends are configured as shown in Listing~\ref{lst:generator-backends}.
+
+\begin{lstlisting}[style=yaml,caption={Switching between the neural and
+parametric (\textsc{TorchDelphes}) generator backends.},
+label=lst:generator-backends]
+# --- Neural backend (conditional flow matching) ---
+generator:
+  type: "neural"
+  name: "cms_2011_flow_v00"  # trained CMS model
+  num_steps: 50
+  batch_size: 2000
+  device: "cpu"              # "cpu", "cuda", or "mps"
+
+# --- Parametric backend (TorchDelphes) ---
+generator:
+  type: "parametric"
+  name: "cms"                # "cms" or "atlas" detector card
+  seed: 42                   # optional, for reproducibility
+\end{lstlisting}
 
 \subsection{Run with a HepMC input file}
 
@@ -771,13 +851,21 @@ dataset:
   num_events: 1000           # Number of events to process
   entry_start: 0             # Starting event index (HepMC)
 
-# -- Generator -----------------------------------------
+# -- Generator (choose one backend) --------------------
+# Option A: Neural backend (conditional flow matching)
 generator:
-  type: "neural"             # "neural" or "parametric"
+  type: "neural"             # Select the neural backend
   name: "cms_2011_flow_v00"  # Detector model (like a Delphes card)
-  num_steps: 50              # Diffusion steps (neural only)
+  num_steps: 50              # Number of flow-matching integration steps
   batch_size: 2000           # Events per batch
   device: "cpu"              # "cpu", "cuda", or "mps"
+
+# Option B: Parametric backend (TorchDelphes)
+# generator:
+#   type: "parametric"       # Select the TorchDelphes backend
+#   name: "cms"              # Detector card: "cms" or "atlas"
+#   max_particles: 10000     # Maximum particles per event
+#   seed: 42                 # Random seed for stochastic smearing
 
 # -- Post-processing Pipelines ------------------------
 pipelines:
@@ -815,7 +903,7 @@ output:
 \label{sec:conclusion}
 
 We have presented the public release of Parnassus, a pure-Python,
-GPU-compatible framework for neural fast simulation and reconstruction in High
+GPU-compatible framework for fast simulation and reconstruction in High
 Energy Physics. Unlike traditional C++/ROOT-based tools such as
 \textsc{Delphes}~\cite{delphes}, Parnassus runs entirely in Python with
 PyTorch, supports GPU acceleration (CUDA and Apple MPS), and requires no ROOT
@@ -824,12 +912,23 @@ software provides a simple command-line and Python API for generating
 detector-level particle-flow objects from truth-level input, with full
 post-processing including jet clustering and lepton isolation.
 
+Parnassus offers two interchangeable generator backends that share a common
+user-facing API: a \textbf{neural backend} based on conditional flow matching
+models trained on full simulation, and a \textbf{parametric backend}
+(\textsc{TorchDelphes}) that re-implements the \textsc{Delphes} fast simulation
+chain --- particle propagation, tracking efficiency, momentum smearing,
+calorimetry, and energy-flow merging --- as differentiable PyTorch modules.
+TorchDelphes has been validated against C++~\textsc{Delphes}~3.5.0 and provides
+a GPU-accelerated, differentiable drop-in replacement that is useful both as a
+standalone fast simulator and as a baseline for the neural backend.
+
 The framework is both process-agnostic and detector-agnostic. Users select a
 detector model --- analogous to choosing a detector card in \textsc{Delphes}
---- to target a specific experiment. The current release ships with a CMS
-detector model validated against full CMS simulation across diverse SM and BSM
-processes~\cite{parnassus_v1,parnassus_v2}; additional detector models will be
-provided in future releases.
+--- to target a specific experiment. The current release ships with CMS and
+ATLAS parametric cards for the TorchDelphes backend, and a CMS neural model
+validated against full CMS simulation across diverse SM and BSM
+processes~\cite{parnassus_v1,parnassus_v2}; additional detector models and
+neural checkpoints will be provided in future releases.
 
 The source code is publicly available at
 \url{https://github.com/parnassus-hep/parnassus} under the MIT license.
