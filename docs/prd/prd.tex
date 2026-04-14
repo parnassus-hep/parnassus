@@ -381,10 +381,10 @@ The pipeline is illustrated in Fig.~\ref{fig:architecture}.
   % Two backends side by side
   \node[box, below left=1.2cm and -1.5cm of input] (neural)
     {Neural Backend\\[2pt]
-     {\footnotesize (conditional\\flow matching)}};
+     {\footnotesize conditional flow matching}};
   \node[box, below right=1.2cm and -1.5cm of input] (delphes)
     {Parametric Backend\\[2pt]
-     {\footnotesize \textsc{TorchDelphes}\\(CMS / ATLAS)}};
+     {\footnotesize \textsc{TorchDelphes} (CMS / ATLAS)}};
 
   % Arrows to backends
   \draw[arr] (input.south) -- ++(0,-0.3) -| (neural.north);
