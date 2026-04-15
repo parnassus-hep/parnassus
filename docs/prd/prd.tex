@@ -53,7 +53,7 @@
   linkcolor=blue,
   urlcolor=blue,
   citecolor=blue,
-  pdftitle={Parnassus: Neural Fast Simulation and Reconstruction for High Energy Physics},
+  pdftitle={Parnassus: Fast Detector Simulation and Reconstruction in Pure Python},
   pdfauthor={Etienne Dreyer, Eilam Gross, Dmitrii Kobylianskii, Vinicius Mikuni, Benjamin Nachman},
 }
 
@@ -126,8 +126,8 @@
 %% When using elsarticle, wrap the title/authors/abstract in
 %% \begin{frontmatter} ... \end{frontmatter}
 
-\title{Parnassus: Neural Fast Simulation and Reconstruction\\
-  for High Energy Physics}
+\title{Parnassus: Fast Detector Simulation and Reconstruction\\
+  in Pure Python}
 
 \author{Etienne Dreyer$^{a}$, Eilam Gross$^{a}$,
   Dmitrii Kobylianskii$^{a}$, Vinicius Mikuni$^{b}$,
@@ -168,7 +168,7 @@ demonstrate the framework on Standard Model and BSM processes.
 
 \noindent\textbf{Keywords:} fast simulation, detector simulation,
   particle flow, generative models, flow matching, diffusion models,
-  differentiable simulation, high energy physics
+  high energy physics
 
 % ── CPC Program Summary ─────────────────────────────────────
 \bigskip
@@ -259,8 +259,8 @@ common API:
     (particle propagation, tracking efficiency, momentum smearing, calorimeter
     response, energy-flow merging) in pure PyTorch. The implementation is
     validated against C++~\textsc{Delphes} 3.5.0 for both CMS and ATLAS
-    detector cards and provides a fully differentiable, GPU-native drop-in
-    alternative to running C++ \textsc{Delphes}.
+    detector cards and provides a GPU-native drop-in alternative to running
+    C++ \textsc{Delphes}.
 \end{itemize}
 
 Unlike traditional fast simulation tools such as
@@ -286,19 +286,20 @@ Standard Model and BSM processes. In this document we focus on the
 enable the broader HEP community to adopt neural fast simulation and
 reconstruction in their workflows.
 
-The neural backbone uses conditional flow matching~\cite{lipman2023flow,
-liu2023flow} to train continuous-time diffusion models~\cite{song2021scorebased,
-ho2020denoising} that are sampled via Euler integration at inference time. The
-models are conditioned on truth-level particle properties, making the generation
-inherently process-agnostic without requiring retraining for new physics
-scenarios.
+The neural backbone uses conditional flow
+matching~\cite{lipman2023flow,liu2023flow}, a continuous-time generative
+modelling framework closely related to score-based diffusion
+models~\cite{song2021scorebased,ho2020denoising}, sampled via Euler integration
+of the learned vector field at inference time. The models are conditioned on
+truth-level particle properties, making the generation inherently
+process-agnostic without requiring retraining for new physics scenarios.
 
 \subsection{Design goals}
 
 \begin{description}[style=nextline,leftmargin=2.5cm]
   \item[\textbf{Speed}] Orders of magnitude faster than full simulation and
-    reconstruction by replacing the detector response with neural diffusion
-    models. Fully GPU-compatible for additional acceleration.
+    reconstruction by replacing the detector response with a learned
+    generative model. Fully GPU-compatible for additional acceleration.
   \item[\textbf{Pure Python}] Implemented entirely in Python with no compiled
     dependencies beyond PyTorch. Unlike C++/ROOT-based tools such as
     \textsc{Delphes}~\cite{delphes}, Parnassus integrates naturally into
@@ -418,13 +419,14 @@ The pipeline is illustrated in Fig.~\ref{fig:architecture}.
 \label{fig:architecture}
 \end{figure}
 
-The \textbf{neural backend} is a diffusion model trained with conditional flow
-matching~\cite{lipman2023flow,liu2023flow} and sampled via Euler integration.
-The model is conditioned on truth-level particle information, making the
-generation process inherently dependent on the input physics process without
-being tied to any specific one. The number of diffusion steps is configurable
-at runtime via the \texttt{-{}-num\_steps} (\texttt{-n}) flag, allowing users
-to trade generation speed for quality.
+The \textbf{neural backend} is a continuous-time generative model trained with
+conditional flow matching~\cite{lipman2023flow,liu2023flow} and sampled via
+Euler integration of the learned vector field. The model is conditioned on
+truth-level particle information, making the generation process inherently
+dependent on the input physics process without being tied to any specific one.
+The number of integration steps is configurable at runtime via the
+\texttt{-{}-num\_steps} (\texttt{-n}) flag, allowing users to trade generation
+speed for quality.
 
 The \textbf{parametric backend}, \textsc{TorchDelphes}, is a pure-PyTorch
 re-implementation of the \textsc{Delphes}~\cite{delphes} fast-simulation chain.
@@ -529,7 +531,7 @@ The available command-line flags are listed in Table~\ref{tab:cli}.
 \texttt{-o} & \texttt{-{}-output\_path} & Output ROOT file path \\
 \texttt{-ne} & \texttt{-{}-num\_events} & Number of events to process \\
 \texttt{-bs} & \texttt{-{}-batch\_size} & Batch size for neural generation \\
-\texttt{-n} & \texttt{-{}-num\_steps}   & Diffusion sampler steps (default: 50) \\
+\texttt{-n} & \texttt{-{}-num\_steps}   & Neural-backend Euler integration steps (default: 50) \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -711,18 +713,20 @@ two processes. Both show similar class fractions dominated by charged hadrons
 \end{figure}
 
 % ══════════════════════════════════════════════════════════════
-\section{Diffusion steps convergence}
+\section{Neural backend: integration-step convergence}
 \label{sec:convergence}
 
-The number of diffusion steps $N$ controls the trade-off between generation
-quality and speed. Fig.~\ref{fig:convergence} shows the convergence of
-particle-flow kinematic distributions as a function of $N$ for the
-$H \to 4\ell$ sample.
+This section applies only to the neural backend. The number of Euler
+integration steps $N$ used to sample the conditional flow-matching model
+controls the trade-off between generation quality and speed.
+Fig.~\ref{fig:convergence} shows the convergence of particle-flow kinematic
+distributions as a function of $N$ for the $H \to 4\ell$ sample.
 
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/convergence_kinematics.pdf}
-\caption{Diffusion steps convergence for $H \to ZZ \to 4\ell$ (100 events).
+\caption{Integration-step convergence of the neural backend for
+  $H \to ZZ \to 4\ell$ (100 events).
   (a)~Pflow $p_\mathrm{T}$,
   (b)~pflow $\eta$,
   (c)~event multiplicity. Distributions are stable from $N = 25$ onward.}
@@ -735,26 +739,27 @@ stable across step counts.
 \begin{figure}[htbp]
 \centering
 \includegraphics[width=0.65\textwidth]{figures/convergence_class_fractions.pdf}
-\caption{Particle class fractions vs.\ number of diffusion steps. All classes
-  converge by $N = 25$.}
+\caption{Particle class fractions vs.\ number of Euler integration steps for
+  the neural backend. All classes converge by $N = 25$.}
 \label{fig:convergence_class}
 \end{figure}
 
-Table~\ref{tab:timing} summarises the generation time as a function of diffusion
-steps on CPU.
+Table~\ref{tab:timing} summarises the generation time as a function of the
+number of integration steps on CPU.
 
 \begin{table}[htbp]
 \centering
-\caption{Generation time vs.\ diffusion steps (100 events, CPU).}
+\caption{Neural-backend generation time vs.\ number of Euler integration
+  steps (100 events, CPU).}
 \label{tab:timing}
 \begin{tabular}{@{}rr@{}}
 \toprule
-\textbf{Steps} & \textbf{Wall time} \\
+\textbf{Steps $N$} & \textbf{Wall time} \\
 \midrule
-10  & $\sim$1:30 \\
-25  & $\sim$1:30 \\
-50  & $\sim$2:10 \\
-100 & $\sim$5:20 \\
+10  & $\sim$90\,s \\
+25  & $\sim$90\,s \\
+50  & $\sim$130\,s \\
+100 & $\sim$320\,s \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -916,10 +921,9 @@ user-facing API: a \textbf{neural backend} based on conditional flow matching
 models trained on full simulation, and a \textbf{parametric backend}
 (\textsc{TorchDelphes}) that re-implements the \textsc{Delphes} fast simulation
 chain --- particle propagation, tracking efficiency, momentum smearing,
-calorimetry, and energy-flow merging --- as differentiable PyTorch modules.
+calorimetry, and energy-flow merging --- as pure-PyTorch modules.
 TorchDelphes has been validated against C++~\textsc{Delphes}~3.5.0 and provides
-a GPU-accelerated, differentiable drop-in replacement that is useful both as a
-standalone fast simulator and as a baseline for the neural backend.
+a GPU-native drop-in alternative to C++ \textsc{Delphes}.
 
 The framework is both process-agnostic and detector-agnostic. Users select a
 detector model --- analogous to choosing a detector card in \textsc{Delphes}
@@ -975,8 +979,9 @@ The source code is publicly available at
 
 \bibitem{cms_opendata}
   CMS Collaboration,
-  CMS Open Data,
-  \url{https://opendata.cern.ch/search?experiment=CMS}.
+  CMS releases first batch of high-level LHC open data,
+  CERN Open Data Portal (2014),
+  \url{http://opendata.cern.ch/}.
 
 \bibitem{lipman2023flow}
   Y.~Lipman, R.~T.~Q.~Chen, H.~Ben-Hamu, M.~Nickel,
@@ -1056,7 +1061,8 @@ The source code is publicly available at
 \bibitem{root}
   R.~Brun and F.~Rademakers,
   ROOT --- An object oriented data analysis framework,
-  Nucl.\ Instrum.\ Meth.\ A \textbf{389} (1997) 81.
+  Nucl.\ Instrum.\ Meth.\ A \textbf{389} (1997) 81--86,
+  \href{https://doi.org/10.1016/S0168-9002(97)00048-X}{doi:10.1016/S0168-9002(97)00048-X}.
 
 \bibitem{d2}
   A.~J.~Larkoski, I.~Moult, D.~Neill,
@@ -1078,8 +1084,9 @@ The source code is publicly available at
 
 \bibitem{energyflow}
   P.~T.~Komiske, E.~M.~Metodiev, J.~Thaler,
-  EnergyFlow: A Python framework for jet and event analysis,
-  (2019).
+  Energy Flow Networks: Deep Sets for Particle Jets,
+  JHEP \textbf{01} (2019) 121,
+  \href{https://arxiv.org/abs/1810.05165}{arXiv:1810.05165}.
 
 \bibitem{uproot}
   J.~Pivarski et~al.,
@@ -1092,18 +1099,6 @@ The source code is publicly available at
   experiment,
   JHEP \textbf{02} (2014) 057,
   \href{https://arxiv.org/abs/1307.6346}{arXiv:1307.6346}.
-
-\bibitem{ml_sim_review}
-  A.~Butter et~al.,
-  Machine Learning and LHC Event Generation,
-  SciPost Phys.\ \textbf{14} (2023) 079,
-  \href{https://arxiv.org/abs/2203.07460}{arXiv:2203.07460}.
-
-\bibitem{calochallenge}
-  C.~Krause et~al.,
-  CaloChallenge: Community comparison of fast calorimeter simulation,
-  (2024),
-  \href{https://arxiv.org/abs/2410.21611}{arXiv:2410.21611}.
 
 \end{thebibliography}
 
