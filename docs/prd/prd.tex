@@ -433,60 +433,12 @@ efficiency, momentum smearing, calorimeter response, and energy-flow merging,
 with per-module parameters loaded from the selected detector card. The
 current release provides CMS and ATLAS cards ported from their respective
 \textsc{Delphes} TCL cards and validated against C++~\textsc{Delphes}~3.5.0.
-Because \textsc{TorchDelphes} is implemented as differentiable PyTorch modules,
-it runs natively on GPU and can in principle be composed with gradient-based
-calibration or optimisation workflows.
+Being implemented in pure PyTorch, \textsc{TorchDelphes} runs natively on GPU
+and shares the same input and output conventions as the neural backend.
 
 Both backends expose the same output contract (particle-flow kinematics,
 vertex positions, particle classification, and, where supported, track impact
 parameters), so downstream post-processing is identical.
-
-\subsection{Differentiability of the parametric backend}
-\label{sec:torch-delphes-diff}
-
-The \textsc{TorchDelphes} stochastic primitives use the reparameterisation
-trick: log-normal smearing of momenta and calorimeter energies is implemented
-as $y = \exp(\mu + s\,z)$ with $z \sim \mathcal{N}(0,1)$, so gradients flow
-through the smearing step with respect to the resolution parameters. As a
-minimal demonstration, Listing~\ref{lst:torch-delphes-tune} recovers the CMS
-central-barrel charged-hadron pT resolution constant
-$a$ in $\mathrm{res}(p_T) = \sqrt{a^2 + (b\,p_T)^2}$ from pseudo-data
-generated with a known truth value, using \texttt{torch.optim.Adam}. Starting
-from a deliberately misspecified $a = 0.20$, Adam recovers $a \approx 0.060$
-in a few hundred steps (truth $a = 0.06$). The full runnable script is
-available at \texttt{docs/prd/torch\_delphes\_tune\_resolution.py}.
-
-\begin{lstlisting}[style=python,caption={Adam-tuning a \textsc{TorchDelphes} resolution parameter against pseudo-data.},label=lst:torch-delphes-tune]
-import torch
-from parnassus.torch_delphes.stochastic_utils import log_normal_sample
-
-def smear(pt, a, b):
-    res = torch.sqrt(a**2 + (b * pt) ** 2)        # relative resolution
-    return log_normal_sample(pt, res * pt)        # absolute sigma = res * pt
-
-# Pseudo-data with a known truth value
-torch.manual_seed(0)
-pt = torch.empty(100_000).uniform_(1.0, 100.0)
-A_TRUE, B_TRUE = 0.06, 1.3e-3
-with torch.no_grad():
-    pt_data = smear(pt, torch.tensor(A_TRUE), torch.tensor(B_TRUE))
-data_var = ((pt_data - pt) ** 2).mean()
-
-# Tunable parameter (start far from truth) and Adam optimiser
-log_a = torch.nn.Parameter(torch.log(torch.tensor(0.20)))
-b = torch.tensor(B_TRUE)
-opt = torch.optim.Adam([log_a], lr=0.05)
-
-for step in range(401):
-    opt.zero_grad()
-    pt_pred = smear(pt, log_a.exp(), b)
-    loss = (((pt_pred - pt) ** 2).mean() - data_var) ** 2
-    loss.backward()
-    opt.step()
-
-print(f"recovered a = {log_a.exp().item():.4f}  (truth = {A_TRUE})")
-# recovered a = 0.0601  (truth = 0.06)
-\end{lstlisting}
 
 % ══════════════════════════════════════════════════════════════
 \section{Installation and quick start}
