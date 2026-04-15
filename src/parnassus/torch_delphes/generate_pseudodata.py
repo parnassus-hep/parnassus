@@ -82,11 +82,29 @@ from parnassus.data.particle_io import ColumnMap, pythia_particles_to_tensor
 from parnassus.torch_delphes.defaults import CMSEnergyFlowDefault
 from parnassus.utils import pid_to_class
 
-# Perturbation applied to the "target" (fake full-sim) card. These are the
+# Perturbations applied to the "target" (fake full-sim) card. These are the
 # numbers we want Adam to recover when we run tune_cms_fullsim against the
-# output of this script.
-TARGET_CHAD_SCALE: float = 1.25
-TARGET_ECAL_SCALE: float = 1.20
+# output of this script. The perturbation spans multiple *types* of
+# parameters -- scales, resolutions, efficiencies, and fractions -- so that
+# the harness is tested on a genuinely multi-knob identifiability problem
+# rather than a single trivial offset.
+TARGET_CHAD_SCALE: float = 1.25  # all 3 eta regions
+TARGET_ECAL_SCALE: float = 1.20  # all 3 eta regions
+TARGET_HCAL_SCALE: float = 0.90  # all 2 eta regions (a *downward* shift)
+
+# Multiply the charged-hadron resolution constant-term `a` in the barrel
+# region by this factor, so default 0.06 becomes 0.09 (50% worse barrel
+# tracking resolution). Gives the fit a nonzero resolution-parameter target.
+TARGET_CHAD_RES_A_BARREL_FACTOR: float = 1.5
+
+# Shift the charged-hadron tracking efficiency in the barrel low-pT bin
+# from the default 0.70 down to this value. Exercises the Gumbel-ST
+# efficiency parameter gradient.
+TARGET_CHAD_EFF_BARREL_LOWPT: float = 0.60
+
+# Shift the K0S ECal fraction from the default 0.30 to this value. The
+# fit's HadronFractions param should move toward it.
+TARGET_K0S_ECAL_FRAC: float = 0.50
 
 
 def build_pythia(pt_hat_min: float, seed: int) -> object:
@@ -122,31 +140,84 @@ def build_pythia(pt_hat_min: float, seed: int) -> object:
 
 
 def make_target_card(seed: int = 0) -> CMSEnergyFlowDefault:
-    """Build a learnable CMS card with a deliberate perturbation.
+    """Build a learnable CMS card with a *multi-knob* perturbation.
 
-    The charged-hadron pT scale and the ECal energy scale are both
-    lifted above unity in every eta region, so that the card's output
-    is clearly distinguishable from the output of a freshly-constructed
-    default card. Everything else is at factory defaults.
+    Six distinct parameter types are perturbed, giving the fitting
+    harness a non-trivial multi-knob identifiability problem:
+
+    - ``chad`` track-pT scale: 1.0 -> :data:`TARGET_CHAD_SCALE` (all 3 eta regions)
+    - ECal energy scale:       1.0 -> :data:`TARGET_ECAL_SCALE` (all 3 regions)
+    - HCal energy scale:       1.0 -> :data:`TARGET_HCAL_SCALE` (both regions;
+      note this is a *downward* shift, testing bidirectional gradients)
+    - Chad momentum resolution barrel constant ``a``:
+      default 0.06 -> 0.06 * :data:`TARGET_CHAD_RES_A_BARREL_FACTOR`
+    - Chad tracking efficiency in the barrel low-pT bin:
+      default 0.70 -> :data:`TARGET_CHAD_EFF_BARREL_LOWPT`
+    - K0-short ECal/HCal fraction split (learnable hadron-fraction knob):
+      default 0.30/0.70 -> :data:`TARGET_K0S_ECAL_FRAC`/(1-..)
 
     Returns
     -------
     CMSEnergyFlowDefault
         A frozen learnable card whose parameters match the published
-        target values (see :data:`TARGET_CHAD_SCALE`,
-        :data:`TARGET_ECAL_SCALE`).
+        target values.
     """
     torch.manual_seed(seed)
     card = CMSEnergyFlowDefault(debug=False, learnable=True)
 
     def raw_for_scale(s: float) -> float:
+        """Inverse of the ``1 + 0.3 tanh(raw)`` scale parameterization.
+
+        Returns
+        -------
+        float
+            The raw parameter value whose post-transform is ``s``.
+        """
         return float(np.arctanh((s - 1.0) / 0.3))
 
+    def softplus_inv(x: float) -> float:
+        """Inverse of ``softplus``, matching ``learnable._softplus_inv``.
+
+        Returns
+        -------
+        float
+            Raw scalar ``y`` satisfying ``softplus(y) == max(x, 1e-12)``.
+        """
+        return float(np.log(np.expm1(max(x, 1e-12))))
+
+    def logit(p: float) -> float:
+        """Logit of a probability, clipped away from the open interval ends.
+
+        Returns
+        -------
+        float
+            ``log(p_clipped / (1 - p_clipped))`` with
+            ``p_clipped = clip(p, 1e-6, 1 - 1e-6)``.
+        """
+        p = min(max(p, 1e-6), 1.0 - 1e-6)
+        return float(np.log(p / (1.0 - p)))
+
     with torch.no_grad():
+        # --- Scales ---
         chad_res = card.ChargedHadronMomentumSmearing.resolution_module  # type: ignore[union-attr]
         chad_res.scale_raw.fill_(raw_for_scale(TARGET_CHAD_SCALE))
+
         ecal_scale = card.ECal.scale_module  # type: ignore[union-attr]
         ecal_scale.scale_raw.fill_(raw_for_scale(TARGET_ECAL_SCALE))
+
+        hcal_scale = card.HCal.scale_module  # type: ignore[union-attr]
+        hcal_scale.scale_raw.fill_(raw_for_scale(TARGET_HCAL_SCALE))
+
+        # --- Resolution: barrel ``a`` for charged hadrons ---
+        # a[0] (barrel) default is 0.06; lift it via softplus_inv.
+        chad_res.a_raw[0] = softplus_inv(0.06 * TARGET_CHAD_RES_A_BARREL_FACTOR)
+
+        # --- Efficiency: charged-hadron barrel low-pt logit ---
+        chad_eff = card.ChargedHadronTrackingEfficiency  # type: ignore[union-attr]
+        chad_eff.eff_logits[0] = logit(TARGET_CHAD_EFF_BARREL_LOWPT)
+
+        # --- Hadron fraction: K0-short ECal split ---
+        card.HadronFractions.k0s_logit.fill_(logit(TARGET_K0S_ECAL_FRAC))  # type: ignore[union-attr]
 
     for p in card.parameters():
         p.requires_grad_(False)
