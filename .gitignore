@@ -85,6 +85,7 @@ src/parnassus/torch_delphes/validation/logs/
 
 !src/parnassus/tests/expected_results/h4lep_test_neural.root
 !src/parnassus/tests/expected_results/h4lep_test_parametric.root
+!src/parnassus/tests/benchmark_data/cms_pseudodata.root
 
 # MacOS
 .DS_Store
