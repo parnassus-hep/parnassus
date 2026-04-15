@@ -62,6 +62,7 @@ class MomentumSmearing(nn.Module):
         self,
         resolution_formula: str
         | Callable[[torch.Tensor, torch.Tensor], torch.Tensor] = "charged_hadron_cms",
+        scale_fn: Callable[[torch.Tensor], torch.Tensor] | None = None,
     ) -> None:
         """Initialize the MomentumSmearing module.
 
@@ -72,6 +73,19 @@ class MomentumSmearing(nn.Module):
             ('charged_hadron_cms', 'electron_cms', 'muon_cms') or a
             callable that takes (pt, eta_outer) tensors and returns
             relative resolution values (e.g., 0.06 for 6%).
+            If an ``nn.Module`` is passed, it is registered as a submodule
+            so that its parameters appear in ``self.parameters()``. This
+            is the hook used for differentiable-tuning support.
+        scale_fn: Callable[[torch.Tensor], torch.Tensor] | None, optional
+            Optional per-particle multiplicative momentum scale. Called as
+            ``scale_fn(eta_outer)`` and expected to return a tensor of the
+            same shape as ``eta_outer``. The scale is applied to both the
+            mean and the standard deviation passed into the log-normal
+            sampler so that ``E[smeared_pt] = scale * pt`` and
+            ``Var[smeared_pt] = (scale * resolution * pt)^2``. Default
+            ``None`` means scale = 1 everywhere (i.e. no scale, matching
+            the legacy behavior). If an ``nn.Module`` is passed, it is
+            registered as a submodule so that its parameters are visible.
         """
         super().__init__()
 
@@ -83,10 +97,28 @@ class MomentumSmearing(nn.Module):
             self.resolution_func = self._electron_cms_momentum_resolution
         elif resolution_formula == "muon_cms":
             self.resolution_func = self._muon_cms_momentum_resolution
+        elif isinstance(resolution_formula, nn.Module):
+            # Register as a submodule so its nn.Parameters are exposed.
+            self.resolution_module = resolution_formula
+            self.resolution_func = resolution_formula
         elif callable(resolution_formula):
             self.resolution_func = resolution_formula
         else:
             raise ValueError(f"Unknown resolution formula: {resolution_formula}")
+
+        # Optional per-particle momentum scale callable. Registered as a
+        # submodule when an nn.Module is provided so its parameters show up
+        # in self.parameters().
+        self.scale_fn: Callable[[torch.Tensor], torch.Tensor] | None
+        if scale_fn is None:
+            self.scale_fn = None
+        elif isinstance(scale_fn, nn.Module):
+            self.scale_module = scale_fn
+            self.scale_fn = scale_fn
+        elif callable(scale_fn):
+            self.scale_fn = scale_fn
+        else:
+            raise ValueError(f"scale_fn must be callable or None, got {type(scale_fn)}")
 
     def forward(self, particles: torch.Tensor) -> torch.Tensor:
         """Apply momentum smearing to particles.
@@ -128,28 +160,59 @@ class MomentumSmearing(nn.Module):
         resolution = self.resolution_func(pt, eta_outer)
         resolution = torch.clamp(resolution, max=1.0)
 
-        # Store the track resolution for use in SimpleCalorimeter
-        particles[:, ColumnMap.TRACK_RESOLUTION] = resolution
+        # Optional per-region momentum scale (default 1.0). Applied to both
+        # the mean and the standard deviation of the log-normal so that
+        # the *relative* resolution is unchanged.
+        if self.scale_fn is not None:
+            scale = self.scale_fn(eta_outer)
+            mean_pt = scale * pt
+        else:
+            mean_pt = pt
 
         # Apply smearing using log-normal distribution
         # C++ does: LogNormal(pt, res * pt) where res is relative resolution
         # So sigma = resolution * pt (absolute resolution in GeV)
-        smeared_pt = log_normal_sample(pt, resolution * pt)
+        smeared_pt = log_normal_sample(mean_pt, resolution * mean_pt)
 
-        # Update PT, PX, PY, PZ, E
-        particles[:, ColumnMap.PT] = smeared_pt
-        particles[:, ColumnMap.PX] = smeared_pt * torch.cos(phi)  # Px
-        particles[:, ColumnMap.PY] = smeared_pt * torch.sin(phi)  # Py
-        particles[:, ColumnMap.PZ] = smeared_pt * torch.sinh(eta)  # Pz
+        # Compute updated PX, PY, PZ, E from the smeared PT.
+        smeared_px = smeared_pt * torch.cos(phi)
+        smeared_py = smeared_pt * torch.sin(phi)
+        smeared_pz = smeared_pt * torch.sinh(eta)
+        p_squared = smeared_px**2 + smeared_py**2 + smeared_pz**2
+        smeared_e = torch.sqrt(p_squared + mass**2)
 
-        p_squared = (
-            particles[:, ColumnMap.PX] ** 2
-            + particles[:, ColumnMap.PY] ** 2
-            + particles[:, ColumnMap.PZ] ** 2
+        # Write all updated columns in a *single* index_put. Multiple
+        # sequential in-place writes would trip autograd's version counter
+        # when the smeared values carry gradient (learnable mode), because
+        # the second write would invalidate slices the first write needed
+        # for backward.
+        out = particles.clone()
+        cols_to_replace = torch.tensor(
+            [
+                int(ColumnMap.PT),
+                int(ColumnMap.PX),
+                int(ColumnMap.PY),
+                int(ColumnMap.PZ),
+                int(ColumnMap.E),
+                int(ColumnMap.TRACK_RESOLUTION),
+            ],
+            dtype=torch.long,
+            device=particles.device,
         )
-        particles[:, ColumnMap.E] = torch.sqrt(p_squared + mass**2)  # E
+        new_values = torch.stack(
+            [
+                smeared_pt.to(out.dtype),
+                smeared_px.to(out.dtype),
+                smeared_py.to(out.dtype),
+                smeared_pz.to(out.dtype),
+                smeared_e.to(out.dtype),
+                resolution.to(out.dtype),
+            ],
+            dim=1,
+        )
+        out[:, cols_to_replace] = new_values
 
-        return particles
+        return out
 
     @staticmethod
     def _charged_hadron_cms_momentum_resolution(

@@ -53,6 +53,8 @@ class SimpleCalorimeter(nn.Module):
         is_ecal: bool = True,
         smear_tower_center: bool = True,  # If True, smear eta/phi uniformly within bin
         compute_phi_bins_fn: Callable | None = None,  # Custom phi bin computation function
+        scale_fn: Callable[[torch.Tensor], torch.Tensor] | None = None,
+        learnable_fractions: nn.Module | None = None,
     ) -> None:
         super().__init__()
 
@@ -61,6 +63,32 @@ class SimpleCalorimeter(nn.Module):
         self.energy_sig_min = energy_sig_min
         self.is_ecal = is_ecal
         self.smear_tower_center = smear_tower_center
+
+        # Optional per-region energy scale (for differentiable tuning).
+        # Applied to the tower energy passed into the log-normal smear so
+        # that E[smeared_E] = scale * E_true. Default None means scale=1.
+        self.scale_fn: Callable[[torch.Tensor], torch.Tensor] | None
+        if scale_fn is None:
+            self.scale_fn = None
+        elif isinstance(scale_fn, nn.Module):
+            self.scale_module = scale_fn
+            self.scale_fn = scale_fn
+        elif callable(scale_fn):
+            self.scale_fn = scale_fn
+        else:
+            raise ValueError(f"scale_fn must be callable or None, got {type(scale_fn)}")
+
+        # Optional learnable hadron fractions module shared with the sister
+        # calorimeter (so that ECal_frac + HCal_frac = 1 by construction).
+        self.learnable_fractions: nn.Module | None
+        if learnable_fractions is None:
+            self.learnable_fractions = None
+        elif isinstance(learnable_fractions, nn.Module):
+            self.learnable_fractions = learnable_fractions
+        else:
+            raise ValueError(
+                f"learnable_fractions must be an nn.Module or None, got {type(learnable_fractions)}"
+            )
 
         # Store eta bins as tensor
         self.eta_bins = nn.Buffer(torch.tensor(eta_bins, dtype=torch.float64))  # (n_eta_bins,)
@@ -76,6 +104,8 @@ class SimpleCalorimeter(nn.Module):
         self.energy_fractions = energy_fractions
         self.default_fraction = energy_fractions.get(0, 0.0)
         self._fraction_lut: nn.Buffer  # (max_pdg_id + 1,) lookup table for energy fractions
+        # (max_pdg_id + 1,) bool, True for PDG IDs that inherit the default fraction.
+        self._fraction_uses_default_lut: nn.Buffer
         self._setup_fraction_lookup()
 
         # Resolution formula
@@ -153,8 +183,13 @@ class SimpleCalorimeter(nn.Module):
         particle_event_num = particles[:, ColumnMap.EVENT_NUMBER]
         track_event_num = tracks[:, ColumnMap.EVENT_NUMBER]
 
-        # Find unique events across both particles and tracks
-        all_event_nums = torch.cat([particle_event_num, track_event_num])
+        # Find unique events across both particles and tracks.
+        # ``torch.unique`` has no autograd derivative; in learnable mode the
+        # tracks tensor may carry a CopySlices grad node from upstream
+        # MomentumSmearing, so even untouched columns become part of the
+        # autograd graph. Detach event numbers (which are integer-valued
+        # bookkeeping anyway) before deduplication.
+        all_event_nums = torch.cat([particle_event_num, track_event_num]).detach()
         unique_event_nums, inverse_indices = torch.unique(all_event_nums, return_inverse=True)
         n_events = len(unique_event_nums)
 
@@ -251,11 +286,15 @@ class SimpleCalorimeter(nn.Module):
             torch.full_like(track_tower_idx, -1),
         )
 
-        # Combine all valid tower indices to find unique towers
+        # Combine all valid tower indices to find unique towers.
+        # ``all_tower_idx`` is built from integer eta_bin/phi_bin values, but
+        # in learnable mode the tracks tensor may carry an autograd node from
+        # MomentumSmearing that pollutes derived integer indices. Detach
+        # before ``torch.unique`` (which has no derivative).
         all_tower_idx = torch.cat([
             valid_particle_tower_idx[particle_valid],
             valid_track_tower_idx[track_valid],  # NOT filtered by fraction
-        ])
+        ]).detach()
         unique_tower_idx = torch.unique(all_tower_idx[all_tower_idx >= 0])
         n_towers = len(unique_tower_idx)
 
@@ -332,9 +371,16 @@ class SimpleCalorimeter(nn.Module):
 
         # Compute final tower time: time = time_weighted_sum / weight_sum
         # Set to 0 if weight is too small (matching C++ check: fTowerTimeWeight < 1.0E-09)
+        # Safe-denominator pattern: pre-mask the bad branch so the gradient
+        # of the division does not produce NaN in learnable mode.
+        tower_time_weight_safe = torch.where(
+            tower_time_weight > 1e-9,
+            tower_time_weight,
+            torch.ones_like(tower_time_weight),
+        )
         tower_time = torch.where(
             tower_time_weight > 1e-9,
-            tower_time_weighted / tower_time_weight,
+            tower_time_weighted / tower_time_weight_safe,
             torch.zeros_like(tower_time_weighted),
         )
 
@@ -385,11 +431,20 @@ class SimpleCalorimeter(nn.Module):
         #
         # IMPORTANT: C++ uses bin CENTER (fTowerEta) for resolution, then smears position AFTER
 
+        # Optional per-region multiplicative energy scale (default 1.0).
+        # Applied to the tower energy *before* sigma evaluation and smearing
+        # so that E[smeared_E] = scale * tower_energy.
+        if self.scale_fn is not None:
+            tower_scale = self.scale_fn(tower_eta_center).to(tower_energy.dtype)
+            tower_energy_for_smear = tower_scale * tower_energy
+        else:
+            tower_energy_for_smear = tower_energy
+
         # Compute sigma before smearing - using bin CENTER
-        sigma_before = self.resolution_func(tower_eta_center, tower_energy)
+        sigma_before = self.resolution_func(tower_eta_center, tower_energy_for_smear)
 
         # Apply LogNormal smearing
-        tower_energy_smeared = self._log_normal_smear(tower_energy, sigma_before)
+        tower_energy_smeared = self._log_normal_smear(tower_energy_for_smear, sigma_before)
 
         # Recompute sigma with smeared energy - still using bin CENTER
         sigma_after = self.resolution_func(tower_eta_center, tower_energy_smeared)
@@ -468,8 +523,10 @@ class SimpleCalorimeter(nn.Module):
         # C++:  if(sigma / momentum.E() < track->TrackResolution)
         #           energyGuess = energy;
         #       else energyGuess = momentum.E()
-        calo_relative_sigma = track_calo_sigma / (track_energy + 1e-30)  # Avoid div by zero
-        use_weighted_energy = calo_relative_sigma < track_momentum_resolution
+        # Rewritten as a multiplicative comparison to avoid division-by-zero
+        # in the autograd graph (matters in learnable mode when track_energy
+        # has been zeroed by the Gumbel-ST efficiency mask).
+        use_weighted_energy = track_calo_sigma < track_momentum_resolution * track_energy
 
         # energy_guess = fraction * track_energy if calo resolution better, else track_energy
         track_energy_guess = torch.where(
@@ -487,8 +544,21 @@ class SimpleCalorimeter(nn.Module):
             0, track_compact_idx[track_sigma_valid], track_sigma_sq[track_sigma_valid]
         )
 
-        # Final tower track sigma = sqrt(sum of squares)
-        tower_track_sigma = torch.sqrt(tower_track_sigma_sq)
+        # Final tower track sigma = sqrt(sum of squares).
+        # ``sqrt`` has an infinite gradient at 0; in learnable mode this would
+        # produce NaN gradients on towers with no track contribution. Use a
+        # safe-input pattern so the masked branch contributes 0 in forward
+        # and finite (zero-gradient) values in backward.
+        tts_safe = torch.where(
+            tower_track_sigma_sq > 0,
+            tower_track_sigma_sq,
+            torch.ones_like(tower_track_sigma_sq),
+        )
+        tower_track_sigma = torch.where(
+            tower_track_sigma_sq > 0,
+            torch.sqrt(tts_safe),
+            torch.zeros_like(tower_track_sigma_sq),
+        )
 
         # 8. Identify Neutral Excess and Create eflow objects ########
         # C++:
@@ -518,8 +588,13 @@ class SimpleCalorimeter(nn.Module):
         # Compute neutral sigma per tower
         # neutralSigma = neutralEnergy / sqrt(trackSigma² + sigma²)
         denominator = torch.sqrt(tower_track_sigma**2 + sigma**2)
+        # Safe denominator pattern (see comment on rescale_factor below):
+        # avoid zero-denominator div in the masked branch of torch.where.
+        denominator_safe = torch.where(denominator > 0, denominator, torch.ones_like(denominator))
         neutral_sigma = torch.where(
-            denominator > 0, neutral_energy / denominator, torch.zeros_like(neutral_energy)
+            denominator > 0,
+            neutral_energy / denominator_safe,
+            torch.zeros_like(neutral_energy),
         )
 
         # Case A: Neutral excess is significant
@@ -536,21 +611,45 @@ class SimpleCalorimeter(nn.Module):
         # weightTrack = 1 / (trackSigma^2), weightCalo = 1 / (sigma^2)
         # bestEnergyEstimate =
         # (weightTrack * trackEnergy + weightCalo * energy) / (weightTrack + weightCalo)
-        weight_track = torch.where(
-            tower_track_sigma > 0, 1.0 / (tower_track_sigma**2), torch.zeros_like(tower_track_sigma)
+        #
+        # NOTE: every division below uses a "safe" denominator pattern so
+        # that gradients in learnable mode don't propagate NaNs through the
+        # masked-out branch of ``torch.where``. ``torch.where`` masks the
+        # forward value but still computes the gradient through *both*
+        # branches, so a div-by-zero in the masked branch produces NaN.
+        sigma_safe = torch.where(sigma > 0, sigma, torch.ones_like(sigma))
+        track_sigma_safe = torch.where(
+            tower_track_sigma > 0, tower_track_sigma, torch.ones_like(tower_track_sigma)
         )
-        weight_calo = torch.where(sigma > 0, 1.0 / (sigma**2), torch.zeros_like(sigma))
+        weight_track = torch.where(
+            tower_track_sigma > 0,
+            1.0 / (track_sigma_safe * track_sigma_safe),
+            torch.zeros_like(tower_track_sigma),
+        )
+        weight_calo = torch.where(
+            sigma > 0,
+            1.0 / (sigma_safe * sigma_safe),
+            torch.zeros_like(sigma),
+        )
 
         total_weight = weight_track + weight_calo
+        total_weight_safe = torch.where(
+            total_weight > 0, total_weight, torch.ones_like(total_weight)
+        )
         best_energy_estimate = torch.where(
             total_weight > 0,
-            (weight_track * tower_track_energy + weight_calo * energy) / total_weight,
+            (weight_track * tower_track_energy + weight_calo * energy) / total_weight_safe,
             tower_track_energy,  # Fallback to track energy if no weights
         )
 
+        track_energy_safe = torch.where(
+            tower_track_energy > 0,
+            tower_track_energy,
+            torch.ones_like(tower_track_energy),
+        )
         rescale_factor = torch.where(
             tower_track_energy > 0,
-            best_energy_estimate / tower_track_energy,
+            best_energy_estimate / track_energy_safe,
             torch.ones_like(tower_track_energy),
         )
 
@@ -620,44 +719,61 @@ class SimpleCalorimeter(nn.Module):
         track_no_fraction = track_valid & (~track_has_fraction)
         track_is_eflow = track_is_eflow | track_no_fraction
 
-        # Create EFlowTrack tensor
-        # Clone the track and apply rescale factor if applicable
-        eflow_tracks = tracks.clone()
+        # Create EFlowTrack tensor.
+        #
+        # The PT, PX, PY, PZ, E columns are updated for tracks landing in a
+        # "rescale" tower (PF best-energy estimate). The legacy implementation
+        # did this with five sequential in-place writes on a clone, which
+        # works in non-grad mode but trips autograd's version counter when
+        # the rescale factor or original PT carry gradients (learnable
+        # mode). Compute all five new columns functionally, then write them
+        # back via a *single* bulk index_put so only one CopySlices node is
+        # created.
+        original_pt = tracks[:, ColumnMap.PT]
+        original_px = tracks[:, ColumnMap.PX]
+        original_py = tracks[:, ColumnMap.PY]
+        original_pz = tracks[:, ColumnMap.PZ]
+        original_e = tracks[:, ColumnMap.E]
+        eta = tracks[:, ColumnMap.ETA]
+        phi = tracks[:, ColumnMap.PHI]
+        mass = tracks[:, ColumnMap.MASS]
 
-        # Apply rescale factor to tracks in rescale towers
-        # PT is rescaled, then PX, PY, PZ, E are recomputed
-        original_pt = eflow_tracks[:, ColumnMap.PT]
         rescaled_pt = original_pt * track_rescale_factor
+        rescaled_px = rescaled_pt * torch.cos(phi)
+        rescaled_py = rescaled_pt * torch.sin(phi)
+        rescaled_pz = rescaled_pt * torch.sinh(eta)
+        p_sq = rescaled_px**2 + rescaled_py**2 + rescaled_pz**2
+        rescaled_e = torch.sqrt(p_sq + mass**2)
 
-        # Only apply to tracks in rescale towers
-        eflow_tracks[:, ColumnMap.PT] = torch.where(
-            track_in_rescale_tower, rescaled_pt, original_pt
-        )
+        new_pt = torch.where(track_in_rescale_tower, rescaled_pt, original_pt)
+        new_px = torch.where(track_in_rescale_tower, rescaled_px, original_px)
+        new_py = torch.where(track_in_rescale_tower, rescaled_py, original_py)
+        new_pz = torch.where(track_in_rescale_tower, rescaled_pz, original_pz)
+        new_e = torch.where(track_in_rescale_tower, rescaled_e, original_e)
 
-        # Recompute PX, PY from rescaled PT
-        eta = eflow_tracks[:, ColumnMap.ETA]
-        phi = eflow_tracks[:, ColumnMap.PHI]
-        mass = eflow_tracks[:, ColumnMap.MASS]
-
-        eflow_tracks[:, ColumnMap.PX] = torch.where(
-            track_in_rescale_tower, rescaled_pt * torch.cos(phi), eflow_tracks[:, ColumnMap.PX]
+        eflow_tracks = tracks.clone()
+        cols_to_replace = torch.tensor(
+            [
+                int(ColumnMap.PT),
+                int(ColumnMap.PX),
+                int(ColumnMap.PY),
+                int(ColumnMap.PZ),
+                int(ColumnMap.E),
+            ],
+            dtype=torch.long,
+            device=tracks.device,
         )
-        eflow_tracks[:, ColumnMap.PY] = torch.where(
-            track_in_rescale_tower, rescaled_pt * torch.sin(phi), eflow_tracks[:, ColumnMap.PY]
+        new_values = torch.stack(
+            [
+                new_pt.to(eflow_tracks.dtype),
+                new_px.to(eflow_tracks.dtype),
+                new_py.to(eflow_tracks.dtype),
+                new_pz.to(eflow_tracks.dtype),
+                new_e.to(eflow_tracks.dtype),
+            ],
+            dim=1,
         )
-        eflow_tracks[:, ColumnMap.PZ] = torch.where(
-            track_in_rescale_tower, rescaled_pt * torch.sinh(eta), eflow_tracks[:, ColumnMap.PZ]
-        )
-
-        # Recompute E from P and mass
-        p_sq = (
-            eflow_tracks[:, ColumnMap.PX] ** 2
-            + eflow_tracks[:, ColumnMap.PY] ** 2
-            + eflow_tracks[:, ColumnMap.PZ] ** 2
-        )
-        eflow_tracks[:, ColumnMap.E] = torch.where(
-            track_in_rescale_tower, torch.sqrt(p_sq + mass**2), eflow_tracks[:, ColumnMap.E]
-        )
+        eflow_tracks[:, cols_to_replace] = new_values
 
         # Filter to only EFlow tracks
         eflow_tracks = eflow_tracks[track_is_eflow]
@@ -832,6 +948,13 @@ class SimpleCalorimeter(nn.Module):
         - Clean gradient flow for differentiability
 
         Memory usage is ~8MB for max PDG ID of 1000045, which is negligible.
+
+        Also builds a parallel boolean LUT ``_fraction_uses_default_lut`` that
+        is True for any PDG ID whose fraction comes from the "default" entry
+        (PDG=0 in ``energy_fractions``). This is consumed by
+        ``learnable_fractions.apply_overrides`` to identify the "charged
+        hadron default" particles whose fraction should be replaced by a
+        learnable value.
         """
         # Find the maximum PDG ID we need to handle
         max_pdg_id = max(abs(pid) for pid in self.energy_fractions)
@@ -839,11 +962,18 @@ class SimpleCalorimeter(nn.Module):
         # Build fully dense LUT: lut[abs_pid] = fraction
         # All unspecified PDG IDs get the default fraction
         lut = torch.full((max_pdg_id + 1,), self.default_fraction, dtype=torch.float64)
+        # Companion bool LUT: True if this PDG ID inherits the "default"
+        # value (PDG=0 entry). Starts all-True and is set to False for any
+        # PDG ID with an explicit override.
+        uses_default_lut = torch.ones((max_pdg_id + 1,), dtype=torch.bool)
 
         for pid, frac in self.energy_fractions.items():
             lut[abs(pid)] = frac
+            if abs(pid) != 0:  # the "0" key is itself the default placeholder
+                uses_default_lut[abs(pid)] = False
 
         self._fraction_lut = nn.Buffer(lut)
+        self._fraction_uses_default_lut = nn.Buffer(uses_default_lut)
         self._max_pdg_id = max_pdg_id
 
     def _compute_energy_fractions(self, pids: torch.Tensor) -> torch.Tensor:
@@ -873,6 +1003,26 @@ class SimpleCalorimeter(nn.Module):
 
         # Pure tensor lookup - no branches, fully differentiable
         fractions = self._fraction_lut[clamped_pids]
+
+        # Optional override from a shared LearnableHadronFractions module:
+        # rewrites the entries for PDG=0-default, K0S, and Lambda with the
+        # current learnable parameter values, leaving physics-fixed entries
+        # (electrons, photons, muons, ...) untouched.
+        if self.learnable_fractions is not None:
+            uses_default = self._fraction_uses_default_lut[clamped_pids]
+            # Particles with PDG ID beyond _max_pdg_id were clamped above and
+            # naturally landed on the (default) fallback entry, so they also
+            # count as "uses default".
+            uses_default = uses_default | (abs_pids > self._max_pdg_id)
+            # ``apply_overrides`` lives on the LearnableHadronFractions
+            # subclass; mypy only sees ``nn.Module`` here because we
+            # deliberately avoid a circular import with learnable.py.
+            fractions = self.learnable_fractions.apply_overrides(  # type: ignore[operator]
+                fractions,
+                clamped_pids,
+                uses_default,
+                is_ecal=self.is_ecal,
+            )
 
         return fractions
 
@@ -1072,14 +1222,22 @@ class SimpleCalorimeter(nn.Module):
         smeared: torch.Tensor
             Smeared energy values
         """
-        # For mean > 0, apply log-normal
-        # For mean <= 0, return 0
-
-        # Avoid division by zero
+        # For mean > 0, apply log-normal; for mean <= 0, return 0.
+        #
+        # In learnable mode the inputs ``mean`` and ``sigma`` may carry
+        # gradients (from learnable energy scale / resolution / fractions).
+        # ``torch.where`` only masks the *forward* value, so any non-finite
+        # gradient produced in the bad branch (mean <= 0) would still poison
+        # backward. The pattern below uses safe inputs everywhere and an
+        # eps inside sqrt to keep all gradients finite.
+        eps = 1e-30
         safe_mean = torch.where(mean > 0, mean, torch.ones_like(mean))
+        # safe_sigma is bounded away from 0 in the bad branch so the sqrt
+        # below has a finite (=0) derivative there.
+        safe_sigma = torch.where(mean > 0, sigma, torch.zeros_like(sigma))
 
-        # b = sqrt(log(1 + sigma^2/mean^2))
-        b = torch.sqrt(torch.log(1.0 + (sigma * sigma) / (safe_mean * safe_mean)))
+        # b = sqrt(log(1 + sigma^2/mean^2))   (with eps to keep sqrt smooth)
+        b = torch.sqrt(torch.log(1.0 + (safe_sigma * safe_sigma) / (safe_mean * safe_mean)) + eps)
 
         # a = log(mean) - 0.5 * b^2
         a = torch.log(safe_mean) - 0.5 * b * b

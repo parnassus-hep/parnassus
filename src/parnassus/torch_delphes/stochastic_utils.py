@@ -80,18 +80,24 @@ def log_normal_sample(mean: torch.Tensor, sigma: torch.Tensor) -> torch.Tensor:
     # Identify valid inputs (positive mean values)
     mask_positive = mean > 0.0
 
-    # Compute log-normal parameters for all elements
-    # Add epsilon to avoid log(0) - torch.where will handle selection
-    s_squared = torch.log(1.0 + (sigma / (mean + 1e-10)) ** 2)
-    s = torch.sqrt(s_squared)
-    mu = torch.log(mean + 1e-10) - 0.5 * s_squared
+    # ``torch.where`` masks the forward value but autograd still walks both
+    # branches. In learnable mode the smeared inputs may carry gradients,
+    # so we need every internal operation to remain finite even on the
+    # masked-out (bad) branch. Use safe inputs and an eps inside sqrt.
+    safe_mean = torch.where(mask_positive, mean, torch.ones_like(mean))
+    safe_sigma = torch.where(mask_positive, sigma, torch.zeros_like(sigma))
+
+    s_squared = torch.log(1.0 + (safe_sigma / safe_mean) ** 2)
+    # eps inside sqrt avoids the infinite-derivative singularity at 0,
+    # which would otherwise corrupt backward through the masked branch.
+    s = torch.sqrt(s_squared + 1e-30)
+    mu = torch.log(safe_mean) - 0.5 * s_squared
 
     # Sample from standard normal and transform to log-normal
     z = torch.randn_like(mean)
     sample = torch.exp(mu + s * z)
 
-    # Return sampled value for valid inputs, zero for invalid
-    # Using torch.where maintains gradient flow through all operations
+    # Return sampled value for valid inputs, zero for invalid.
     result = torch.where(mask_positive, sample, torch.zeros_like(mean))
 
     return result

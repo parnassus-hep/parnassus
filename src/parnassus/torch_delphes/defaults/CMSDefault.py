@@ -21,11 +21,25 @@ Reference:
     C++ Delphes card: cards/delphes_card_CMS_6_1.tcl
 """
 
+from collections.abc import Callable
+
 import numpy as np
 import torch
+from torch import nn
 
 from parnassus.torch_delphes.Efficiency import Efficiency
 from parnassus.torch_delphes.EFlowMerger import EFlowMerger
+from parnassus.torch_delphes.learnable import (
+    CMSChargedHadronLearnableEfficiency,
+    CMSElectronLearnableEfficiency,
+    CMSMuonLearnableEfficiency,
+    LearnableEcalCMSResolution,
+    LearnableHadronFractions,
+    LearnableHcalCMSResolution,
+    make_cms_ecal_scale,
+    make_cms_hcal_scale,
+    make_cms_track_resolution,
+)
 from parnassus.torch_delphes.Merger import Merger
 from parnassus.torch_delphes.MomentumSmearing import MomentumSmearing
 from parnassus.torch_delphes.ParticlePropagator import ParticlePropagator
@@ -90,7 +104,12 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
     >>> eflow_tracks = results['EFlowTrack']
     """
 
-    def __init__(self, debug: bool = False) -> None:
+    def __init__(
+        self,
+        debug: bool = False,
+        learnable: bool = False,
+        gumbel_temperature: float = 0.5,
+    ) -> None:
         """Initialize the CMS detector simulation.
 
         Parameters
@@ -98,11 +117,37 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
         debug: bool
             If True, return all intermediate processing stages
             for validation. If False, return only final objects.
+        learnable: bool
+            If True, replace the static resolution / efficiency / fraction
+            constants with ``nn.Parameter``-backed learnable modules so that
+            the entire detector card can be optimized end-to-end with
+            standard PyTorch optimizers (Adam, etc.). All parameters are
+            initialized to the same numerical defaults as the static
+            formulas, so a freshly-constructed ``learnable=True`` card
+            produces statistically-identical output (modulo Gumbel-ST
+            sampling noise on the efficiency mask).
+            See :mod:`parnassus.torch_delphes.learnable` for the parameter
+            inventory.
+        gumbel_temperature: float
+            Only used when ``learnable=True``. Temperature for the
+            Gumbel-sigmoid straight-through tracking efficiency mask. Lower
+            values (e.g. 0.1) give sharper Bernoulli-like behavior; higher
+            values (e.g. 1.0) give smoother gradients but more sampling
+            noise. The training loop may anneal this value over time.
         """
         super().__init__()
         self.debug = debug
+        self.learnable = learnable
 
-        # ParticlePropagator
+        # Attribute-type declarations so mypy accepts the learnable / legacy
+        # union. At runtime ``nn.Module.__setattr__`` registers whichever
+        # concrete subclass is assigned below.
+        self.ChargedHadronTrackingEfficiency: nn.Module
+        self.ElectronTrackingEfficiency: nn.Module
+        self.MuonTrackingEfficiency: nn.Module
+        self.HadronFractions: LearnableHadronFractions | None
+
+        # ParticlePropagator (geometry — not learnable per design)
         self.ParticlePropagator = ParticlePropagator(
             radius=1.29,
             half_length=3.0,
@@ -110,19 +155,52 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
         )
 
         # TrackingEfficiency
-        self.ChargedHadronTrackingEfficiency = Efficiency(efficiency_formula="charged_hadron_cms")
-        self.ElectronTrackingEfficiency = Efficiency(efficiency_formula="electron_cms")
-        self.MuonTrackingEfficiency = Efficiency(efficiency_formula="muon_cms")
+        if learnable:
+            self.ChargedHadronTrackingEfficiency = CMSChargedHadronLearnableEfficiency(
+                temperature=gumbel_temperature
+            )
+            self.ElectronTrackingEfficiency = CMSElectronLearnableEfficiency(
+                temperature=gumbel_temperature
+            )
+            self.MuonTrackingEfficiency = CMSMuonLearnableEfficiency(temperature=gumbel_temperature)
+        else:
+            self.ChargedHadronTrackingEfficiency = Efficiency(
+                efficiency_formula="charged_hadron_cms"
+            )
+            self.ElectronTrackingEfficiency = Efficiency(efficiency_formula="electron_cms")
+            self.MuonTrackingEfficiency = Efficiency(efficiency_formula="muon_cms")
 
-        # MomentumSmearing
-        self.ChargedHadronMomentumSmearing = MomentumSmearing(
-            resolution_formula="charged_hadron_cms"
-        )
-        self.ElectronMomentumSmearing = MomentumSmearing(resolution_formula="electron_cms")
-        self.MuonMomentumSmearing = MomentumSmearing(resolution_formula="muon_cms")
+        # MomentumSmearing — wire learnable resolution + scale per species.
+        if learnable:
+            chad_res = make_cms_track_resolution("charged_hadron")
+            ele_res = make_cms_track_resolution("electron")
+            mu_res = make_cms_track_resolution("muon")
+            self.ChargedHadronMomentumSmearing = MomentumSmearing(
+                resolution_formula=chad_res, scale_fn=chad_res.scale
+            )
+            self.ElectronMomentumSmearing = MomentumSmearing(
+                resolution_formula=ele_res, scale_fn=ele_res.scale
+            )
+            self.MuonMomentumSmearing = MomentumSmearing(
+                resolution_formula=mu_res, scale_fn=mu_res.scale
+            )
+        else:
+            self.ChargedHadronMomentumSmearing = MomentumSmearing(
+                resolution_formula="charged_hadron_cms"
+            )
+            self.ElectronMomentumSmearing = MomentumSmearing(resolution_formula="electron_cms")
+            self.MuonMomentumSmearing = MomentumSmearing(resolution_formula="muon_cms")
 
         # TrackMerger
         self.TrackMerger = Merger()
+
+        # Shared learnable hadron-fraction module (only created when
+        # learnable=True). Lives on the parent card so that ECal and HCal
+        # see the *same* parameters and stay consistent.
+        if learnable:
+            self.HadronFractions = LearnableHadronFractions()
+        else:
+            self.HadronFractions = None
 
         # ECal (Electromagnetic Calorimeter)
         self._setup_ECal()
@@ -191,15 +269,39 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
             muons_propagated,
         ) = self.ParticlePropagator(particles)
 
-        # TrackingEfficiency
-        charged_hadrons_eff = self.ChargedHadronTrackingEfficiency(charged_hadrons_propagated)
-        electrons_eff = self.ElectronTrackingEfficiency(electrons_propagated)
-        muons_eff = self.MuonTrackingEfficiency(muons_propagated)
+        # TrackingEfficiency + MomentumSmearing.
+        #
+        # Legacy (non-learnable) order: filter-then-smear, matching C++ Delphes.
+        # The Efficiency module drops rows; MomentumSmearing then operates on
+        # the surviving subset and the bit-exact RNG sequence matches C++.
+        #
+        # Learnable order: smear-then-mask. The LearnableEfficiency multiplies
+        # (PT, PX, PY, PZ, E) by a Gumbel-ST 0/1 mask but leaves the row in the
+        # tensor so gradients flow. This must run AFTER MomentumSmearing,
+        # because MomentumSmearing recomputes E from sqrt(p^2 + m^2) and would
+        # otherwise resurrect masked particles' energy as their rest mass.
+        if self.learnable:
+            charged_hadrons_smeared_pre = self.ChargedHadronMomentumSmearing(
+                charged_hadrons_propagated
+            )
+            electrons_smeared_pre = self.ElectronMomentumSmearing(electrons_propagated)
+            muons_smeared_pre = self.MuonMomentumSmearing(muons_propagated)
 
-        # MomentumSmearing
-        charged_hadrons_smeared = self.ChargedHadronMomentumSmearing(charged_hadrons_eff)
-        electrons_smeared = self.ElectronMomentumSmearing(electrons_eff)
-        muons_smeared = self.MuonMomentumSmearing(muons_eff)
+            charged_hadrons_eff = self.ChargedHadronTrackingEfficiency(charged_hadrons_smeared_pre)
+            electrons_eff = self.ElectronTrackingEfficiency(electrons_smeared_pre)
+            muons_eff = self.MuonTrackingEfficiency(muons_smeared_pre)
+
+            charged_hadrons_smeared = charged_hadrons_eff
+            electrons_smeared = electrons_eff
+            muons_smeared = muons_eff
+        else:
+            charged_hadrons_eff = self.ChargedHadronTrackingEfficiency(charged_hadrons_propagated)
+            electrons_eff = self.ElectronTrackingEfficiency(electrons_propagated)
+            muons_eff = self.MuonTrackingEfficiency(muons_propagated)
+
+            charged_hadrons_smeared = self.ChargedHadronMomentumSmearing(charged_hadrons_eff)
+            electrons_smeared = self.ElectronMomentumSmearing(electrons_eff)
+            muons_smeared = self.MuonMomentumSmearing(muons_eff)
 
         # TrackMerger
         merged_tracks = self.TrackMerger([
@@ -346,15 +448,29 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
         eta_bins = sorted(eta_phi_map.keys())
         phi_bins_per_eta = [sorted(eta_phi_map[eta]) for eta in eta_bins]
 
+        ecal_res: str | Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+        ecal_scale_fn: Callable[[torch.Tensor], torch.Tensor] | None
+        learnable_fractions: nn.Module | None
+        if self.learnable:
+            ecal_res = LearnableEcalCMSResolution()
+            ecal_scale_fn = make_cms_ecal_scale()
+            learnable_fractions = self.HadronFractions
+        else:
+            ecal_res = "ecal_cms"
+            ecal_scale_fn = None
+            learnable_fractions = None
+
         self.ECal = SimpleCalorimeter(
             eta_bins=eta_bins,
             phi_bins=phi_bins_per_eta,
             energy_min=0.5,
             energy_sig_min=2.0,
             energy_fractions=energy_fractions,
-            resolution_formula="ecal_cms",
+            resolution_formula=ecal_res,
             is_ecal=True,
             smear_tower_center=True,  # Match C++ Delphes: SmearTowerCenter true
+            scale_fn=ecal_scale_fn,
+            learnable_fractions=learnable_fractions,
         )
 
     def _setup_HCal(self):
@@ -484,13 +600,27 @@ class CMSEnergyFlowDefault(DelphesBaseCard):
         eta_bins = sorted(eta_phi_map.keys())
         phi_bins_per_eta = [sorted(eta_phi_map[eta]) for eta in eta_bins]
 
+        hcal_res: str | Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
+        hcal_scale_fn: Callable[[torch.Tensor], torch.Tensor] | None
+        learnable_fractions: nn.Module | None
+        if self.learnable:
+            hcal_res = LearnableHcalCMSResolution()
+            hcal_scale_fn = make_cms_hcal_scale()
+            learnable_fractions = self.HadronFractions
+        else:
+            hcal_res = "hcal_cms"
+            hcal_scale_fn = None
+            learnable_fractions = None
+
         self.HCal = SimpleCalorimeter(
             eta_bins=eta_bins,
             phi_bins=phi_bins_per_eta,
             energy_min=1.0,  # HCal has higher threshold
             energy_sig_min=1.0,  # HCal has lower significance threshold
             energy_fractions=energy_fractions,
-            resolution_formula="hcal_cms",
+            resolution_formula=hcal_res,
             is_ecal=False,
             smear_tower_center=True,
+            scale_fn=hcal_scale_fn,
+            learnable_fractions=learnable_fractions,
         )

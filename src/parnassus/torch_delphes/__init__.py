@@ -26,6 +26,10 @@ Examples
 >>> eflow = results['EFlowTrack']
 """
 
+# Learnable / Adam-optimizable variants. Imported lazily (after the static
+# modules above) because ``learnable.py`` imports ``pdg_filters`` from this
+# package at module load time.
+from . import learnable
 from .Efficiency import Efficiency
 from .EFlowMerger import EFlowMerger
 from .Merger import Merger
@@ -40,4 +44,5 @@ __all__ = [
     "MomentumSmearing",
     "ParticlePropagator",
     "SimpleCalorimeter",
+    "learnable",
 ]
