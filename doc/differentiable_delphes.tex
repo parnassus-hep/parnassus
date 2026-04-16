@@ -624,4 +624,286 @@ models}, Zenodo record 11389651,
 \url{https://zenodo.org/records/11389651}.
 \end{thebibliography}
 
+%----------------------------------------------------------------------
+\appendix
+%----------------------------------------------------------------------
+
+\section{Step-by-step guide to running the code}
+\label{app:howto}
+
+This appendix is a self-contained recipe for reproducing every
+number, figure, and table in this paper, starting from a fresh clone
+of the \textsc{Parnassus} repository. All commands assume a Unix
+shell (\texttt{bash} / \texttt{zsh}) and an internet connection
+(for the initial dependency installation only; the pseudo-dataset is
+committed).
+
+\subsection{Prerequisites}
+
+\begin{enumerate}
+\item \textbf{Python 3.10 or 3.11.} The project is tested on CPython
+      3.12; 3.10 and 3.11 are supported as well.
+\item \textbf{\texttt{uv}} (the Astral package manager). Install
+      via \texttt{curl -LsSf https://astral.sh/uv/install.sh | sh}.
+      \texttt{uv} manages virtual environments and pinned
+      dependencies so no manual \texttt{pip install} is needed.
+\end{enumerate}
+
+\subsection{Initial setup}
+
+\begin{verbatim}
+# 1. Clone the repository.
+git clone https://github.com/parnassus-hep/parnassus.git
+cd parnassus
+
+# 2. Check out the differentiable-tuning branch.
+git checkout claude/differentiable-delphes-tuning-FddGV
+
+# 3. Install all dependencies (including PyTorch, uproot,
+#    Pythia8, matplotlib, and dev tools).
+uv sync --all-extras
+\end{verbatim}
+
+After \texttt{uv sync} completes, every \texttt{uv run} invocation
+below will use the project's pinned virtual environment automatically.
+
+\subsection{Running the full test suite}
+
+A quick sanity check that the installation is healthy:
+
+\begin{verbatim}
+uv run pytest src/parnassus/tests/ \
+  --ignore=src/parnassus/tests/test_pythia.py -q
+\end{verbatim}
+
+This should report 190 passing tests. The \texttt{test\_pythia.py}
+tests are skipped because they require a separate benchmark download;
+they are not needed for the tuning pipeline.
+
+\subsection{Step 1: Generate the pseudo-dataset}
+\label{app:step1}
+
+The committed pseudo-dataset lives at\\
+\texttt{src/parnassus/tests/benchmark\_data/cms\_pseudodata.root}.
+To regenerate it from scratch (takes $\sim$3~min):
+
+\begin{verbatim}
+uv run python -m parnassus.torch_delphes.generate_pseudodata \
+  --output src/parnassus/tests/benchmark_data/ \
+           cms_pseudodata.root \
+  --target-size-mb 20 \
+  --pt-hat-min 100 \
+  --seed 1
+\end{verbatim}
+
+The script launches \textsc{Pythia~8.3} with \texttt{HardQCD:all=on},
+$\sqrt{s}=\SI{13}{\TeV}$, and $\hat{p}_\mathrm{T}>\SI{100}{\GeV}$.
+For each generated event it:
+\begin{enumerate}
+\item converts the Pythia particle record into a
+      \texttt{(N,\,N\_FEATURES)} tensor
+      via \texttt{pythia\_particles\_to\_tensor};
+\item filters to final-state, non-neutrino, finite-$\eta$ particles;
+\item runs the filtered particles through a
+      \texttt{CMSEnergyFlowDefault(learnable=True)} card whose
+      parameters are pre-set to the target perturbation (table~2 of
+      the main text);
+\item writes both sides (truth particles and reconstructed PF objects)
+      into a ROOT file using the \texttt{event\_tree} schema
+      (\texttt{truth\_pt}, \texttt{truth\_eta}, \texttt{truth\_phi},
+      \texttt{truth\_class}; \texttt{pflow\_pt}, \texttt{pflow\_eta},
+      \texttt{pflow\_phi}, \texttt{pflow\_class}).
+\end{enumerate}
+
+The script checkpoints the file every batch and stops once the target
+size is reached. The default seed is 1; changing the seed produces a
+statistically independent pseudo-sample.
+
+\subsection{Step 2: Run the all-66-parameter fit}
+\label{app:step2}
+
+\begin{verbatim}
+uv run python -m parnassus.torch_delphes.tune_cms_fullsim \
+  --root-file \
+    src/parnassus/tests/benchmark_data/cms_pseudodata.root \
+  --n-events 300 \
+  --n-steps 120 \
+  --n-passes-per-step 2 \
+  --train-what all \
+  --lr-scales 5e-2 \
+  --lr-resolution 5e-3 \
+  --lr-efficiency 5e-2 \
+  --lr-fractions 5e-2 \
+  --history-path doc/fit_results/all66_history.json
+\end{verbatim}
+
+This takes $\sim$5 minutes on a single CPU core. The main tunable
+knobs are:
+
+\begin{description}
+\item[\texttt{--n-events}] How many events from the ROOT file to use
+  per step. Larger values give a cleaner gradient signal but use more
+  memory ($\sim$6.5\,GB for 300 events, linearly proportional).
+\item[\texttt{--n-steps}] Number of Adam optimiser steps.
+\item[\texttt{--n-passes-per-step}] Each step averages the loss over
+  this many independent forward passes through the stochastic detector
+  card, reducing the Gumbel-ST and log-normal sampling variance.
+\item[\texttt{--train-what}] \texttt{all} trains all 66 parameters
+  with four-group learning rates. Alternatives:
+  \texttt{scale\_only} (5 scale tensors), \texttt{resolution\_only}
+  (chad resolution $a$/$b$ only).
+\item[\texttt{--lr-scales}, \texttt{--lr-resolution},
+      \texttt{--lr-efficiency}, \texttt{--lr-fractions}]
+  Per-group Adam learning rates. The resolution group needs a $10\times$
+  smaller rate than the others because its softplus-wrapped parameters
+  are close to zero (see section~4 of the main text).
+\item[\texttt{--history-path}] Where to write the JSON file consumed
+  by the plotting script in step~3. Includes the per-step loss
+  and, when present, a full snapshot of every parameter's post-transform
+  value at each step.
+\end{description}
+
+\subsection{Step 3: Generate the figures}
+
+\begin{verbatim}
+uv run python -m parnassus.torch_delphes.plot_fit_results \
+  --history doc/fit_results/all66_history.json \
+  --root-file \
+    src/parnassus/tests/benchmark_data/cms_pseudodata.root \
+  --output-dir doc/figures
+\end{verbatim}
+
+This reads the training history JSON from step~2, re-runs the trainee
+at the initial and final parameter snapshots on a 400-event slice of
+the pseudo-dataset, and writes six PDF figures to
+\texttt{doc/figures/}.
+
+\subsection{Step 4: Compile the paper}
+
+\begin{verbatim}
+cd doc
+# (Ensure jinst.cls and JHEP.bst are present.)
+pdflatex differentiable_delphes.tex
+pdflatex differentiable_delphes.tex
+\end{verbatim}
+
+Two \texttt{pdflatex} passes are needed to resolve the internal
+cross-references.
+
+%----------------------------------------------------------------------
+\section{Scaling to a larger or external sample}
+\label{app:scaling}
+%----------------------------------------------------------------------
+
+The pipeline is designed so that switching from the committed 20\,MB
+pseudo-dataset to a larger (or external) sample is a single
+\texttt{--root-file} swap. No code changes are needed as long as the
+ROOT file follows the \texttt{event\_tree} schema described in
+section~\ref{app:step1}.
+
+\subsection{Using more events from the committed pseudo-dataset}
+
+The committed file contains 2200 events. To use all of them:
+
+\begin{verbatim}
+uv run python -m parnassus.torch_delphes.tune_cms_fullsim \
+  --root-file \
+    src/parnassus/tests/benchmark_data/cms_pseudodata.root \
+  --n-events 2200 \
+  --n-steps 200 \
+  --n-passes-per-step 2 \
+  --train-what all \
+  --lr-scales 5e-2 \
+  --lr-resolution 5e-3 \
+  --lr-efficiency 5e-2 \
+  --lr-fractions 5e-2 \
+  --history-path doc/fit_results/all66_2200evt.json
+\end{verbatim}
+
+Peak memory scales roughly linearly with \texttt{--n-events}; expect
+$\sim$48\,GB for 2200 events. If that exceeds available RAM, reduce
+\texttt{--n-events} and increase \texttt{--n-steps} to compensate
+(each step sees a different stochastic realisation so the gradient
+signal accumulates across steps even on a small-event window).
+
+\subsection{Using a larger locally-generated pseudo-dataset}
+
+To generate, say, a 200\,MB file ($\sim$22\,000 events):
+
+\begin{verbatim}
+uv run python -m parnassus.torch_delphes.generate_pseudodata \
+  --output /path/to/large_pseudodata.root \
+  --target-size-mb 200 \
+  --pt-hat-min 100 \
+  --seed 42
+\end{verbatim}
+
+Then point the tuning script at it with \texttt{--root-file
+/path/to/large\_pseudodata.root}. For samples this large, the
+per-step event count should stay below $\sim$500 to keep memory
+manageable; run more Adam steps instead.
+
+\subsection{Using the real CMS full-simulation sample}
+
+The Parnassus paper's full-simulation dataset is distributed on
+Zenodo~\cite{parnassus_zenodo}. Download one of the ROOT files
+(e.g.\ \texttt{train\_800\_1000\_filter.root}) and run:
+
+\begin{verbatim}
+uv run python -m parnassus.torch_delphes.tune_cms_fullsim \
+  --root-file /path/to/train_800_1000_filter.root \
+  --n-events 5000 \
+  --n-steps 300 \
+  --n-passes-per-step 2 \
+  --train-what all \
+  --lr-scales 5e-2 \
+  --lr-resolution 5e-3 \
+  --lr-efficiency 5e-2 \
+  --lr-fractions 5e-2 \
+  --history-path doc/fit_results/fullsim_history.json
+\end{verbatim}
+
+The Zenodo file follows exactly the same \texttt{event\_tree} schema
+as the committed pseudo-dataset, so no code changes are required.
+
+\paragraph{Tips for the real sample.}
+\begin{itemize}
+\item The real sample has $\hat{p}_\mathrm{T}\in[800,1000]$~GeV, so
+  reconstructed-particle $p_\mathrm{T}$ values are much higher than
+  in our $\hat{p}_\mathrm{T}>100$~GeV pseudo-dataset. Widen the
+  default \texttt{pt} bin edges in \texttt{DEFAULT\_BIN\_EDGES}
+  (currently $[0,200]$~GeV) to $[0,1500]$~GeV to avoid clipping the
+  high-$p_\mathrm{T}$ tails.
+\item The real CMS PF reco will likely break the scale degeneracy
+  that we observe on the pseudo-dataset (section~5.1 of the main
+  text), because the CMS-to-Delphes offset is not a pure linear
+  scale but includes species-dependent effects. Nevertheless, adding
+  per-species observables to the loss (charged-hadron $p_\mathrm{T}$
+  separate from neutral-hadron and photon $p_\mathrm{T}$) is
+  recommended from the start. This requires adding three extra
+  entries to \texttt{DEFAULT\_OBS\_WEIGHTS} and splitting the
+  \texttt{trainee\_observables} helper to separate particles by
+  PID class.
+\item Start with a subset (\texttt{--n-events 1000}) to verify the
+  loss decreases before committing to a long run.
+\end{itemize}
+
+\subsection{Using a completely different process or detector}
+
+The code is not hard-wired to QCD dijets or to CMS:
+\begin{itemize}
+\item \textbf{Different process.} Change the Pythia \texttt{.cmnd}
+  settings in \texttt{generate\_pseudodata.py}'s
+  \texttt{build\_pythia} function (e.g.\ switch \texttt{HardQCD:all}
+  to \texttt{WeakBosonExchange:ff2ff(t:gmZ)=on} for DY events).
+  Everything downstream is process-agnostic.
+\item \textbf{ATLAS.} The \texttt{ATLASEnergyFlowDefault} card in
+  the \textsc{Parnassus} repo shares the same modular architecture
+  and the same static resolution / efficiency formulas (the TCL card
+  is different but the Python code structure is identical). Wiring
+  it with learnable modules is a mechanical copy of what was done
+  for CMS in \texttt{CMSDefault.py} --- the \texttt{learnable.py}
+  submodules are already detector-agnostic.
+\end{itemize}
+
 \end{document}
