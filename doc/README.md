@@ -10,9 +10,8 @@ a Pythia-generated multi-knob pseudo-dataset.
 ## Layout
 
 - `differentiable_delphes.tex` — the manuscript. Uses the standard
-  `jinst.cls` class file distributed by the Journal of Instrumentation.
-  Drop `jinst.cls` next to the `.tex` file (or into your TEXMF tree)
-  before compiling.
+  `jinstpub.sty` package distributed by the Journal of Instrumentation
+  (SISSA Medialab). The style file is committed at `doc/jinstpub.sty`.
 - `figures/` — PDF figures included by the manuscript.
   Regenerate with `python -m parnassus.torch_delphes.plot_fit_results`
   (see below).
@@ -58,8 +57,8 @@ All commands below assume you are at the repository root and have run
        --output-dir doc/figures
    ```
 
-4. **Compile the paper** (requires `jinst.cls` in the working
-   directory or in `$TEXMFHOME`):
+4. **Compile the paper** (`jinstpub.sty` is already committed in
+   `doc/`):
 
    ```bash
    cd doc

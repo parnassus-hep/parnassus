@@ -2,18 +2,15 @@
 %
 % Differentiable CMS fast-simulation tuning
 %
-% JINST-style preprint. Uses the standard jinst.cls document class
-% distributed by the Journal of Instrumentation. The class file is
-% available at https://jinst.sissa.it/jinst/ins_authors.jsp and must be
-% present in the tree (or TEXMF path) at compile time; see
-% doc/README.md for setup notes.
+% JINST-style preprint. Uses the jinstpub.sty package distributed
+% with the standard JINST LaTeX template. The style file must be
+% present in the tree (or TEXMF path) at compile time.
 %
-\documentclass[a4paper]{jinst}
+\documentclass[a4paper,11pt]{article}
+\pdfoutput=1
 
-\usepackage{amsmath}
+\usepackage{jinstpub}
 \usepackage{booktabs}
-\usepackage{graphicx}
-\usepackage{hyperref}
 \usepackage{siunitx}
 
 \title{Differentiable \textsc{Delphes}: end-to-end gradient-based tuning of a
