@@ -555,17 +555,21 @@ parnassus run \
 \section{Demonstration: SM and BSM processes}
 \label{sec:demo}
 
-The neural models are \textbf{process-agnostic} --- they learn the detector
+The neural backend is \textbf{process-agnostic} --- it learns the detector
 response as a function of truth-level particle properties, not the physics
-process itself. We have previously demonstrated~\cite{parnassus_v1,parnassus_v2}
-that Parnassus reproduces full simulation and reconstruction across a wide
-range of SM and BSM processes. Here we show two representative examples using
-the CMS detector model to illustrate the API in action: a Standard Model
-process ($H \to ZZ \to 4\ell$) and a BSM exotic Higgs decay
-($H \to aa \to gg\mu\mu$). The same workflow applies to any detector model
-by changing the \texttt{generator.name} in the configuration.
+process itself --- and the parametric (\textsc{TorchDelphes}) backend is
+process-agnostic by construction. We have previously
+demonstrated~\cite{parnassus_v1,parnassus_v2} that Parnassus reproduces full
+simulation and reconstruction across a wide range of SM and BSM processes.
+Here we show two representative examples to illustrate the API in action: a
+Standard Model process ($H \to ZZ \to 4\ell$) and a BSM exotic Higgs decay
+($H \to aa \to gg\mu\mu$). We then re-run the SM example with the parametric
+\textsc{TorchDelphes} backend to demonstrate that the two generator models
+can be swapped without touching the rest of the pipeline. The kinematic and
+class-fraction summaries that follow (Sections~\ref{subsec:kinematics}
+onwards) are produced with the neural backend.
 
-The current CMS detector model supports up to 400 truth particles per event.
+The current CMS neural model supports up to 400 truth particles per event.
 For events exceeding this limit, Parnassus retains the 400 highest-$p_\mathrm{T}$
 particles so that no events are discarded.
 
@@ -633,7 +637,63 @@ This demonstrates running Parnassus on a BSM signal process not present in the
 training data. The mixed $gg\mu\mu$ final state probes the model's ability to
 simultaneously generate hadronic jets and isolated muons within the same event.
 
+\subsection{Swapping backends: same events, parametric \textsc{TorchDelphes}}
+\label{subsec:swap-backends}
+
+The two generator backends are swapped purely through the configuration file:
+neither the input HepMC file, the post-processing pipelines, nor the output
+schema change. Listing~\ref{lst:cms-parametric-config} shows a
+\texttt{cms\_parametric.yaml} that re-runs the same $H \to ZZ \to 4\ell$
+events through the parametric (\textsc{TorchDelphes}) backend with the CMS
+card.
+
+\begin{lstlisting}[style=yaml,caption={Configuration for running
+\textsc{TorchDelphes} with the CMS card on the same $H \to 4\ell$ events.},
+label=lst:cms-parametric-config]
+# cms_parametric.yaml
+dataset:
+  file_path: ""
+  num_events: 100
+
+# Swap only this block: neural -> parametric
+generator:
+  type: "parametric"   # was: "neural"
+  name: "cms"          # was: "cms_2011_flow_v00"
+  seed: 42
+
+pipelines:
+  TruthJetsAntiKt05: { type: cluster, collection: truth, dr: 0.5,
+                       algorithm: antikt, pt_min: 10, nconst_min: 2 }
+  PflowJetsAntiKt05: { type: cluster, collection: pflow, dr: 0.5,
+                       algorithm: antikt, pt_min: 10, nconst_min: 2 }
+  ElectronIsolation: { type: isolation, collection: electrons, dr: 0.4 }
+  MuonIsolation:     { type: isolation, collection: muons,     dr: 0.4 }
+
+output:
+  file_path: ""
+  format: default
+\end{lstlisting}
+
+\begin{lstlisting}[style=bash,caption={Running the same events through the
+parametric backend.}]
+parnassus run \
+  -c cms_parametric.yaml \
+  -i h4l_events.hepmc \
+  -ne 100 \
+  -o h4l_torchdelphes.root
+\end{lstlisting}
+
+\noindent
+The two output ROOT files (\texttt{h4l\_output.root} from the neural backend
+and \texttt{h4l\_torchdelphes.root} from \textsc{TorchDelphes}) follow the
+same schema, so the same downstream analysis code reads either of them
+unchanged. Switching to the ATLAS card requires only changing
+\texttt{generator.name} from \texttt{"cms"} to \texttt{"atlas"} in the same
+configuration file --- analogous to selecting a different detector card in
+\textsc{Delphes}.
+
 \subsection{Kinematic distributions}
+\label{subsec:kinematics}
 
 Fig.~\ref{fig:kinematics} compares the particle-flow kinematic distributions
 for both processes. The $p_\mathrm{T}$ spectra follow the expected steeply
