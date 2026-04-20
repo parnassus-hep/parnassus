@@ -1,0 +1,22 @@
+[project]
+site_name = "Parnassus"
+site_url = "https://parnassus-hep.github.io/parnassus/"
+site_description = "Fast detector simulation using generative neural networks and parametric models"
+repo_url = "https://github.com/parnassus-hep/parnassus"
+repo_name = "parnassus-hep/parnassus"
+docs_dir = "docs"
+site_dir = "site"
+
+nav = [
+  {"Home" = "index.md"},
+  {"Installation" = "installation.md"},
+  {"Quick Start" = "quickstart.md"},
+  {"Generator Modes" = [
+    {"Neural" = "neural-mode.md"},
+    {"Parametric" = "parametric-mode.md"},
+  ]},
+  {"Pipelines" = "pipelines.md"},
+  {"Configuration" = "configuration.md"},
+  {"CLI Reference" = "cli-reference.md"},
+  {"Input & Output" = "input-output.md"},
+]
