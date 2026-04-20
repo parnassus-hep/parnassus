@@ -94,4 +94,5 @@ dev = [
     "gdown",
     "pytest-cov>=6.3.0",
     "types-tqdm>=4.67.3.20260402",
+    "zensical",
 ]
