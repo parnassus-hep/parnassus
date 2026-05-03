@@ -187,11 +187,14 @@ def convert_to_jet_collection(name: str, jets: list[Jet]) -> GenJetCollection:
     GenJetCollection
         The converted GenJetCollection object.
     """
+    phi = np.array([jet.phi() for jet in jets])
+    # Ensure phi is in the range [-pi, pi] for consistency
+    phi = ((phi + np.pi) % (2 * np.pi) - np.pi).astype(np.float32)
     return GenJetCollection(
         name=name,
         pt=np.array([jet.pt() for jet in jets]),
         eta=np.array([jet.eta() for jet in jets]),
-        phi=np.array([jet.phi() for jet in jets]),
+        phi=phi,
         d2=np.array([jet.substructure["d2"] for jet in jets]),
         c2=np.array([jet.substructure["c2"] for jet in jets]),
     )
