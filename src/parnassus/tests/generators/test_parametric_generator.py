@@ -186,6 +186,40 @@ def test_generator_to_moves_card_and_returns_self():
     assert gen.device == cpu
 
 
+def test_generator_preserves_large_event_number():
+    """Regression: pflow_particles must be non-empty for events with large event numbers.
+
+    float32 can represent integers exactly only up to 2^24 = 16,777,216.
+    The bug: ParticlePropagator.forward() converted all particle tensor slices to
+    float32, truncating EVENT_NUMBER (e.g. 16,777,217 → 16,777,216).  This caused
+    _split_by_event to index card output under the wrong key, so
+    pflow_splits.get(LARGE_EVENT_NUMBER) returned an empty array — silently
+    dropping all pflow particles for any event with index > 2^24.
+    """
+    LARGE_EVENT_NUMBER = 2**24 + 1  # smallest integer that float32 cannot represent exactly
+
+    N_PARTICLES = 20
+    particles = torch.from_numpy(_particle_tensor(N_PARTICLES, event_number=LARGE_EVENT_NUMBER))
+    batch = {
+        "stable_particles": particles,
+        "all_particles": particles.clone(),
+        "event_numbers": torch.tensor([LARGE_EVENT_NUMBER]),
+        "n_particles": torch.tensor([N_PARTICLES]),
+    }
+
+    with ParametricEventGenerator(_make_config("cms"), _STUB_LOG) as gen:
+        gen.initialize(n_events=1, n_batches=1)
+        gen.process_batch(batch)
+        events = gen.get_events()
+
+    assert len(events) == 1
+    assert events[0].event_number == LARGE_EVENT_NUMBER
+    assert len(events[0].pflow_particles) > 0, (
+        "pflow_particles is empty — float32 truncation of EVENT_NUMBER likely reintroduced: "
+        f"card output keyed under {2**24} instead of {LARGE_EVENT_NUMBER}"
+    )
+
+
 @pytest.mark.parametrize("same_seed", [True, False])
 def test_generator_random_seed_reproducibility(same_seed: bool):
     N_PARTICLES = 100
