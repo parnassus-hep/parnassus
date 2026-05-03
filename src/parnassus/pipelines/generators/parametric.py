@@ -43,6 +43,7 @@ _CARD_REGISTRY: dict[str, type[DelphesBaseCard]] = {
 # All fields produced by the detector card for particles and tracks.
 # No impact parameters (those require the neural impact model).
 _PARTICLE_SPECS: list[AccessorSpec] = [
+    AccessorSpec("p", output_name="P"),
     AccessorSpec("pt", output_name="PT"),
     AccessorSpec("eta", output_name="Eta"),
     AccessorSpec("phi", output_name="Phi"),

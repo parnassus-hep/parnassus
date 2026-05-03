@@ -145,6 +145,15 @@ class GenParticleCollection:
             with_name="Momentum4D",
         )
 
+    @property
+    def p(self) -> FloatArray:
+        """Total momentum magnitude, ``|p| = pt * cosh(eta)``.
+
+        Independent of mass — matches the C++ Delphes ``Track.P`` / ``Particle.P``
+        convention which stores the momentum magnitude rather than the energy.
+        """
+        return self.pt * np.cosh(self.eta)
+
     def __getitem__(self, idx: int):
         assert idx < self.num_particles, f"Index {idx} out of range"
 
