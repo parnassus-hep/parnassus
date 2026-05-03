@@ -6,7 +6,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from parnassus.configs import Config
-from parnassus.configs.accessors import Accessor
+from parnassus.configs.accessors import Accessor, AccessorListBuilder, AccessorTemplates
 from parnassus.configs.generators import NeuralGeneratorConfig, ParametricGeneratorConfig
 from parnassus.configs.scheme import GenEvent
 from parnassus.data import build_dataset, parametric_collate_fn
@@ -60,7 +60,14 @@ class GenerationPipeline:
                 self.generator.process_batch(batch)
             events = self.generator.get_events()
         log.info(f"[green]Generated {len(events)} events from requested {n_events}.")
+
+        # Extract accessors from generator
         accessors = self.generator.get_accessors()
+
+        # Add common event-level accessors
+        accessors["Event"] = (
+            AccessorListBuilder.for_event().add_from_specs(AccessorTemplates.EVENT_FEATURES).build()
+        )
         self._accessors = accessors
         return events, accessors
 
