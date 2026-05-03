@@ -188,6 +188,14 @@ class Unscaler:
         self.fs_vars = fs_vars
         self.ctxt_vars = ctxt_vars
         self.ctxt_global_vars = ctxt_global_vars
+        self.mean_vars = []
+        for var in self.ctxt_vars:
+            if var.startswith("truth_"):
+                var_name_ = var.replace("truth_", "")
+                if ("charge" not in var_name_) and ("class" not in var_name_):
+                    self.mean_vars.append(var)
+        # 'means' is added as the first global variable, so we need to shift indices accordingly
+        self.ctxt_global_var_idx_shift = len(self.mean_vars) - 1
 
     def extract_var(
         self,
@@ -233,10 +241,14 @@ class Unscaler:
         pf_data_dict: dict[str, FloatArray] = {}
         var_idx = 0
         tr_ht = self.transform_dict["ht"].inverse_transform(
-            ctxt_global_data[..., self.ctxt_global_vars.index("truth_ht")]
+            ctxt_global_data[
+                ..., self.ctxt_global_vars.index("truth_ht") + self.ctxt_global_var_idx_shift
+            ]
         )
         pf_ht = self.transform_dict["ht"].inverse_transform(
-            ctxt_global_data[..., self.ctxt_global_vars.index("pflow_ht")]
+            ctxt_global_data[
+                ..., self.ctxt_global_vars.index("pflow_ht") + self.ctxt_global_var_idx_shift
+            ]
         )
         var_idx = 0
         for var_name in self.ctxt_vars:
