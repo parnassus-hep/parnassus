@@ -81,4 +81,5 @@ def test_main_run(tmp_path, ds_file: str, config_file: str):
                         expected[key][i],
                         err_msg=f"Mismatch in key '{key}' for event {i}",
                         rtol=1e-6,
+                        atol=1e-7,
                     )

@@ -333,9 +333,9 @@ def test_generator_context_manager_resets_dtype_to_float32():
     assert torch.get_default_dtype() == torch.float32
 
 
-def test_get_accessors_exposes_four_branches():
+def test_get_accessors_exposes_six_branches():
     accessors = ParametricEventGenerator(_make_config(), _STUB_LOG).get_accessors()
-    assert set(accessors.keys()) == {"Truth", "Pflow", "Track", "Tower"}
+    assert set(accessors.keys()) == {"Truth", "PFlow", "Electrons", "Muons", "Track", "Tower"}
 
 
 def test_get_accessors_particle_has_expected_output_names():

@@ -113,7 +113,7 @@ class StubEventGenerator:
         if self._with_impact:
             builder.add(["d0", "z0", "d0_error", "z0_error"])
         accessors = builder.build()
-        return {"Pflow": accessors, "Truth": accessors}
+        return {"PFlow": accessors, "Truth": accessors}
 
 
 @pytest.fixture

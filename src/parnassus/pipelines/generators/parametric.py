@@ -9,7 +9,12 @@ import numpy as np
 import torch
 from rich.progress import Progress, TaskID
 
-from parnassus.configs.accessors import Accessor, AccessorListBuilder, AccessorSpec
+from parnassus.configs.accessors import (
+    Accessor,
+    AccessorListBuilder,
+    AccessorSpec,
+    AccessorTemplates,
+)
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
 from parnassus.configs.scheme import (
     GenCollection,
@@ -38,6 +43,7 @@ _CARD_REGISTRY: dict[str, type[DelphesBaseCard]] = {
 # All fields produced by the detector card for particles and tracks.
 # No impact parameters (those require the neural impact model).
 _PARTICLE_SPECS: list[AccessorSpec] = [
+    AccessorSpec("p", output_name="P"),
     AccessorSpec("pt", output_name="PT"),
     AccessorSpec("eta", output_name="Eta"),
     AccessorSpec("phi", output_name="Phi"),
@@ -206,9 +212,18 @@ class ParametricEventGenerator:
             .for_particles("truth_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Pflow": AccessorListBuilder
+            "PFlow": AccessorListBuilder
             .for_particles("pflow_particles")
             .add_from_specs(_PARTICLE_SPECS)
+            .build(),
+            # Electrons and muons are extracted from PFlow
+            "Electrons": AccessorListBuilder
+            .for_particles("electrons")
+            .add_from_specs(AccessorTemplates.KINEMATICS)
+            .build(),
+            "Muons": AccessorListBuilder
+            .for_particles("muons")
+            .add_from_specs(AccessorTemplates.KINEMATICS)
             .build(),
             "Track": AccessorListBuilder
             .for_collection("Track")
