@@ -32,17 +32,6 @@ uv run parnassus run -c <config> -i <input> -ne <num_events> -bs <batch_size> -o
 
 ### Examples
 
-Run with parametric generator:
-
-```bash
-uv run parnassus run \
-  -c src/parnassus/configs/parametric_config.yaml \
-  -i events.hepmc \
-  -ne 500 \
-  -bs 50 \
-  -o result.root
-```
-
 Run with neural generator and custom step count:
 
 ```bash
@@ -53,6 +42,16 @@ uv run parnassus run \
   -bs 50 \
   -o result.root \
   --num_steps 100
+```
+Run with parametric generator:
+
+```bash
+uv run parnassus run \
+  -c src/parnassus/configs/parametric_config.yaml \
+  -i events.hepmc \
+  -ne 500 \
+  -bs 50 \
+  -o result.root
 ```
 
 Run parametric with fixed seed:
