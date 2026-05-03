@@ -63,7 +63,7 @@ TORCH_MAP_DICT = {
     "Particle": "AllParticles",
     "Track": "Track",
     "Tower": "Tower",
-    "EFlowObject": "Pflow",
+    "EFlowObject": "PFlow",
 }
 
 

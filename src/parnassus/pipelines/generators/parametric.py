@@ -212,11 +212,11 @@ class ParametricEventGenerator:
             .for_particles("truth_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            "Pflow": AccessorListBuilder
+            "PFlow": AccessorListBuilder
             .for_particles("pflow_particles")
             .add_from_specs(_PARTICLE_SPECS)
             .build(),
-            # Electrons and muons are extracted from Pflow
+            # Electrons and muons are extracted from PFlow
             "Electrons": AccessorListBuilder
             .for_particles("electrons")
             .add_from_specs(AccessorTemplates.KINEMATICS)

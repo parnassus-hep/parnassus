@@ -25,7 +25,7 @@ pipelines:
     algorithm: antikt
     pt_min: 10
     nconst_min: 2
-  PflowJetsAntiKt05:
+  PFlowJetsAntiKt05:
     type: "cluster"
     collection: pflow
     dr: 0.5

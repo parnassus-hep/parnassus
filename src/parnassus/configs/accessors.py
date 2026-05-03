@@ -354,10 +354,10 @@ class AccessorTemplates:
         AccessorSpec("truth_met", output_name="TruthMET"),
         AccessorSpec("truth_met_x", output_name="TruthMETx"),
         AccessorSpec("truth_met_y", output_name="TruthMETy"),
-        AccessorSpec("pflow_ht", output_name="PflowHT"),
-        AccessorSpec("pflow_met", output_name="PflowMET"),
-        AccessorSpec("pflow_met_x", output_name="PflowMETx"),
-        AccessorSpec("pflow_met_y", output_name="PflowMETy"),
+        AccessorSpec("pflow_ht", output_name="PFlowHT"),
+        AccessorSpec("pflow_met", output_name="PFlowMET"),
+        AccessorSpec("pflow_met_x", output_name="PFlowMETx"),
+        AccessorSpec("pflow_met_y", output_name="PFlowMETy"),
     ]
 
 
