@@ -28,38 +28,51 @@ Pythia8 configuration file. Events are generated on-the-fly before passing to th
 uv run parnassus run -i pythia_config.cmnd ...
 ```
 
+> **Note:** Pythia8 must be installed separately. Run `uv sync --extra pythia` (or ensure `pythia8` is available in your environment). Without it, `.cmnd` input will fail at runtime.
+
 ## Output Format
 
 Parnassus writes output as ROOT files using [uproot](https://github.com/scikit-hep/uproot5).
 
-### Contents
+### Contents by mode
 
-The output file contains the following trees/branches depending on the generator mode and pipeline configuration:
+| Collection | Neural | Parametric | Description |
+|------------|--------|------------|-------------|
+| `Truth` | yes | yes | Truth-level input particles |
+| `PFlow` | yes | yes | Simulated detector-level particles |
+| `Electrons` | if isolation pipeline | if isolation pipeline | Isolated electrons |
+| `Muons` | if isolation pipeline | if isolation pipeline | Isolated muons |
+| `Track` | no | yes | Reconstructed charged tracks |
+| `Tower` | no | yes | Calorimeter towers |
+| `Event` | yes | yes | Per-event scalars (HT, MET, EventNumber) |
+| `<JetName>` | if cluster pipeline | if cluster pipeline | One collection per configured jet pipeline |
 
-**Common (both modes):**
-
-- Truth particle collections (`truth_pt`, `truth_eta`, `truth_phi`, ...)
-- Reconstructed particle collections (`pflow_pt`, `pflow_eta`, `pflow_phi`, `pflow_class`, ...)
-- Jet collections (one per clustering pipeline, e.g., `TruthJetsAntiKt05_pt`, `PflowJetsAntiKt05_pt`, ...)
-- Isolation variables (per isolation pipeline)
-
-**Parametric mode additional collections:**
-
-- `Track` -- reconstructed charged particle tracks
-- `Tower` -- calorimeter towers (`e`, `et`, `eta`, `phi`, `t`)
-- Energy flow objects (`EFlowTrack`, `EFlowPhoton`, `EFlowNeutralHadron`)
+See [Output Reference](output-reference.md) for all field names per collection.
 
 ### Reading output
+
+The output file contains a single tree named `Parnassus`. Collections are accessed using dot notation:
 
 ```python
 import uproot
 
 f = uproot.open("output.root")
+tree = f["Parnassus"]
 
-# List all available keys
-print(f.keys())
+# List all branches
+print(tree.keys())
 
-# Read a specific branch
-tree = f["events"]
-pt = tree["pflow_pt"].array()
+# PFlow particles — jagged arrays (variable length per event)
+pflow_pt = tree["PFlow"]["PT"].array()
+pflow_class = tree["PFlow"]["ClassID"].array()  # see Output Reference for class IDs
+
+# Filter to electrons only (ClassID == 1)
+import awkward as ak
+electrons = pflow_pt[pflow_class == 1]
+
+# Event-level HT scalar
+truth_ht = tree["Event"]["TruthHT"].array()
+
+# Jet pT from a clustering pipeline (named TruthJetsAntiKt05 in config)
+jet_pt = tree["TruthJetsAntiKt05"]["PT"].array()
 ```
