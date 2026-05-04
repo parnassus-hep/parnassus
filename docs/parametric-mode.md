@@ -31,20 +31,6 @@ generator:
 | `cms` | 1.29 m | 3.8 T | Momentum smearing, ECal/HCal simulation |
 | `atlas` | 1.15 m | 2.0 T | Muons included in calorimeter tower output |
 
-## Output Collections
-
-| Collection | Description |
-|------------|-------------|
-| `Truth` | Truth-level input particles (P, PT, Eta, Phi, Mass, vertex, T, PID, ClassID, Charge, Status) |
-| `PFlow` | Simulated energy-flow particles after detector response |
-| `Track` | Reconstructed charged tracks after efficiency and smearing |
-| `Tower` | Calorimeter tower deposits (E, ET, Eta, Phi, T) |
-| `Electrons` / `Muons` | Lepton kinematics (PT, Eta, Phi); isolation fields added by isolation pipeline |
-| `Event` | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET |
-| `<JetName>` | One collection per configured clustering pipeline (only if cluster pipeline defined) |
-
-See [Output Reference](output-reference.md) for all branch names.
-
 ## Example
 
 ```bash
@@ -67,3 +53,17 @@ uv run parnassus run \
   -o output.root \
   --random_seed 123
 ```
+
+## Output Collections
+
+| Collection | Description |
+|------------|-------------|
+| `Truth` | Truth-level input particles (P, PT, Eta, Phi, Mass, vertex, T, PID, ClassID, Charge, Status) |
+| `PFlow` | Simulated energy-flow particles after detector response |
+| `Track` | Reconstructed charged tracks after efficiency and smearing |
+| `Tower` | Calorimeter tower deposits (E, ET, Eta, Phi, T) |
+| `Electrons` / `Muons` | Lepton kinematics (PT, Eta, Phi); isolation fields added by isolation pipeline |
+| `Event` | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET |
+| `<JetName>` | One collection per configured clustering pipeline (only if cluster pipeline defined) |
+
+See [Output Reference](output-reference.md) for all branch names.
