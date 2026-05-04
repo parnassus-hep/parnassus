@@ -910,7 +910,7 @@ def parse_args() -> argparse.Namespace:
         "-proc",
         type=str,
         default="HZZ4l",
-        choices=["HZZ4l"],
+        choices=["HZZ4l", "ttbarW"],
         help="Process to simulate (default: HZZ4l)",
     )
     parser.add_argument(
