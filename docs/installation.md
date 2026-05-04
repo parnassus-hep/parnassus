@@ -25,7 +25,7 @@ You should see the available CLI commands and options.
 
 ## Optional: Pythia8 benchmark data
 
-To run the Pythia8-related tests, download benchmark data:
+Pythia8 (`pythia8mc`) is included in the standard installation. To run the Pythia8-related tests, also download the benchmark data:
 
 ```bash
 gdown --folder https://drive.google.com/drive/folders/1W-V_rU6lRmtuaOclj3gYB1qJSn4J11qM?usp=sharing -O src/parnassus/tests/benchmark_data/
