@@ -33,17 +33,17 @@ generator:
 
 ## Output Collections
 
-The parametric generator produces the following collections in the output ROOT file:
-
 | Collection | Description |
 |------------|-------------|
-| `EFlowTrack` | Charged particle tracks after efficiency and smearing |
-| `EFlowPhoton` | Photons from electromagnetic calorimeter |
-| `EFlowNeutralHadron` | Neutral hadrons from hadronic calorimeter |
-| `Track` | Reconstructed tracks |
-| `Tower` | Calorimeter towers (energy, ET, eta, phi) |
+| `Truth` | Truth-level input particles (P, PT, Eta, Phi, Mass, vertex, T, PID, ClassID, Charge, Status) |
+| `PFlow` | Simulated energy-flow particles after detector response |
+| `Track` | Reconstructed charged tracks after efficiency and smearing |
+| `Tower` | Calorimeter tower deposits (E, ET, Eta, Phi, T) |
+| `Electrons` / `Muons` | Per-lepton kinematics and isolation (requires isolation pipeline) |
+| `Event` | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET |
+| `<JetName>` | One collection per configured clustering pipeline |
 
-When `debug: true` is set, additional collections with intermediate detector stages and efficiency metrics are included.
+See [Output Reference](output-reference.md) for all branch names.
 
 ## Example
 
