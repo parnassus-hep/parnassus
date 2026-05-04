@@ -233,22 +233,20 @@ class ParticlePropagator(nn.Module):
         # NOTE: Since we will use both the particles object and the specific branch objects,
         # we instantiate the branches as clones
         charged_hadron_pid_mask = mask * pdg_filters.charged_hadron_filter(particles)
-        charged_hadrons = particles[charged_hadron_pid_mask > 0.5].to(torch.float32).clone()
-        charged_hadrons_before_prop = particles_before_prop[charged_hadron_pid_mask > 0.5].to(
-            torch.float32
-        )
+        charged_hadrons = particles[charged_hadron_pid_mask > 0.5].clone()
+        charged_hadrons_before_prop = particles_before_prop[charged_hadron_pid_mask > 0.5]
 
         electron_pid_mask = mask * pdg_filters.electron_filter(particles)
-        electrons = particles[electron_pid_mask > 0.5].to(torch.float32).clone()
-        electrons_before_prop = particles_before_prop[electron_pid_mask > 0.5].to(torch.float32)
+        electrons = particles[electron_pid_mask > 0.5].clone()
+        electrons_before_prop = particles_before_prop[electron_pid_mask > 0.5]
 
         muon_pid_mask = mask * pdg_filters.muon_filter(particles)
-        muons = particles[muon_pid_mask > 0.5].to(torch.float32).clone()
-        muons_before_prop = particles_before_prop[muon_pid_mask > 0.5].to(torch.float32)
+        muons = particles[muon_pid_mask > 0.5].clone()
+        muons_before_prop = particles_before_prop[muon_pid_mask > 0.5]
 
         neutral_pid_mask = mask * pdg_filters.neutral_filter(particles)
-        neutrals = particles[neutral_pid_mask > 0.5].to(torch.float32).clone()
-        neutrals_before_prop = particles_before_prop[neutral_pid_mask > 0.5].to(torch.float32)
+        neutrals = particles[neutral_pid_mask > 0.5].clone()
+        neutrals_before_prop = particles_before_prop[neutral_pid_mask > 0.5]
 
         # NOTE: We purposely/manually leave their positions unchanged
         # (i.e. leave it as production vertex)
@@ -261,7 +259,7 @@ class ParticlePropagator(nn.Module):
             neutrals[:, var] = neutrals_before_prop[:, var].clone()
 
         valid_particles_mask = mask
-        particles = particles[valid_particles_mask].to(torch.float32).clone()
+        particles = particles[valid_particles_mask].clone()
 
         return particles, neutrals, charged_hadrons, electrons, muons
 
@@ -333,7 +331,9 @@ class ParticlePropagator(nn.Module):
         t_z = torch.where(
             torch.abs(pz_n) > 1e-10,
             (torch.sign(pz_n) * self.half_length - z_n) / pz_n,
-            torch.full_like(pz_n, 1.0e99),
+            torch.full_like(
+                pz_n, torch.finfo(pz_n.dtype).max
+            ),  # If pz ~ 0, set time to a very large number
         )
 
         # Take minimum time
@@ -460,7 +460,9 @@ class ParticlePropagator(nn.Module):
         t_z = torch.where(
             torch.abs(vz) > 1e-10,
             (torch.sign(pz_c) * self.half_length - z_c) / vz,
-            torch.full_like(vz, 1.0e99),
+            torch.full_like(
+                vz, torch.finfo(vz.dtype).max
+            ),  # If vz ~ 0, set time to a very large number
         )
 
         # Check if helix crosses cylinder sides

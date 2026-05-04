@@ -145,6 +145,15 @@ class GenParticleCollection:
             with_name="Momentum4D",
         )
 
+    @property
+    def p(self) -> FloatArray:
+        """Total momentum magnitude, ``|p| = pt * cosh(eta)``.
+
+        Independent of mass — matches the C++ Delphes ``Track.P`` / ``Particle.P``
+        convention which stores the momentum magnitude rather than the energy.
+        """
+        return self.pt * np.cosh(self.eta)
+
     def __getitem__(self, idx: int):
         assert idx < self.num_particles, f"Index {idx} out of range"
 
@@ -420,19 +429,23 @@ class GenEvent:
     truth_ht: np.float32 = field(init=False)
     truth_met_x: np.float32 = field(init=False)
     truth_met_y: np.float32 = field(init=False)
+    truth_met: np.float32 = field(init=False)
 
     pflow_ht: np.float32 = field(init=False)
     pflow_met_x: np.float32 = field(init=False)
     pflow_met_y: np.float32 = field(init=False)
+    pflow_met: np.float32 = field(init=False)
 
     def __post_init__(self):
         self.truth_ht = np.sum(self.truth_particles.pt)
         self.truth_met_x = np.sum(self.truth_particles.pt * np.cos(self.truth_particles.phi))
         self.truth_met_y = np.sum(self.truth_particles.pt * np.sin(self.truth_particles.phi))
+        self.truth_met = np.sqrt(self.truth_met_x**2 + self.truth_met_y**2)
 
         self.pflow_ht = np.sum(self.pflow_particles.pt)
         self.pflow_met_x = np.sum(self.pflow_particles.pt * np.cos(self.pflow_particles.phi))
         self.pflow_met_y = np.sum(self.pflow_particles.pt * np.sin(self.pflow_particles.phi))
+        self.pflow_met = np.sqrt(self.pflow_met_x**2 + self.pflow_met_y**2)
 
         self.muons = GenLeptonCollection.from_particles(self.pflow_particles, name="muons")
         self.electrons = GenLeptonCollection.from_particles(self.pflow_particles, name="electrons")

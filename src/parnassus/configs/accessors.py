@@ -95,6 +95,19 @@ class JetAccessor(Accessor):
         return getattr(event.jets[self.collection], self.name)
 
 
+@final
+@dataclass(frozen=True)
+class EventAccessor(Accessor):
+    """Accessor for scalar event-level fields on GenEvent (e.g. event_number, truth_ht)."""
+
+    @override
+    def get(self, event: GenEvent) -> Any:
+        try:
+            return getattr(event, self.name)
+        except AttributeError as e:
+            raise AccessorError(f"Event has no attribute '{self.name}'") from e
+
+
 # Accessor creation #
 @dataclass
 class AccessorSpec:
@@ -197,6 +210,20 @@ class AccessorListBuilder:
             AccessorListBuilder for chaining
         """
         return cls(collection, JetAccessor)
+
+    @classmethod
+    def for_event(cls, group_name: str = "Event") -> "AccessorListBuilder":
+        """Create builder for scalar event-level accessors.
+
+        Parameters
+        ----------
+            group_name: Output group name in the ROOT tree (default: "Event")
+
+        Returns
+        -------
+            AccessorListBuilder for chaining
+        """
+        return cls(group_name, EventAccessor)
 
     def add(
         self, names: Sequence[str], dtype: str | Sequence[str] = "float32"
@@ -320,6 +347,19 @@ class AccessorTemplates:
         AccessorSpec("charge", output_name="Charge", dtype="int32"),
     ]
 
+    # Scalar event-level features
+    EVENT_FEATURES: ClassVar = [
+        AccessorSpec("event_number", output_name="EventNumber", dtype="int64"),
+        AccessorSpec("truth_ht", output_name="TruthHT"),
+        AccessorSpec("truth_met", output_name="TruthMET"),
+        AccessorSpec("truth_met_x", output_name="TruthMETx"),
+        AccessorSpec("truth_met_y", output_name="TruthMETy"),
+        AccessorSpec("pflow_ht", output_name="PFlowHT"),
+        AccessorSpec("pflow_met", output_name="PFlowMET"),
+        AccessorSpec("pflow_met_x", output_name="PFlowMETx"),
+        AccessorSpec("pflow_met_y", output_name="PFlowMETy"),
+    ]
+
 
 @dataclass(slots=True)
 class AccessorStore:
@@ -359,13 +399,31 @@ class AccessorStore:
                         continue
                     self.accessors_dict[key].append(accessor)
 
+    def is_event_level(self, collection: str) -> bool:
+        """Return True if all accessors in the collection are event-level (scalar per event).
+
+        Parameters
+        ----------
+        collection: str
+            Name of the collection to check.
+
+        Returns
+        -------
+        bool
+            True if all accessors in the collection are event-level, False otherwise.
+
+        """
+        return all(isinstance(a, EventAccessor) for a in self.accessors_dict.get(collection, []))
+
     def get_branch_types(self) -> dict[str, str]:
-        return {
-            name: "var * {"
-            + ", ".join([f'"{accessor.output_name}" : {accessor.dtype}' for accessor in accessors])
-            + "}"
-            for name, accessors in self.accessors_dict.items()
-        }
+        result = {}
+        for name, accessors in self.accessors_dict.items():
+            fields = ", ".join([f'"{a.output_name}" : {a.dtype}' for a in accessors])
+            if self.is_event_level(name):
+                result[name] = "{" + fields + "}"
+            else:
+                result[name] = "var * {" + fields + "}"
+        return result
 
     def init_data_dict(self) -> dict[str, dict[str, Any]]:
         return {

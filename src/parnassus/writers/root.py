@@ -18,6 +18,22 @@ if TYPE_CHECKING:
 BATCH_SIZE = 1000
 
 
+def _make_event_array(var_data: dict[str, list[Any]]) -> ak.Array:
+    """Build a flat record array for scalar event-level variables (one value per event).
+
+    Parameters
+    ----------
+    var_data : dict[str, list[Any]]
+        Dictionary of variable data, where each value is a list of scalars (one per event).
+
+    Returns
+    -------
+    ak.Array
+        An Awkward Array with a RecordArray structure, where each record contains the variables.
+    """
+    return ak.Array({field: np.array(values) for field, values in var_data.items()})
+
+
 def _make_collection_array(var_data: dict[str, list[Any]]) -> ak.Array:
     """Build a variable-length record array, computing offsets once across all variables.
 
@@ -72,7 +88,16 @@ class RootWriter(BaseWriter):
     """Writer class for outputting generated events to a ROOT file."""
 
     def write_to_tree(self, tree: WritableTree, data: dict[str, dict[str, Any]]):
-        tree.extend({collection: _make_collection_array(data[collection]) for collection in data})
+        accessor_store = self.config.accessor_store
+        output = {
+            collection: (
+                _make_event_array(data[collection])
+                if accessor_store.is_event_level(collection)
+                else _make_collection_array(data[collection])
+            )
+            for collection in data
+        }
+        tree.extend(output)
         clear_dicts(data)
 
     @override

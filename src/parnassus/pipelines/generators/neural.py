@@ -135,7 +135,7 @@ class NeuralEventGenerator:
             "Truth": self._get_accessors_builder(
                 collection="truth_particles", specs=AccessorTemplates.FULL_PARTICLE
             ).build(),
-            "Pflow": self._get_accessors_builder(
+            "PFlow": self._get_accessors_builder(
                 collection="pflow_particles",
                 specs=AccessorTemplates.FULL_PARTICLE,
                 use_impact=self.has_impact_model,
