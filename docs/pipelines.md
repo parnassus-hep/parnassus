@@ -4,6 +4,8 @@ Pipelines are post-generation processing stages defined in the `pipelines` secti
 
 Each pipeline has a user-chosen name (the YAML key) and a `type` field that determines its behavior. Multiple pipelines can be defined and they execute in order.
 
+Pipeline names (the YAML key, e.g., `TruthJetsAntiKt05`, `ElectronIsolation`) become the collection name in the output ROOT tree. Access them in uproot as `tree["TruthJetsAntiKt05.PT"].array()` and `tree["Electrons.IsolationVar"].array()`.
+
 ## Cluster Pipeline
 
 **Type:** `cluster`
@@ -34,6 +36,18 @@ pipelines:
     nconst_min: 2
 ```
 
+### Output fields
+
+Each jet collection contains:
+
+| Branch | Description |
+|--------|-------------|
+| `<JetName>.PT` | Jet transverse momentum (GeV) |
+| `<JetName>.Eta` | Pseudorapidity |
+| `<JetName>.Phi` | Azimuthal angle (rad) |
+| `<JetName>.D2` | Energy correlation ratio D2 |
+| `<JetName>.C2` | Energy correlation ratio C2 |
+
 ## Isolation Pipeline
 
 **Type:** `isolation`
@@ -57,6 +71,22 @@ pipelines:
     collection: "electrons"
     dr: 0.4
 ```
+
+### Output fields
+
+The pipeline adds an `Electrons` or `Muons` collection (named after the capitalized `collection` value). Fields per lepton:
+
+| Branch | Description |
+|--------|-------------|
+| `Electrons.PT` | Transverse momentum (GeV) |
+| `Electrons.Eta` | Pseudorapidity |
+| `Electrons.Phi` | Azimuthal angle (rad) |
+| `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
+| `Electrons.SumPt` | Total ΣpT in isolation cone |
+| `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
+| `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
+
+Muons use `Muons.*` with the same fields.
 
 ## Full Example
 
@@ -94,5 +124,3 @@ pipelines:
     collection: "muons"
     dr: 0.4
 ```
-
-Pipeline names (e.g., `TruthJetsAntiKt05`) are user-defined and appear as branch prefixes in the output ROOT file.
