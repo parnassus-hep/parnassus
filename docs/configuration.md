@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Parnassus uses YAML configuration files. This page documents all available settings.
+Parnassus uses YAML configuration files. This page documents the main user-facing settings.
 
 ## Dataset
 
@@ -54,8 +54,19 @@ Map of pipeline name to pipeline configuration. See [Pipelines](pipelines.md) fo
 pipelines:
   <PipelineName>:
     type: "cluster" | "isolation"
+    batch_size: 2000
+    num_processes: 1
     # ... type-specific fields
 ```
+
+### Common pipeline fields
+
+These execution controls are supported by both `cluster` and `isolation` pipelines.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `batch_size` | integer | `2000` | Number of events per postprocessing batch |
+| `num_processes` | integer | `1` | Number of worker processes. Use `1` for synchronous execution; values above `1` use multiprocessing. |
 
 ### Cluster fields
 
@@ -87,4 +98,4 @@ output:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `file_path` | string | *required* | Path to the output ROOT file |
-| `format` | string | `"default"` | Output format |
+| `format` | string | `"default"` | Reserved for future output-format selection. Currently only ROOT output through the default writer is supported. |

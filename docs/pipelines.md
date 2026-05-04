@@ -6,6 +6,15 @@ Each pipeline has a user-chosen name (the YAML key) and a `type` field that dete
 
 Cluster pipeline names (the YAML key, e.g., `TruthJetsAntiKt05`) become jet collection names in the output ROOT tree. Isolation pipeline names are not written as collections; isolation fields are appended to `Electrons` or `Muons`. Access them in uproot as `tree["TruthJetsAntiKt05.PT"].array()` and `tree["Electrons.IsolationVar"].array()`.
 
+## Common Execution Fields
+
+These fields are supported by both `cluster` and `isolation` pipelines:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `batch_size` | integer | `2000` | Number of events per postprocessing batch |
+| `num_processes` | integer | `1` | Number of worker processes. Use `1` for synchronous execution; values above `1` use multiprocessing. |
+
 ## Cluster Pipeline
 
 **Type:** `cluster`

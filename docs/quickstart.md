@@ -4,13 +4,13 @@ This guide walks through running your first detector simulation with Parnassus.
 
 ## 1. Prepare a configuration file
 
-Parnassus ships with example configurations. Copy one to your working directory:
+Parnassus ships with example configurations. Copy them to your working directory:
 
 ```bash
 uv run parnassus init
 ```
 
-This copies the default configuration file to your current directory. Alternatively, use one of the bundled configs directly:
+This copies `neural_config.yaml` and `parametric_config.yaml` to your current directory. Alternatively, use one of the bundled configs directly:
 
 - `src/parnassus/configs/neural_config.yaml` -- neural generator
 - `src/parnassus/configs/parametric_config.yaml` -- parametric generator

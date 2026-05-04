@@ -4,7 +4,7 @@ Parnassus provides a command-line interface via the `parnassus` command.
 
 ## `parnassus init`
 
-Copy the default configuration file to the current directory, or to a specified directory.
+Copy the default neural and parametric configuration files to the current directory, or to a specified directory.
 
 ```bash
 uv run parnassus init [dir]
@@ -12,7 +12,7 @@ uv run parnassus init [dir]
 
 | Argument | Required | Description |
 |----------|----------|-------------|
-| `dir` | no | Destination directory (default: current directory) |
+| `dir` | no | Destination directory for `neural_config.yaml` and `parametric_config.yaml` (default: current directory) |
 
 ## `parnassus run`
 

@@ -11,7 +11,10 @@ from parnassus.pipelines import GenerationPipeline, IsolationPipeline, JetCluste
 from parnassus.utils.logger import setup_logger
 from parnassus.writers import RootWriter
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent.joinpath("configs/neural_config.yaml")
+DEFAULT_CONFIG_PATHS = (
+    Path(__file__).parent.joinpath("configs/neural_config.yaml"),
+    Path(__file__).parent.joinpath("configs/parametric_config.yaml"),
+)
 
 
 def parse_args(args: Sequence[str] | None) -> argparse.Namespace:
@@ -34,14 +37,14 @@ def parse_args(args: Sequence[str] | None) -> argparse.Namespace:
     )
     parser_init = subparsers.add_parser(
         "init",
-        help="Initialize a default configuration file in the provided path (or current directory)",
+        help="Initialize default configuration files in the provided path (or current directory)",
     )
     _ = parser_init.add_argument(
         "dir",
         nargs="?",
         type=str,
         default=".",
-        help="Path to directory to save the default configuration file",
+        help="Path to directory to save the default configuration files",
     )
     parser_run = subparsers.add_parser("run", help="Execute the Parnassus pipeline")
     _ = parser_run.add_argument(
@@ -100,7 +103,9 @@ def main(args: Sequence[str] | None = None) -> None:
     """
     parsed_args = parse_args(args)
     if parsed_args.cli == "init":
-        shutil.copy(DEFAULT_CONFIG_PATH, Path(parsed_args.dir).absolute())
+        destination = Path(parsed_args.dir).absolute()
+        for config_path in DEFAULT_CONFIG_PATHS:
+            shutil.copy(config_path, destination)
     elif parsed_args.cli == "run":
         log = setup_logger()
         title = " Starting Parnassus "
