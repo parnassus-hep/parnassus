@@ -31,6 +31,10 @@ generator:
 | `batch_size` | integer | `2000` | Number of events per batch |
 | `device` | string | `"cpu"` | Computation device: `"cpu"`, `"cuda"`, or `"mps"` |
 
+### Choosing `num_steps`
+
+Higher values produce better-quality samples at the cost of longer inference. `50` is the default and a reasonable starting point. Values in the 20–100 range are typical; below ~20 output quality degrades noticeably. Inference time scales roughly linearly with `num_steps`.
+
 ## Available Models
 
 | Name | Description |
@@ -48,7 +52,7 @@ uv run parnassus run \
   -o output.root
 ```
 
-The `--num_steps` CLI flag overrides the config value:
+The `-n` CLI flag overrides the config value:
 
 ```bash
 uv run parnassus run \
@@ -57,5 +61,9 @@ uv run parnassus run \
   -ne 100 \
   -bs 10 \
   -o output.root \
-  --num_steps 100
+  -n 100
 ```
+
+## Output
+
+Neural mode writes `Truth`, `PFlow`, and `Event` collections plus any configured jet and isolation collections. `PFlow` particles include impact parameters (`D0`, `Z0`, `ErrorD0`, `ErrorZ0`). See [Output Reference](output-reference.md) for all branch names and field descriptions.
