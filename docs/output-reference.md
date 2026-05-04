@@ -46,21 +46,33 @@ The `ClassID` field maps to particle type:
 | `PFlow.ErrorZ0` | Uncertainty on Z0 (mm) |
 | `PFlow.<JetName>_idx` | Index of associated jet |
 
-### Electrons / Muons (with isolation pipeline)
+### Electrons / Muons
+
+Always present (kinematics written by the neural generator):
 
 | Branch | Description |
 |--------|-------------|
 | `Electrons.PT` | Electron transverse momentum (GeV) |
 | `Electrons.Eta` | Pseudorapidity |
 | `Electrons.Phi` | Azimuthal angle (rad) |
+
+If the neural impact model ran, impact parameters are also present:
+
+| Branch | Description |
+|--------|-------------|
 | `Electrons.D0`, `Electrons.Z0` | Impact parameters (mm) |
 | `Electrons.ErrorD0`, `Electrons.ErrorZ0` | Impact parameter uncertainties (mm) |
+
+If an isolation pipeline is configured, isolation fields are added:
+
+| Branch | Description |
+|--------|-------------|
 | `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
 | `Electrons.SumPt` | Total ΣpT of all particles in cone |
 | `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
 | `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
 
-`Muons.*` has the same fields as `Electrons.*` in neural mode, including `Muons.D0`, `Muons.Z0`, `Muons.ErrorD0`, and `Muons.ErrorZ0`.
+`Muons.*` has the same structure, including `Muons.D0`, `Muons.Z0`, `Muons.ErrorD0`, and `Muons.ErrorZ0` when the impact model ran.
 
 ---
 
@@ -103,19 +115,26 @@ Calorimeter tower deposits.
 | `Tower.Phi` | Tower centre φ (rad) |
 | `Tower.T` | Tower time (s) |
 
-### Electrons / Muons (with isolation pipeline)
+### Electrons / Muons
+
+Always present (kinematics written by the parametric generator):
 
 | Branch | Description |
 |--------|-------------|
 | `Electrons.PT` | Electron transverse momentum (GeV) |
 | `Electrons.Eta` | Pseudorapidity |
 | `Electrons.Phi` | Azimuthal angle (rad) |
+
+If an isolation pipeline is configured, isolation fields are added:
+
+| Branch | Description |
+|--------|-------------|
 | `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
 | `Electrons.SumPt` | Total ΣpT in cone |
 | `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
 | `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
 
-Muons have the same fields under `Muons.*`. Parametric mode does not include impact parameters in Electrons/Muons.
+`Muons.*` has the same structure. Parametric mode does not include impact parameters.
 
 ---
 

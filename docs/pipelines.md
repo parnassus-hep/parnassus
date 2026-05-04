@@ -74,19 +74,16 @@ pipelines:
 
 ### Output fields
 
-The pipeline adds an `Electrons` or `Muons` collection (named after the capitalized `collection` value). Fields per lepton:
+The pipeline adds isolation fields to the `Electrons` or `Muons` collection (the kinematics `PT`, `Eta`, `Phi` are always present from the generator):
 
 | Branch | Description |
 |--------|-------------|
-| `Electrons.PT` | Transverse momentum (GeV) |
-| `Electrons.Eta` | Pseudorapidity |
-| `Electrons.Phi` | Azimuthal angle (rad) |
 | `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
 | `Electrons.SumPt` | Total ΣpT in isolation cone |
 | `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
 | `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
 
-Muons use `Muons.*` with the same fields.
+Muons use `Muons.*` with the same isolation fields.
 
 ## Full Example
 

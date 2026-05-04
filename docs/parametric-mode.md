@@ -39,7 +39,7 @@ generator:
 | `PFlow` | Simulated energy-flow particles after detector response |
 | `Track` | Reconstructed charged tracks after efficiency and smearing |
 | `Tower` | Calorimeter tower deposits (E, ET, Eta, Phi, T) |
-| `Electrons` / `Muons` | Per-lepton kinematics and isolation (requires isolation pipeline) |
+| `Electrons` / `Muons` | Lepton kinematics (PT, Eta, Phi); isolation fields added by isolation pipeline |
 | `Event` | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET |
 | `<JetName>` | One collection per configured clustering pipeline |
 
