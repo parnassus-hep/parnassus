@@ -2,6 +2,8 @@
 
 The output ROOT file contains a single tree named `Parnassus`. Branches use flat dot-separated names — access them in uproot as `tree["Collection.Field"].array()`.
 
+For each jagged collection, uproot also writes a count branch (`nTruth`, `nPFlow`, `nTruthJetsAntiKt05`, etc.). These are internal bookkeeping branches and do not need to be read directly.
+
 ## Particle Class IDs
 
 The `ClassID` field maps to particle type:
@@ -11,7 +13,7 @@ The `ClassID` field maps to particle type:
 | 0 | 211 | Charged hadron (π±) |
 | 1 | 11 | Electron |
 | 2 | 13 | Muon |
-| 3 | 111 | Neutral hadron (π⁰) |
+| 3 | 111 / 130 | Neutral hadron (π⁰ in neural; K_L⁰ or original PID in parametric) |
 | 4 | 22 | Photon |
 
 ## Neural mode
@@ -58,7 +60,7 @@ The `ClassID` field maps to particle type:
 | `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
 | `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
 
-Muons have the same fields under `Muons.*`.
+`Muons.*` has the same fields as `Electrons.*` in neural mode, including `Muons.D0`, `Muons.Z0`, `Muons.ErrorD0`, and `Muons.ErrorZ0`.
 
 ---
 
