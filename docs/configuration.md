@@ -17,7 +17,7 @@ dataset:
 |-------|------|---------|-------------|
 | `file_path` | string | *required* | Path to the input file (`.hepmc`, `.root`, or `.cmnd`) |
 | `num_events` | integer | `1` | Number of events to process |
-| `entry_start` | integer | `0` | Starting entry index in the input file |
+| `entry_start` | integer | `0` | Starting entry index in the input file. Useful for skipping the first N events or for processing a file in parallel chunks by running multiple jobs with non-overlapping `entry_start` + `num_events` ranges. |
 
 ## Generator
 
@@ -37,6 +37,7 @@ Selects and configures the simulation backend.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `num_steps` | integer | `50` | Number of ODE integration steps |
+| `max_particles` | integer | from model | Maximum particles per event. Set automatically from the model metadata; override only if needed. Particles beyond this limit are dropped during preprocessing. |
 
 ### Parametric-specific fields
 
