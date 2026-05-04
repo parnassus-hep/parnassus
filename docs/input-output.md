@@ -40,10 +40,10 @@ Parnassus writes output as ROOT files using [uproot](https://github.com/scikit-h
 |------------|--------|------------|-------------|
 | `Truth` | yes | yes | Truth-level input particles |
 | `PFlow` | yes | yes | Simulated detector-level particles |
-| `Electrons` | yes | yes | Electron kinematics; isolation fields added by isolation pipeline |
-| `Muons` | yes | yes | Muon kinematics; isolation fields added by isolation pipeline |
 | `Track` | no | yes | Reconstructed charged tracks |
 | `Tower` | no | yes | Calorimeter towers |
+| `Electrons` | yes | yes | Electron kinematics; isolation fields added by isolation pipeline |
+| `Muons` | yes | yes | Muon kinematics; isolation fields added by isolation pipeline |
 | `Event` | yes | yes | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET, and x/y MET components |
 | `<JetName>` | if cluster pipeline | if cluster pipeline | One collection per configured clustering pipeline |
 
