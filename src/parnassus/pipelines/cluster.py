@@ -23,6 +23,8 @@ from parnassus.utils.typing import FloatArray, IntArray
 
 from .base import GenPipeline
 
+COLLECTION_REMAP: dict[str, str] = {"truth": "Truth", "pflow": "PFlow"}
+
 
 @final
 class Jet:
@@ -89,8 +91,8 @@ class Jet:
             axis=1,
         )
 
-        self.substructure["d2"] = d2_calc.compute(pt_eta_phi_m)
-        self.substructure["c2"] = c2_calc.compute(pt_eta_phi_m)
+        self.substructure["d2"] = d2_calc.compute(pt_eta_phi_m)  # pyright: ignore[reportArgumentType]
+        self.substructure["c2"] = c2_calc.compute(pt_eta_phi_m)  # pyright: ignore[reportArgumentType]
 
 
 def get_cluster_sequence(
@@ -158,7 +160,7 @@ def cluster_jets(
     )
     jets = cs.inclusive_jets(config.pt_min)
     jets = fj.sorted_by_pt(jets)
-    jets = [Jet(j, config.dr, calc_substructure=True) for j in jets]
+    jets = [Jet(j, config.dr, calc_substructure=True) for j in jets]  # pyright: ignore[reportArgumentType]
 
     used_indices: set[int] = set()
     jet_idxs = np.zeros(n_particles, dtype=int)
@@ -289,7 +291,7 @@ class JetClusteringPipeline(GenPipeline):
                 .add_from_specs(AccessorTemplates.JET_SUBSTRUCTURE)
                 .build()
             ),
-            self.config.collection.capitalize(): [
+            COLLECTION_REMAP.get(self.config.collection, self.config.collection.capitalize()): [
                 ParticleAccessor(
                     f"jet_idx/{self.config.name}",
                     f"{self.config.collection}_particles",
