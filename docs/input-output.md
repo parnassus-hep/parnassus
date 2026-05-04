@@ -28,7 +28,7 @@ Pythia8 configuration file. Events are generated on-the-fly before passing to th
 uv run parnassus run -i pythia_config.cmnd ...
 ```
 
-> **Note:** Pythia8 must be installed separately. Run `uv sync --extra pythia` (or ensure `pythia8` is available in your environment). Without it, `.cmnd` input will fail at runtime.
+> **Note:** Pythia8 (`pythia8mc`) is included in the standard installation via `uv sync`. No extra steps are required.
 
 ## Output Format
 
@@ -44,7 +44,7 @@ Parnassus writes output as ROOT files using [uproot](https://github.com/scikit-h
 | `Muons` | if isolation pipeline | if isolation pipeline | Isolated muons |
 | `Track` | no | yes | Reconstructed charged tracks |
 | `Tower` | no | yes | Calorimeter towers |
-| `Event` | yes | yes | Per-event scalars (HT, MET, EventNumber) |
+| `Event` | yes | yes | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET, and x/y MET components |
 | `<JetName>` | if cluster pipeline | if cluster pipeline | One collection per configured jet pipeline |
 
 See [Output Reference](output-reference.md) for all field names per collection.
@@ -59,20 +59,20 @@ import uproot
 f = uproot.open("output.root")
 tree = f["Parnassus"]
 
-# List all branches
+# List all branches (flat dot-separated names like 'PFlow.PT', 'Event.TruthHT')
 print(tree.keys())
 
 # PFlow particles — jagged arrays (variable length per event)
-pflow_pt = tree["PFlow"]["PT"].array()
-pflow_class = tree["PFlow"]["ClassID"].array()  # see Output Reference for class IDs
+pflow_pt = tree["PFlow.PT"].array()
+pflow_class = tree["PFlow.ClassID"].array()  # see Output Reference for class IDs
 
 # Filter to electrons only (ClassID == 1)
 import awkward as ak
 electrons = pflow_pt[pflow_class == 1]
 
-# Event-level HT scalar
-truth_ht = tree["Event"]["TruthHT"].array()
+# Event-level HT scalar (one value per event, not jagged)
+truth_ht = tree["Event.TruthHT"].array()
 
-# Jet pT from a clustering pipeline (named TruthJetsAntiKt05 in config)
-jet_pt = tree["TruthJetsAntiKt05"]["PT"].array()
+# Jet pT from a clustering pipeline named TruthJetsAntiKt05 in config
+jet_pt = tree["TruthJetsAntiKt05.PT"].array()
 ```
