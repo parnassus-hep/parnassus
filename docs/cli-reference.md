@@ -4,11 +4,15 @@ Parnassus provides a command-line interface via the `parnassus` command.
 
 ## `parnassus init`
 
-Copy the default configuration file to the current directory.
+Copy the default configuration file to the current directory, or to a specified directory.
 
 ```bash
-uv run parnassus init
+uv run parnassus init [dir]
 ```
+
+| Argument | Required | Description |
+|----------|----------|-------------|
+| `dir` | no | Destination directory (default: current directory) |
 
 ## `parnassus run`
 
@@ -23,12 +27,12 @@ uv run parnassus run -c <config> -i <input> -ne <num_events> -bs <batch_size> -o
 | Flag | Long form | Required | Description |
 |------|-----------|----------|-------------|
 | `-c` | `--config` | yes | Path to the YAML configuration file |
-| `-i` | `--input-path` | yes | Path to the input file (`.hepmc`, `.cmnd`, or `.root`) |
-| `-ne` | `--num-events` | yes | Number of events to process |
-| `-bs` | `--batch-size` | yes | Batch size for processing |
-| `-o` | `--output-path` | yes | Path to the output ROOT file |
+| `-i` | `--input_path` | yes | Path to the input file (`.hepmc`, `.cmnd`, or `.root`) |
+| `-ne` | `--num_events` | yes | Number of events to process |
+| `-bs` | `--batch_size` | yes | Batch size for processing |
+| `-o` | `--output_path` | yes | Path to the output ROOT file |
+| `-n` | `--num_steps` | no | Number of ODE steps override (neural mode only) |
 | | `--random_seed` | no | Random seed override (parametric mode only) |
-| | `--num_steps` | no | Number of ODE steps override (neural mode only) |
 
 ### Examples
 
@@ -41,7 +45,7 @@ uv run parnassus run \
   -ne 500 \
   -bs 50 \
   -o result.root \
-  --num_steps 100
+  -n 100
 ```
 Run with parametric generator:
 
