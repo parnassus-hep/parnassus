@@ -33,7 +33,7 @@ generator:
 
 ### Choosing `num_steps`
 
-Higher values produce better-quality samples at the cost of longer inference. `50` is the default and a reasonable starting point. Values in the 20–100 range are typical; below ~20 output quality degrades noticeably. Inference time scales roughly linearly with `num_steps`.
+Higher values produce better-quality samples at the cost of longer inference. `50` is the default and recommended. With values below ~20 output quality degrades noticeably. Inference time scales roughly linearly with `num_steps`.
 
 ## Available Models
 
