@@ -19,7 +19,7 @@ uv run parnassus init [dir]
 Run the detector simulation pipeline.
 
 ```bash
-uv run parnassus run -c <config> -i <input> -ne <num_events> -bs <batch_size> -o <output>
+uv run parnassus run -c <config> [options]
 ```
 
 ### Arguments
@@ -27,12 +27,12 @@ uv run parnassus run -c <config> -i <input> -ne <num_events> -bs <batch_size> -o
 | Flag | Long form | Required | Description |
 |------|-----------|----------|-------------|
 | `-c` | `--config` | yes | Path to the YAML configuration file |
-| `-i` | `--input_path` | yes | Path to the input file (`.hepmc`, `.cmnd`, or `.root`) |
-| `-ne` | `--num_events` | yes | Number of events to process |
-| `-bs` | `--batch_size` | yes | Batch size for processing |
-| `-o` | `--output_path` | yes | Path to the output ROOT file |
-| `-n` | `--num_steps` | no | Number of ODE steps override (neural mode only) |
-| | `--random_seed` | no | Random seed override (parametric mode only) |
+| `-i` | `--input_path` | no | Input file path, overrides config |
+| `-ne` | `--num_events` | no | Number of events to process, overrides config |
+| `-bs` | `--batch_size` | no | Batch size for processing, overrides config |
+| `-o` | `--output_path` | no | Output ROOT file path, overrides config |
+| `-n` | `--num_steps` | no | Number of ODE steps (neural mode only), overrides config |
+| | `--random_seed` | no | Random seed (parametric mode only), overrides config |
 
 ### Examples
 
@@ -47,6 +47,7 @@ uv run parnassus run \
   -o result.root \
   -n 100
 ```
+
 Run with parametric generator:
 
 ```bash
