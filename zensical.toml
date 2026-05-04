@@ -19,6 +19,7 @@ nav = [
   {"Configuration" = "configuration.md"},
   {"CLI Reference" = "cli-reference.md"},
   {"Input & Output" = "input-output.md"},
+  {"Output Reference" = "output-reference.md"},
 ]
 
 [project.theme]
