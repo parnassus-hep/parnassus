@@ -686,25 +686,36 @@ truth-level particles into detector-level pflow objects.
 \label{fig:display_h4l}
 \end{figure}
 
-\subsection{Jet-level distributions}
+\subsection{Process comparison}
 \label{subsec:kinematics}
 
-Fig.~\ref{fig:jet_distributions} compares jet-level observables for both
-processes using anti-$k_t$ jets ($R = 0.5$, $p_\mathrm{T} > 10$\,GeV). These
-distributions more clearly distinguish the two physics scenarios: the
-BSM $H \to aa \to gg\mu\mu$ process produces additional jets from the
-$a \to gg$ decays, leading to markedly different jet multiplicity, dijet
-invariant mass ($m_{jj}$), and leading-jet $p_\mathrm{T}$ spectra.
+Fig.~\ref{fig:process_comparison} compares jet-level and event-level
+observables for both processes using anti-$k_t$ jets ($R = 0.5$,
+$p_\mathrm{T} > 10$\,GeV). The BSM $H \to aa \to gg\mu\mu$ process produces
+hard jets from the $a \to gg$ decays, leading to markedly different dijet
+invariant mass ($m_{jj}$), jet multiplicity, leading-jet $p_\mathrm{T}$, and
+$H_\mathrm{T}$ distributions compared to the purely leptonic SM
+$H \to ZZ \to 4\ell$ decay. In particular, the $m_{jj}$ spectrum for the BSM
+process peaks near the pseudoscalar mass $m_a = 20$\,GeV, while the SM process
+shows a broader distribution from underlying-event jets. These distributions
+demonstrate that the framework correctly propagates the physics differences
+between input processes into the reconstructed observables without any
+process-specific tuning.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/jet_distributions.pdf}
-\caption{Jet-level distributions comparing SM ($H{\to}4\ell$) and BSM
-  ($H{\to}aa{\to}gg\mu\mu$) processes. These observables demonstrate the
-  process-agnostic nature of the model: the generated jet properties
-  correctly reflect the underlying physics differences between the two
-  samples without any process-specific tuning.}
-\label{fig:jet_distributions}
+\includegraphics[width=\textwidth]{figures/process_comparison_sm_bsm.pdf}
+\caption{Jet-level and event-level distributions comparing SM
+  ($H{\to}ZZ{\to}4\ell$, 5000 events) and BSM ($H{\to}aa{\to}gg\mu\mu$,
+  5000 events) processes, using truth-level \textsc{Pythia8} events clustered
+  with anti-$k_t$ jets ($R = 0.5$, $p_\mathrm{T} > 10$\,GeV).
+  (a)~Dijet invariant mass $m_{jj}$,
+  (b)~jet multiplicity,
+  (c)~leading jet $p_\mathrm{T}$,
+  (d)~scalar $p_\mathrm{T}$ sum $H_\mathrm{T}$.
+  All distributions are normalised to unit area. The script to reproduce this
+  figure is included in \texttt{docs/prd/make\_process\_comparison.py}.}
+\label{fig:process_comparison}
 \end{figure}
 
 
