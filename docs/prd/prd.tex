@@ -1,4 +1,3 @@
-%%
 %% CPC Computer Programs in Physics (CPiP) manuscript
 %%
 %% To compile with the elsarticle class (for submission), use:
@@ -126,20 +125,22 @@
 %% When using elsarticle, wrap the title/authors/abstract in
 %% \begin{frontmatter} ... \end{frontmatter}
 
-\title{Parnassus: Fast Detector Simulation and Reconstruction\\
-  in Pure Python}
+\title{Parnassus: A GPU-enabled, Python-based Package for Fast Particle Detector Simulation and Reconstruction}
 
-\author{Etienne Dreyer$^{a}$, Eilam Gross$^{a}$,
-  Dmitrii Kobylianskii$^{a}$, Vinicius Mikuni$^{b}$,
-  Benjamin Nachman$^{b}$}
+\author{Etienne Dreyer$^{a}$, Abdelrahman Elabd$^{b}$, Eilam Gross$^{a}$,\\
+  Dmitrii Kobylianskii$^{a}$,
+  Benjamin Nachman$^{c,d}$}
 
 \date{}
 
 \maketitle
 
 \noindent
-$^{a}$\textit{Weizmann Institute of Science, Rehovot, Israel}\\
-$^{b}$\textit{Lawrence Berkeley National Laboratory, Berkeley, CA, USA}
+$^{a}$\textit{Department of Particle Physics \& Astrophysics, Weizmann Institute of Science, Rehovot, Israel}\\
+$^{b}$\textit{Department of Physics, University of Washington, Seattle, WA 98195, USA}\\
+$^{c}$\textit{Department of Particle Physics and Astrophysics, Stanford University, Stanford, CA 94305, USA}\\
+$^{d}$\textit{Fundamental Physics Directorate, SLAC National Accelerator Laboratory, Menlo Park, CA 94025, USA}
+
 
 \bigskip
 
@@ -147,28 +148,19 @@ $^{b}$\textit{Lawrence Berkeley National Laboratory, Berkeley, CA, USA}
 \begin{abstract}
 We present the public software release of \textsc{Parnassus}, a pure-Python,
 GPU-compatible framework for fast detector simulation and reconstruction in
-High Energy Physics. Parnassus replaces the computationally expensive
-\textsc{Geant4} simulation and reconstruction chain with two interchangeable
-generator backends: a \textbf{neural backend} based on conditional flow
-matching models that map truth-level particles directly to detector-level
-particle-flow objects, and a \textbf{parametric backend}
-(\textsc{TorchDelphes}) that re-implements the \textsc{Delphes} fast
-simulation chain in pure PyTorch. Both backends share the same
+particle and nuclear physics. Parnassus provides a user friendly surrogate model of computationally expensive
+\textsc{Geant4}-based detector simulation and reconstruction chains with interchangeable detector models.  This initial release includes two models of the CMS detector - one based on a flow-matching neural network architecture and one based on a PyTorch implementation of the Delphes (parametric bias and smearing) CMS card.  A PyTorch version of the ATLAS Delphes model and a neural network model of the ALEPH detector are also available. All detector-specific backends share the same
 process-agnostic and detector-agnostic API: users select a detector
 card---analogous to choosing a detector card in \textsc{Delphes}---and the
-same tool can be applied to arbitrary physics processes without retraining.
-Unlike C++/ROOT-based tools such as \textsc{Delphes}, Parnassus runs natively
-on GPU (CUDA and Apple MPS) and requires no ROOT installation. The current
-release ships with CMS and ATLAS parametric cards validated against
-C++~\textsc{Delphes} 3.5.0, and a CMS neural model trained on 2011 open data;
-additional detector models will be provided in future releases. We describe
+same tool can be applied to arbitrary physics processes without retraining.  There are native interfaces to the event generator Pythia and event clustering package fastjet.  Unlike previous C++/ROOT-based tools, Parnassus runs natively
+on GPU and requires no ROOT installation.  We describe
 the installation, command-line and Python API, configuration system, and
 demonstrate the framework on Standard Model and BSM processes.
 \end{abstract}
 
-\noindent\textbf{Keywords:} fast simulation, detector simulation,
+\noindent\textbf{Keywords:} fast simulation, event reconstruction, detector simulation,
   particle flow, generative models, flow matching, diffusion models,
-  high energy physics
+  particle physics, nuclear physics
 
 % ── CPC Program Summary ─────────────────────────────────────
 \bigskip
@@ -183,9 +175,6 @@ demonstrate the framework on Standard Model and BSM processes.
 
 \item[Program title:] Parnassus
 
-\item[CPC Library link to program files:]
-  (to be added by Technical Editor)
-
 \item[Developer's repository link:]
   \url{https://github.com/parnassus-hep/parnassus}
 
@@ -196,23 +185,16 @@ demonstrate the framework on Standard Model and BSM processes.
 \item[Nature of problem:]
   Full detector simulation and reconstruction based on \textsc{Geant4} is
   computationally expensive, often dominating the computing budget of
-  large-scale High Energy Physics analyses. A fast, accurate surrogate is
+  large-scale particle and nuclear physics experiments and is computationally prohibitive for individual researchers. A fast, accurate surrogate is
   needed that maps truth-level (generator-level) particles directly to
-  detector-level particle-flow objects, preserving the fidelity of the full
+  detector-level reconstructed particles, preserving the fidelity of the full
   chain while being orders of magnitude faster.
 
 \item[Solution method:]
-  Parnassus offers two interchangeable generator backends sharing a common
-  API. The \textit{neural backend} trains conditional flow matching
-  models~\cite{lipman2023flow,liu2023flow} on full simulation and
-  reconstruction data; the model is conditioned on truth-level particle
-  properties and generates detector-level particle-flow objects including
-  kinematics, classification, and track impact parameters. The
-  \textit{parametric backend}, \textsc{TorchDelphes}, re-implements the
-  \textsc{Delphes}~\cite{delphes} fast-simulation chain (particle
-  propagation, tracking efficiency, momentum smearing, calorimeter response,
-  energy-flow merging) in pure PyTorch, validated against C++
-  \textsc{Delphes} 3.5.0 for CMS and ATLAS cards. Both backends are
+  Parnassus offers interchangeable detector backends sharing a common
+  API. These backends include both neural network models (based on flow matching) as well as parameterized approaches (\textsc{TorchDelphes}, a re-implementation of select
+  \textsc{Delphes}~\cite{delphes} detector cards).  The former has been validated in previous papers~\cite{parnassus_v2,parnassus_lep} and the latter is validated in this work against the C++
+  \textsc{Delphes} 3.5.1 cards for the CMS and ATLAS detectors.  All backends are
   followed by physics-based post-processing (jet clustering via
   \textsc{FastJet}~\cite{fastjet}, lepton isolation). Users select a
   detector card---analogous to a \textsc{Delphes} card---to target a
@@ -220,14 +202,11 @@ demonstrate the framework on Standard Model and BSM processes.
 
 \item[Additional comments including restrictions and unusual features:]
   The framework is implemented entirely in Python with PyTorch and runs
-  natively on CPU, CUDA GPU, and Apple MPS. It has no dependency on
+  natively on CPU and GPU. It has no dependency on
   ROOT; output to ROOT format is optionally handled via
   \texttt{uproot}~\cite{uproot}. The current release ships with CMS and
-  ATLAS parametric (\textsc{TorchDelphes}) cards and a CMS neural model
-  trained on 2011 open data~\cite{cms_opendata}; additional detector
-  models for other experiments will be added in future releases. The
-  neural CMS model supports up to 400 truth particles per event; events
-  exceeding this limit retain the 400 highest-$p_\mathrm{T}$ particles.
+  ATLAS parametric cards and CMS and ALEPH neural models; additional detector
+  models for other experiments will be added in future releases.
 
 \end{description}
 \end{small}
@@ -237,28 +216,27 @@ demonstrate the framework on Standard Model and BSM processes.
 \label{sec:introduction}
 
 Parnassus is a \textbf{pure-Python}, \textbf{fully GPU-compatible} framework for
-\textbf{fast detector simulation and reconstruction} in High Energy Physics
-(HEP). It replaces the computationally expensive full
-\textsc{Geant4}~\cite{geant4} simulation and reconstruction chain with
+\textbf{fast detector simulation and reconstruction} in particle and nuclear physics. It provides an alternative path to computationally expensive full
+\textsc{Geant4}~\cite{geant4} simulation and reconstruction chains with
 generative models that map truth-level (generator-level) particles directly to
-detector-level particle-flow~\cite{CMS-PRF-14-001,PERF-2015-09} (pflow) objects,
+detector-level reconstructed particles,
 bypassing intermediate steps such as hit simulation, digitisation, and track
 reconstruction. The framework is both \textbf{process-agnostic} and
 \textbf{detector-agnostic}: users select a detector card to target a specific
 experiment, and the same tool can be applied to arbitrary physics processes by
 simply providing different input truth events.
 
-Parnassus exposes two interchangeable \textbf{generator backends} sharing a
-common API:
+Parnassus includes a number of interchangeable \textbf{generator backends} sharing a
+common API; these backends are of two types:
 \begin{itemize}
-  \item A \textbf{neural backend} based on conditional flow
+  \item A \textbf{neural backends} based on conditional flow
     matching~\cite{lipman2023flow,liu2023flow} trained on full simulation and
     reconstruction data, providing high-fidelity learned detector response.
   \item A \textbf{parametric backend}, \textsc{TorchDelphes}, which
     re-implements the \textsc{Delphes}~\cite{delphes} fast-simulation chain
     (particle propagation, tracking efficiency, momentum smearing, calorimeter
     response, energy-flow merging) in pure PyTorch. The implementation is
-    validated against C++~\textsc{Delphes} 3.5.0 for both CMS and ATLAS
+    validated against C++~\textsc{Delphes} 3.5.0 in Appendix~\ref{sec:torchdelphes} for both CMS and ATLAS
     detector cards and provides a GPU-native drop-in alternative to running
     C++ \textsc{Delphes}.
 \end{itemize}
@@ -266,25 +244,23 @@ common API:
 Unlike traditional fast simulation tools such as
 \textsc{Delphes}~\cite{delphes}, which are written in C++, require the ROOT
 framework~\cite{root}, and run only on CPU, Parnassus is implemented entirely
-in Python with PyTorch~\cite{pytorch} and runs natively on GPU (CUDA and Apple
-MPS), enabling seamless integration into modern Python-based analysis workflows
+in Python with PyTorch~\cite{pytorch} and runs natively on GPU, enabling seamless integration into modern Python-based analysis workflows
 and significant acceleration on GPU hardware. ROOT I/O is supported via
 \texttt{uproot}~\cite{uproot} for writing output files, but is entirely
 optional --- Parnassus has no dependency on ROOT itself.
 
 Users select a \textbf{detector card} --- analogous to choosing a detector card
-in \textsc{Delphes} --- to target a specific experiment. The current release
-ships with CMS and ATLAS \textsc{TorchDelphes} parametric cards, and a CMS
-neural model trained on 2011 open data~\cite{cms_opendata}; additional detector
-models will be added in future releases.
+in \textsc{Delphes} --- to target a specific experiment. The current release ships with CMS and
+  ATLAS parametric cards and CMS (trained on 2011 open data~\cite{cms_opendata}) and ALEPH neural models; additional detector
+  models for other experiments will be added in future releases.
 
 The physics methodology underlying Parnassus has been described in detail in
 Refs.~\cite{parnassus_v1,parnassus_v2}, where we demonstrated that the approach
 reproduces full CMS simulation and reconstruction across a wide range of
 Standard Model and BSM processes. In this document we focus on the
 \textbf{public software release} --- its installation, usage, and API --- to
-enable the broader HEP community to adopt neural fast simulation and
-reconstruction in their workflows.
+enable the broader community to adopt neural fast simulation and
+reconstruction in their workflows.  Significant software infrastructure has been built since the initial Parnassus demonstrations and this paper documents a milestone for the Parnassus project.
 
 The neural backbone uses conditional flow
 matching~\cite{lipman2023flow,liu2023flow}, a continuous-time generative
@@ -298,21 +274,20 @@ process-agnostic without requiring retraining for new physics scenarios.
 
 \begin{description}[style=nextline,leftmargin=2.5cm]
   \item[\textbf{Speed}] Orders of magnitude faster than full simulation and
-    reconstruction by replacing the detector response with a learned
+    reconstruction by replacing the detector response and combinatorial pattern matching with a learned
     generative model. Fully GPU-compatible for additional acceleration.
   \item[\textbf{Pure Python}] Implemented entirely in Python with no compiled
     dependencies beyond PyTorch. Unlike C++/ROOT-based tools such as
     \textsc{Delphes}~\cite{delphes}, Parnassus integrates naturally into
     modern Python analysis ecosystems. ROOT output is available via
     \texttt{uproot} but is not required.
-  \item[\textbf{Fidelity}] Each detector model is trained on full simulation and
+  \item[\textbf{Fidelity}] Each neural detector model is trained on full simulation and
     reconstruction data to reproduce realistic detector-level distributions
     including particle kinematics, vertex positions, impact parameters, and
     particle identification. Excellent agreement with full simulation has been
-    demonstrated across diverse SM and BSM
-    processes~\cite{parnassus_v1,parnassus_v2}.
+    demonstrated across diverse SM and BSM processes~\cite{parnassus_v1,parnassus_v2,parnassus_lep}.
   \item[\textbf{Flexibility}] Accept truth-level input from any source ---
-    \textsc{Pythia8}~\cite{pythia8} on-the-fly generation, HepMC~\cite{hepmc3}
+    \textsc{Pythia8}~\cite{pythia8} on-the-fly generation (native plugin available), HepMC~\cite{hepmc3}
     files from external generators (\textsc{MadGraph5\_aMC@NLO}~\cite{madgraph},
     \textsc{Sherpa}~\cite{sherpa}, \textsc{Herwig}~\cite{herwig},
     \textsc{Powheg}~\cite{powheg}), or custom formats. Users select a detector
@@ -336,15 +311,15 @@ quantities listed in Table~\ref{tab:outputs}.
 \toprule
 \textbf{Output} & \textbf{Description} \\
 \midrule
-Particle-flow particles & Full kinematics ($p_\mathrm{T}$, $\eta$, $\phi$), vertex
+Reconstructed particles & Full kinematics ($p_\mathrm{T}$, $\eta$, $\phi$), vertex
   ($v_x$, $v_y$, $v_z$), class, PDG\,ID \\
 Impact parameters & $d_0$, $z_0$ and their errors for charged particles \\
-Jets & Clustered with configurable algorithms (anti-$k_t$~\cite{antikt}, gen-$k_t$);
-  substructure ($D_2$~\cite{d2}, $C_2$~\cite{c2}) \\
+Jets & Clustered with configurable algorithms ;
+  substructure, etc. \\
 Lepton isolation & Isolation scores and $p_\mathrm{T}$ sums in configurable
-  $\Delta R$ cones \\
+  $\Delta R$ cones, etc. \\
 Event-level quantities & $H_\mathrm{T}$, $\vec{E}_\mathrm{T}^\mathrm{miss}$
-  components, particle multiplicity \\
+  components, particle multiplicity, etc. \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -397,14 +372,14 @@ The pipeline is illustrated in Fig.~\ref{fig:architecture}.
   \draw[arr] (delphes.south) |- (merge);
 
   % Output label
-  \node[below=0.05cm of merge, font=\scriptsize\itshape]
-    {particle-flow objects};
+  \node[below=-0.55cm of merge, font=\scriptsize\itshape]
+    {reconstructed particles (e.g. particle-flow objects)};
 
   % Post-processing row
-  \node[postbox, below left=1.3cm and 0.2cm of merge] (jets)
+  \node[postbox, below left=1.3cm and 2.2cm of merge] (jets)
     {Jet Clustering\\(\textsc{FastJet})};
   \node[postbox, below=1.3cm of merge] (iso) {Lepton\\Isolation};
-  \node[postbox, below right=1.3cm and 0.2cm of merge] (root)
+  \node[postbox, below right=1.3cm and 2.2cm of merge] (root)
     {ROOT\\Writer};
 
   \draw[arrg] (merge) -- ++(0,-0.3) -| (jets.north);
@@ -463,7 +438,7 @@ pip install -e ".[dev]"
 \subsection{Requirements}
 
 \begin{itemize}
-  \item Python $\geq$ 3.12, $<$ 3.13
+  \item Python $\geq$ 3.12
   \item PyTorch~\cite{pytorch} $\geq$ 2.6.0
   \item Pythia8mc~\cite{pythia8} 8.316.0
   \item PyHepMC~\cite{hepmc3} $\geq$ 2.14.0
@@ -692,28 +667,6 @@ unchanged. Switching to the ATLAS card requires only changing
 configuration file --- analogous to selecting a different detector card in
 \textsc{Delphes}.
 
-\subsection{Kinematic distributions}
-\label{subsec:kinematics}
-
-Fig.~\ref{fig:kinematics} compares the particle-flow kinematic distributions
-for both processes. The $p_\mathrm{T}$ spectra follow the expected steeply
-falling shape, the $\eta$ distributions reflect the detector acceptance,
-and the multiplicity distributions reflect the different underlying event
-structures. The BSM $H \to aa$ process shows higher multiplicity due to the
-hadronic activity from the $a \to gg$ decays.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{figures/kinematic_sm_bsm.pdf}
-\caption{Particle-flow kinematic distributions comparing SM ($H{\to}4\ell$,
-  99 events) and BSM ($H{\to}aa{\to}gg\mu\mu$, 99 events) processes.
-  (a)~$p_\mathrm{T}$ in log scale,
-  (b)~pseudorapidity $\eta$,
-  (c)~particle-flow multiplicity per event.
-  All distributions are normalised to unit area.}
-\label{fig:kinematics}
-\end{figure}
-
 \subsection{Event display}
 
 Fig.~\ref{fig:display_h4l} shows a representative $H \to 4\ell$ event
@@ -728,105 +681,36 @@ truth-level particles into detector-level pflow objects.
   scales with $p_\mathrm{T}$; dashed circles indicate anti-$k_t$ jets
   ($R = 0.5$). Particle classes: charged hadrons (blue circles), electrons
   (red triangles), muons (orange squares), neutral hadrons (purple diamonds),
-  photons (green stars).}
+  photons (green stars). This plot is produced by
+  \texttt{parnassus.utils.event\_display}.}
 \label{fig:display_h4l}
 \end{figure}
 
-\subsection{Aggregate statistics}
+\subsection{Jet-level distributions}
+\label{subsec:kinematics}
 
-Table~\ref{tab:aggregate} compares the aggregate statistics for both processes.
-The BSM process shows higher truth-particle multiplicity ($163 \pm 70$) due to
-the $a \to gg$ hadronic decays, while the pflow output multiplicity is
-comparable across both processes.
-
-\begin{table}[htbp]
-\centering
-\caption{Aggregate statistics for SM and BSM processes (mean $\pm$ std).}
-\label{tab:aggregate}
-\begin{tabular}{@{}lrr@{}}
-\toprule
-\textbf{Quantity}
-  & \textbf{$H{\to}4\ell$}
-  & \textbf{$H{\to}aa$} \\
-  & \textbf{(99\,evt)}
-  & \textbf{(99\,evt)} \\
-\midrule
-Truth particles/event  & $97.2 \pm 46.0$   & $163.4 \pm 69.9$ \\
-Pflow particles/event  & $46.3 \pm 47.2$   & $53.6 \pm 46.4$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{Particle class distribution}
-
-Fig.~\ref{fig:classfracs} compares the particle class composition between the
-two processes. Both show similar class fractions dominated by charged hadrons
-(${\sim}60\%$), consistent with the process-agnostic nature of the model.
+Fig.~\ref{fig:jet_distributions} compares jet-level observables for both
+processes using anti-$k_t$ jets ($R = 0.5$, $p_\mathrm{T} > 10$\,GeV). These
+distributions more clearly distinguish the two physics scenarios: the
+BSM $H \to aa \to gg\mu\mu$ process produces additional jets from the
+$a \to gg$ decays, leading to markedly different jet multiplicity, dijet
+invariant mass ($m_{jj}$), and leading-jet $p_\mathrm{T}$ spectra.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{figures/class_fractions_sm_bsm.pdf}
-\caption{Particle class fractions for SM ($H{\to}4\ell$) and BSM
-  ($H{\to}aa{\to}gg\mu\mu$) processes. The model produces consistent class
-  compositions regardless of the input physics process.}
-\label{fig:classfracs}
+\includegraphics[width=\textwidth]{figures/jet_distributions.pdf}
+\caption{Jet-level distributions comparing SM ($H{\to}4\ell$) and BSM
+  ($H{\to}aa{\to}gg\mu\mu$) processes. These observables demonstrate the
+  process-agnostic nature of the model: the generated jet properties
+  correctly reflect the underlying physics differences between the two
+  samples without any process-specific tuning.}
+\label{fig:jet_distributions}
 \end{figure}
 
-% ══════════════════════════════════════════════════════════════
-\section{Neural backend: integration-step convergence}
-\label{sec:convergence}
 
-This section applies only to the neural backend. The number of Euler
-integration steps $N$ used to sample the conditional flow-matching model
-controls the trade-off between generation quality and speed.
-Fig.~\ref{fig:convergence} shows the convergence of particle-flow kinematic
-distributions as a function of $N$ for the $H \to 4\ell$ sample.
 
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=\textwidth]{figures/convergence_kinematics.pdf}
-\caption{Integration-step convergence of the neural backend for
-  $H \to ZZ \to 4\ell$ (100 events).
-  (a)~Pflow $p_\mathrm{T}$,
-  (b)~pflow $\eta$,
-  (c)~event multiplicity. Distributions are stable from $N = 25$ onward.}
-\label{fig:convergence}
-\end{figure}
-
-Fig.~\ref{fig:convergence_class} shows that particle class fractions are also
-stable across step counts.
-
-\begin{figure}[htbp]
-\centering
-\includegraphics[width=0.65\textwidth]{figures/convergence_class_fractions.pdf}
-\caption{Particle class fractions vs.\ number of Euler integration steps for
-  the neural backend. All classes converge by $N = 25$.}
-\label{fig:convergence_class}
-\end{figure}
-
-Table~\ref{tab:timing} summarises the generation time as a function of the
-number of integration steps on CPU.
-
-\begin{table}[htbp]
-\centering
-\caption{Neural-backend generation time vs.\ number of Euler integration
-  steps (100 events, CPU).}
-\label{tab:timing}
-\begin{tabular}{@{}rr@{}}
-\toprule
-\textbf{Steps $N$} & \textbf{Wall time} \\
-\midrule
-10  & $\sim$90\,s \\
-25  & $\sim$90\,s \\
-50  & $\sim$130\,s \\
-100 & $\sim$320\,s \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\noindent
-The default of 50 steps provides a good balance of quality and speed. For quick
-validation runs, 25 steps yields nearly identical distributions at lower cost.
+% Section on convergence removed — the default of 50 integration steps
+% provides a good balance; details available in Refs.~\cite{parnassus_v1,parnassus_v2}.
 
 % ══════════════════════════════════════════════════════════════
 \section{Python API}
@@ -996,6 +880,7 @@ neural checkpoints will be provided in future releases.
 The source code is publicly available at
 \url{https://github.com/parnassus-hep/parnassus} under the MIT license.
 
+
 % ══════════════════════════════════════════════════════════════
 %% CPC uses numerical citations with elsarticle-num.bst.
 %% For submission, replace the thebibliography block with:
@@ -1017,6 +902,11 @@ The source code is publicly available at
   Conditional Deep Generative Models for Simultaneous Simulation and
   Reconstruction of Entire Events,
   \href{https://arxiv.org/abs/2503.19981}{arXiv:2503.19981} (2025).
+
+  \bibitem{parnassus_lep}
+  Y.~Lo, D.~Kobylianskii, B.~Nachman,
+  An AI-based Detector Simulation and Reconstruction Model for the ALEPH Experiment at LEP,
+  \href{https://arxiv.org/abs/2604.11834}{arXiv:2604.11834} (2026).
 
 \bibitem{geant4}
   S.~Agostinelli et~al. (\textsc{Geant4} Collaboration),
@@ -1161,5 +1051,133 @@ The source code is publicly available at
   \href{https://arxiv.org/abs/1307.6346}{arXiv:1307.6346}.
 
 \end{thebibliography}
+
+\appendix
+\section{TorchDelphes}
+\label{sec:torchdelphes}
+
+\subsection{Implementation}
+
+\textsc{Delphes} is composed of \textit{modules}, each of which drives a
+different part of the detector emulation model. For example, the
+\texttt{Efficiency} class takes a set of particles as input and randomly
+masks a fraction of them according to a configurable efficiency map. One could
+configure the \texttt{Efficiency} class to represent the efficiency with which
+CMS tracks charged hadrons, and call this specific instantiation the
+\texttt{CMSChargedHadronTrackingEfficiency} module.
+
+To emulate an entire detector such as ATLAS or CMS, users configure modules
+to represent each subsystem of their detector emulation model (e.g.\ electron
+momentum smearing, calorimeter hit clustering), and chain them together to
+define a computational graph for their intended simulation. This is done via
+a TCL configuration file; several are shipped pre-built with \textsc{Delphes},
+including the default ATLAS configuration
+\texttt{delphes\_card\_ATLAS.tcl} and the default CMS configuration
+\texttt{delphes\_card\_CMS.tcl}.
+
+\textsc{TorchDelphes} defines PyTorch analogues of these C++ modules, providing
+GPU acceleration and a Python interface. Importantly, \textsc{TorchDelphes}
+does not implement \textit{every} \textsc{Delphes} module, only the modules
+necessary up to the generation of calorimeter tower hits (``Towers'') and
+reconstructed photons, neutral hadrons, and charged tracks (collectively called
+``EFlowObjects''). Later post-processing that is independent of the actual
+detector interactions (e.g.\ jet clustering, object isolation) is handled by
+\texttt{parnassus.pipelines}, not \textsc{TorchDelphes}.
+
+In addition to the constituent modules, \textsc{TorchDelphes} provides two
+pre-configured classes: \texttt{ATLASEnergyFlowDefault} and
+\texttt{CMSEnergyFlowDefault}, which correspond to the default ATLAS and CMS
+configurations that ship with \textsc{Delphes}, respectively, again only up to
+the creation of Towers and EFlowObjects. These two default classes are used to
+run the validation suite.
+
+\subsection{Validation}
+
+We validate the \textsc{TorchDelphes} implementation by comparing its
+intermediate and final outputs against benchmarks generated by C++
+\textsc{Delphes} v3.5.1. We use the same HepMC inputs for both
+\textsc{TorchDelphes} and C++ \textsc{Delphes}; these are generated by C++
+\textsc{Pythia8} v8.315. All code to run the full validation pipeline,
+including the configuration files to generate the HepMC inputs and the ROOT
+benchmarks, is available under \texttt{torch\_delphes/validation/} in the
+repository.
+
+We compare distributions generated by \textsc{TorchDelphes} against those
+generated by C++ \textsc{Delphes} for the same HepMC inputs and detector
+configurations. We do this for both the ATLAS and CMS default detector
+configurations, and for two processes: $H \to ZZ \to 4\ell$ and
+$t\bar{t} \to W$.
+
+For brevity, we limit this presentation to four particle-level kinematic
+variables: polar and azimuthal angles, momentum/energy, and transverse
+momentum/energy. We show both \textit{final} output object types ---
+\texttt{Tower} and \texttt{EFlowObject}, which are generated stochastically
+--- and one \textit{intermediate} object type ---
+\texttt{ParticleAfterPropagation}, which is generated deterministically.
+Users can validate the entire phase space (all particle-level distributions for
+all intermediate products) by passing the \texttt{-{}-debug} flag to the
+validation script.\footnote{See \texttt{torch\_delphes/validation/README.md}.}
+
+As expected, there is perfect agreement for the deterministic outputs and very
+close agreement for the stochastic outputs, improving with sample size. Exact
+random-number matching between C++ \textsc{Delphes} and
+\textsc{TorchDelphes} is not enforced, since the two implementations may run
+on different devices (CPU vs.\ GPU).
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.8\textwidth]{figures/td_val_condensed/ttbarW/CMS/EFlowObject/all.png}
+\caption{\texttt{EFlowObject} kinematics from 10,000 $t\bar{t} \to W$ input
+  events via the default CMS detector configuration. Blue: C++
+  \textsc{Delphes}; orange: \textsc{TorchDelphes}.}
+\label{fig:ttw_cms_efobject}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{figures/td_val_condensed/ttbarW/CMS/event_7/ParticleAfterProp/all.png}
+  \caption{The deterministically generated \texttt{ParticleAfterPropagation}
+    objects show perfect agreement even on an event-by-event basis.}
+  \label{fig:ttw_cms_particle}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{figures/td_val_condensed/ttbarW/CMS/event_7/Tower/all.png}
+  \caption{The stochastically generated \texttt{Tower} objects show close but
+    imperfect agreement due to independent random seeds.}
+  \label{fig:ttw_cms_tower}
+\end{subfigure}
+\caption{Kinematics from a \textit{single} $t\bar{t} \to W$ input event via
+  the default CMS detector configuration.}
+\label{fig:ttw_cms_single}
+\end{figure}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}[t]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{figures/td_val_condensed/HZZ4l/ATLAS/ParticleAfterProp/all.png}
+  \caption{Perfect agreement for the deterministic
+    \texttt{ParticleAfterPropagation} objects.}
+  \label{fig:h4l_atlas_pap}
+\end{subfigure}
+\hfill
+\begin{subfigure}[t]{0.48\textwidth}
+  \centering
+  \includegraphics[width=\textwidth]{figures/td_val_condensed/HZZ4l/ATLAS/Tower/all.png}
+  \caption{Close agreement for the stochastic \texttt{Tower} objects; improved
+    relative to the single-event comparison (Fig.~\ref{fig:ttw_cms_tower}) due
+    to increased statistics.}
+  \label{fig:h4l_atlas_tower}
+\end{subfigure}
+\caption{Kinematics from 10,000 $H \to ZZ \to 4\ell$ input events via the
+  default ATLAS detector configuration.}
+\label{fig:h4l_atlas_combined}
+\end{figure}
+
+
 
 \end{document}
