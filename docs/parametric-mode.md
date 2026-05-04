@@ -22,7 +22,7 @@ generator:
 | `type` | string | -- | Must be `"parametric"` |
 | `name` | string | -- | Detector card name: `"cms"` or `"atlas"` |
 | `seed` | integer | *none* | Random seed for reproducibility. Omit for non-deterministic output. |
-| `debug` | boolean | `false` | Return intermediate processing stages (efficiency metrics, detector internals) |
+| `debug` | boolean | `false` | Write intermediate detector-stage collections; see [Output Reference](output-reference.md#parametric-debug-collections) |
 
 ## Available Detector Cards
 

@@ -4,7 +4,7 @@ Pipelines are post-generation processing stages defined in the `pipelines` secti
 
 Each pipeline has a user-chosen name (the YAML key) and a `type` field that determines its behavior. Multiple pipelines can be defined and they execute in order.
 
-Pipeline names (the YAML key, e.g., `TruthJetsAntiKt05`, `ElectronIsolation`) become the collection name in the output ROOT tree. Access them in uproot as `tree["TruthJetsAntiKt05.PT"].array()` and `tree["Electrons.IsolationVar"].array()`.
+Cluster pipeline names (the YAML key, e.g., `TruthJetsAntiKt05`) become jet collection names in the output ROOT tree. Isolation pipeline names are not written as collections; isolation fields are appended to `Electrons` or `Muons`. Access them in uproot as `tree["TruthJetsAntiKt05.PT"].array()` and `tree["Electrons.IsolationVar"].array()`.
 
 ## Cluster Pipeline
 
@@ -105,7 +105,7 @@ pipelines:
     algorithm: antikt
     pt_min: 10
     nconst_min: 2
-  PflowJetsAntiKt05:
+  PFlowJetsAntiKt05:
     type: "cluster"
     collection: pflow
     dr: 0.5

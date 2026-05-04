@@ -39,7 +39,7 @@ Higher values produce better-quality samples at the cost of longer inference. `5
 
 | Name | Description |
 |------|-------------|
-| `cms_2011_flow_v00` | CMS 2011 era flow-based model. Includes event-level, particle-level, and optional impact parameter models. Supports configurable max particles, variable transformations, and tunable sampling steps. |
+| `cms_2011_flow_v00` | CMS 2011 era flow-based model. Includes event-level, particle-level, and optional impact parameter models. Uses model-defined max particles, variable transformations, and tunable sampling steps. |
 
 ## Example
 

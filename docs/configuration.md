@@ -37,14 +37,14 @@ Selects and configures the simulation backend.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `num_steps` | integer | `50` | Number of ODE integration steps |
-| `max_particles` | integer | from model | Maximum particles per event. Set automatically from the model metadata; override only if needed. Particles beyond this limit are dropped during preprocessing. |
+| `max_particles` | integer | from model | Maximum particles per event. Set from the model metadata; this is not a YAML setting for neural generators. Particles beyond this limit are dropped during preprocessing. |
 
 ### Parametric-specific fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `seed` | integer | *none* | Random seed for reproducibility |
-| `debug` | boolean | `false` | Return intermediate detector stages |
+| `debug` | boolean | `false` | Write intermediate detector-stage collections in addition to the standard parametric output |
 
 ## Pipelines
 

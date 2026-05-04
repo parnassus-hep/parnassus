@@ -28,7 +28,7 @@ The `ClassID` field maps to particle type:
 | `Truth.X`, `Truth.Y`, `Truth.Z` | Production vertex (mm) |
 | `Truth.ClassID` | Particle class (see table above) |
 | `Truth.PID` | PDG ID |
-| `Truth.<JetName>_idx` | Index of associated jet (one field per clustering pipeline, e.g. `Truth.TruthJetsAntiKt05_idx`) |
+| `Truth.<JetName>_idx` | Index of associated jet, present for each configured clustering pipeline with `collection: truth` (e.g. `Truth.TruthJetsAntiKt05_idx`) |
 
 ### PFlow
 
@@ -44,7 +44,7 @@ The `ClassID` field maps to particle type:
 | `PFlow.Z0` | Longitudinal impact parameter (mm) |
 | `PFlow.ErrorD0` | Uncertainty on D0 (mm) |
 | `PFlow.ErrorZ0` | Uncertainty on Z0 (mm) |
-| `PFlow.<JetName>_idx` | Index of associated jet |
+| `PFlow.<JetName>_idx` | Index of associated jet, present for each configured clustering pipeline with `collection: pflow` |
 
 ### Electrons / Muons
 
@@ -93,11 +93,11 @@ If an isolation pipeline is configured, isolation fields are added:
 | `Truth.ClassID` | Particle class |
 | `Truth.Charge` | Electric charge |
 | `Truth.Status` | HepMC status code |
-| `Truth.<JetName>_idx` | Index of associated jet |
+| `Truth.<JetName>_idx` | Index of associated jet, present for each configured clustering pipeline with `collection: truth` |
 
 ### PFlow
 
-Same fields as Truth (P, PT, Eta, Phi, Mass, X, Y, Z, T, PID, ClassID, Charge, Status) plus `PFlow.<JetName>_idx` for each configured clustering pipeline. No impact parameters.
+Same fields as Truth (P, PT, Eta, Phi, Mass, X, Y, Z, T, PID, ClassID, Charge, Status) plus `PFlow.<JetName>_idx` for each configured clustering pipeline with `collection: pflow`. No impact parameters.
 
 ### Track
 
@@ -114,6 +114,20 @@ Calorimeter tower deposits.
 | `Tower.Eta` | Tower centre η |
 | `Tower.Phi` | Tower centre φ (rad) |
 | `Tower.T` | Tower time (s) |
+
+### Parametric debug collections
+
+When `generator.debug: true`, parametric mode also writes intermediate detector-stage collections. Particle-like debug collections use the same fields as parametric Truth (`P`, `PT`, `Eta`, `Phi`, `Mass`, `X`, `Y`, `Z`, `T`, `PID`, `ClassID`, `Charge`, `Status`). Tower-like debug collections use the same fields as Tower (`E`, `ET`, `Eta`, `Phi`, `T`).
+
+| Collection | Field set | Description |
+|------------|-----------|-------------|
+| `ParticleBeforeProp` | particle-like | Stable particles before detector propagation |
+| `ParticleAfterProp` | particle-like | Particles after detector propagation |
+| `ChargedHadron`, `Electron`, `Muon`, `NeutralParticle` | particle-like | Particle categories split before efficiency and smearing stages |
+| `ChargedHadronEfficiency`, `ElectronEfficiency`, `MuonEfficiency` | particle-like | Particles surviving tracking efficiency |
+| `ChargedHadronSmeared`, `ElectronSmeared`, `MuonSmeared` | particle-like | Particles after momentum smearing |
+| `ECal_EFlowTrack`, `EFlowTrack` | particle-like | Track-like energy-flow intermediates |
+| `ECalTower`, `HCalTower`, `EFlowPhoton`, `EFlowNeutralHadron` | tower-like | Calorimeter and neutral energy-flow intermediates |
 
 ### Electrons / Muons
 
