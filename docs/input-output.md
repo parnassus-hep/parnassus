@@ -45,7 +45,7 @@ Parnassus writes output as ROOT files using [uproot](https://github.com/scikit-h
 | `Track` | no | yes | Reconstructed charged tracks |
 | `Tower` | no | yes | Calorimeter towers |
 | `Event` | yes | yes | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET, and x/y MET components |
-| `<JetName>` | if cluster pipeline | if cluster pipeline | One collection per configured jet pipeline |
+| `<JetName>` | if cluster pipeline | if cluster pipeline | One collection per configured clustering pipeline |
 
 See [Output Reference](output-reference.md) for all field names per collection.
 

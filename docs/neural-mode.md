@@ -72,6 +72,6 @@ uv run parnassus run \
 | `PFlow` | Generated detector-level particles (PT, Eta, Phi, vertex, ClassID, PID); impact parameters D0, Z0, ErrorD0, ErrorZ0 included if the impact model ran |
 | `Electrons` / `Muons` | Lepton kinematics (always present); impact parameters if available; isolation fields added by isolation pipeline |
 | `Event` | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET |
-| `<JetName>` | One collection per configured clustering pipeline |
+| `<JetName>` | One collection per configured clustering pipeline (only if cluster pipeline defined) |
 
 See [Output Reference](output-reference.md) for all branch names.

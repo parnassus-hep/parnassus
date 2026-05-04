@@ -41,7 +41,7 @@ generator:
 | `Tower` | Calorimeter tower deposits (E, ET, Eta, Phi, T) |
 | `Electrons` / `Muons` | Lepton kinematics (PT, Eta, Phi); isolation fields added by isolation pipeline |
 | `Event` | Per-event scalars: EventNumber, TruthHT, PFlowHT, TruthMET, PFlowMET |
-| `<JetName>` | One collection per configured clustering pipeline |
+| `<JetName>` | One collection per configured clustering pipeline (only if cluster pipeline defined) |
 
 See [Output Reference](output-reference.md) for all branch names.
 
