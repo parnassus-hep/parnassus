@@ -104,8 +104,13 @@ def main(args: Sequence[str] | None = None) -> None:
     parsed_args = parse_args(args)
     if parsed_args.cli == "init":
         destination = Path(parsed_args.dir).absolute()
+        if destination.exists() and not destination.is_dir():
+            raise NotADirectoryError(
+                f"Init destination must be a directory: '{destination}'",
+            )
+        destination.mkdir(parents=True, exist_ok=True)
         for config_path in DEFAULT_CONFIG_PATHS:
-            shutil.copy(config_path, destination)
+            shutil.copy(config_path, destination / config_path.name)
     elif parsed_args.cli == "run":
         log = setup_logger()
         title = " Starting Parnassus "
