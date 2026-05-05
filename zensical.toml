@@ -1,0 +1,75 @@
+[project]
+site_name = "Parnassus"
+site_url = "https://parnassus-hep.github.io/parnassus/"
+site_description = "Fast detector simulation using generative neural networks and parametric models"
+repo_url = "https://github.com/parnassus-hep/parnassus"
+repo_name = "parnassus-hep/parnassus"
+docs_dir = "docs"
+site_dir = "site"
+
+# Add KaTeX for math rendering
+extra_javascript = [
+    "https://unpkg.com/katex@0.16.45/dist/katex.min.js",
+    "https://unpkg.com/katex@0.16.45/dist/contrib/auto-render.min.js",
+    "javascripts/katex.js",
+]
+
+extra_css = [
+    "https://unpkg.com/katex@0.16.45/dist/katex.min.css"
+]
+
+nav = [
+  {"Home" = "index.md"},
+  {"Installation" = "installation.md"},
+  {"Quick Start" = "quickstart.md"},
+  {"Generator Modes" = [
+    {"Neural" = "neural-mode.md"},
+    {"Parametric" = "parametric-mode.md"},
+  ]},
+  {"Pipelines" = "pipelines.md"},
+  {"Configuration" = "configuration.md"},
+  {"CLI Reference" = "cli-reference.md"},
+  {"Input & Output" = "input-output.md"},
+  {"Output Reference" = "output-reference.md"},
+]
+
+# For math rendering with KaTeX
+[project.markdown_extensions.pymdownx.arithmatex]
+generic = true
+
+[project.theme]
+font.base = "Inter"
+font.code = "JetBrains Mono"
+features = [
+  #"navigation.tabs",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.top",
+]
+
+# Palette toggle for automatic mode
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+# Palette toggle for light mode
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+# Palette toggle for dark mode
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+
+# Extensions
+[project.markdown_extensions.tables]
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.superfences]

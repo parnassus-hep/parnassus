@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Self
 
 from fastjet import JetDefinition, antikt_algorithm, ee_genkt_algorithm
@@ -21,7 +21,15 @@ class GenPipelineConfig:
 
     @classmethod
     def from_dict(cls, name: str, config: dict[str, Any]) -> Self:
-        return cls(name, **{field: config[field] for field in cls.__slots__ if field in config})
+        init_fields = {f.name for f in fields(cls) if f.init}
+        return cls(
+            name=name,
+            **{
+                field_name: config[field_name]
+                for field_name in init_fields
+                if field_name != "name" and field_name in config
+            },
+        )
 
 
 @dataclass(slots=True)

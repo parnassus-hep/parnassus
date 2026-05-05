@@ -42,7 +42,7 @@ gdown --folder https://drive.google.com/drive/folders/1W-V_rU6lRmtuaOclj3gYB1qJS
 
 ## Running the Package
 
-To copy the default configuration file to the current directory:
+To copy the default neural and parametric configuration files to the current directory:
 
 ```bash
 uv run parnassus init

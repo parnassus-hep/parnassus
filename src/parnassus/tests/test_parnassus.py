@@ -20,6 +20,7 @@ def test_main_init(tmp_path):
     """Test the init command of the main function."""
     main(["init", tmp_path.as_posix()])
     assert (tmp_path / "neural_config.yaml").exists()
+    assert (tmp_path / "parametric_config.yaml").exists()
 
 
 def test_main_run_with_invalid_config():
