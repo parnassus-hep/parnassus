@@ -45,34 +45,6 @@ The `ClassID` field maps to particle type:
 | `PFlow.ErrorZ0` | Uncertainty on Z0 (mm) |
 | `PFlow.<JetName>_idx` | Index of associated jet, present for each configured clustering pipeline with `collection: pflow` |
 
-### Electrons / Muons
-
-Always present (kinematics written by the neural generator):
-
-| Branch | Description |
-|--------|-------------|
-| `Electrons.PT` | Electron transverse momentum (GeV) |
-| `Electrons.Eta` | Pseudorapidity |
-| `Electrons.Phi` | Azimuthal angle (rad) |
-
-If the neural impact model ran, impact parameters are also present:
-
-| Branch | Description |
-|--------|-------------|
-| `Electrons.D0`, `Electrons.Z0` | Impact parameters (mm) |
-| `Electrons.ErrorD0`, `Electrons.ErrorZ0` | Impact parameter uncertainties (mm) |
-
-If an isolation pipeline is configured, isolation fields are added:
-
-| Branch | Description |
-|--------|-------------|
-| `Electrons.IsolationVar` | Relative isolation: ($\sum p_T$ in cone) / $p_T$ |
-| `Electrons.SumPt` | Total $\sum p_T$ of all particles in cone |
-| `Electrons.SumPtCharged` | $\sum p_T$ of charged particles in cone |
-| `Electrons.SumPtNeutral` | $\sum p_T$ of neutral particles in cone |
-
-`Muons.*` has the same structure, including `Muons.D0`, `Muons.Z0`, `Muons.ErrorD0`, and `Muons.ErrorZ0` when the impact model ran.
-
 ---
 
 ## Parametric mode
@@ -128,26 +100,39 @@ When `generator.debug: true`, parametric mode also writes intermediate detector-
 | `ECal_EFlowTrack`, `EFlowTrack` | particle-like | Track-like energy-flow intermediates |
 | `ECalTower`, `HCalTower`, `EFlowPhoton`, `EFlowNeutralHadron` | tower-like | Calorimeter and neutral energy-flow intermediates |
 
-### Electrons / Muons
+---
 
-Always present (kinematics written by the parametric generator):
+## Lepton collections (both modes)
 
-| Branch | Description |
-|--------|-------------|
-| `Electrons.PT` | Electron transverse momentum (GeV) |
-| `Electrons.Eta` | Pseudorapidity |
-| `Electrons.Phi` | Azimuthal angle (rad) |
+`Electrons` and `Muons` are always present in both neural and parametric output. They are extracted from `PFlow` and use the same branch names, replacing `<Lepton>` with either `Electrons` or `Muons`.
 
-If an isolation pipeline is configured, isolation fields are added:
+### Kinematics
 
 | Branch | Description |
 |--------|-------------|
-| `Electrons.IsolationVar` | Relative isolation: ($\sum p_T$ in cone) / $p_T$ |
-| `Electrons.SumPt` | Total $\sum p_T$ in cone |
-| `Electrons.SumPtCharged` | $\sum p_T$ of charged particles in cone |
-| `Electrons.SumPtNeutral` | $\sum p_T$ of neutral particles in cone |
+| `<Lepton>.PT` | Lepton transverse momentum (GeV) |
+| `<Lepton>.Eta` | Pseudorapidity |
+| `<Lepton>.Phi` | Azimuthal angle (rad) |
 
-`Muons.*` has the same structure. Parametric mode does not include impact parameters.
+### Impact parameters
+
+These fields are present only in neural mode when the impact model ran. Parametric mode does not include impact parameters.
+
+| Branch | Description |
+|--------|-------------|
+| `<Lepton>.D0`, `<Lepton>.Z0` | Impact parameters (mm) |
+| `<Lepton>.ErrorD0`, `<Lepton>.ErrorZ0` | Impact parameter uncertainties (mm) |
+
+### Isolation fields
+
+These fields are present when an isolation pipeline is configured for the lepton collection.
+
+| Branch | Description |
+|--------|-------------|
+| `<Lepton>.IsolationVar` | Relative isolation: ($\sum p_T$ in cone) / $p_T$ |
+| `<Lepton>.SumPt` | Total $\sum p_T$ in cone |
+| `<Lepton>.SumPtCharged` | $\sum p_T$ of charged particles in cone |
+| `<Lepton>.SumPtNeutral` | $\sum p_T$ of neutral particles in cone |
 
 ---
 
