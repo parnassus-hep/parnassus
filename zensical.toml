@@ -7,6 +7,17 @@ repo_name = "parnassus-hep/parnassus"
 docs_dir = "docs"
 site_dir = "site"
 
+# Add KaTeX for math rendering
+extra_javascript = [
+    "javascripts/katex.js",
+    "https://unpkg.com/katex@0/dist/katex.min.js",
+    "https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"
+]
+
+extra_css = [
+    "https://unpkg.com/katex@0/dist/katex.min.css"
+]
+
 nav = [
   {"Home" = "index.md"},
   {"Installation" = "installation.md"},
@@ -21,6 +32,10 @@ nav = [
   {"Input & Output" = "input-output.md"},
   {"Output Reference" = "output-reference.md"},
 ]
+
+# For math rendering with KaTeX
+[project.markdown_extensions.pymdownx.arithmatex]
+generic = true
 
 [project.theme]
 font.base = "Inter"
