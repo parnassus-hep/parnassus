@@ -62,7 +62,7 @@ tree = f["Parnassus"]
 # List all branches (flat dot-separated names like 'PFlow.PT', 'Event.TruthHT')
 print(tree.keys())
 
-# PFlow particles — jagged arrays (variable length per event)
+# PFlow particles - jagged arrays (variable length per event)
 pflow_pt = tree["PFlow.PT"].array()
 pflow_class = tree["PFlow.ClassID"].array()  # see Output Reference for class IDs
 

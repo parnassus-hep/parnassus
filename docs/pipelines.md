@@ -87,10 +87,10 @@ The pipeline adds isolation fields to the `Electrons` or `Muons` collection (the
 
 | Branch | Description |
 |--------|-------------|
-| `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
-| `Electrons.SumPt` | Total ΣpT in isolation cone |
-| `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
-| `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
+| `Electrons.IsolationVar` | Relative isolation: ($\sum p_T$ in cone) / $p_T$ |
+| `Electrons.SumPt` | Total $\sum p_T$ in isolation cone |
+| `Electrons.SumPtCharged` | $\sum p_T$ of charged particles in cone |
+| `Electrons.SumPtNeutral` | $\sum p_T$ of neutral particles in cone |
 
 Muons use `Muons.*` with the same isolation fields.
 

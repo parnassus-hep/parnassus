@@ -1,19 +1,18 @@
 # Output Reference
 
-The output ROOT file contains a single tree named `Parnassus`. Branches use flat dot-separated names — access them in uproot as `tree["Collection.Field"].array()`.
+The output ROOT file contains a single tree named `Parnassus`. Branches use flat dot-separated names; access them in uproot as `tree["Collection.Field"].array()`.
 
 For each jagged collection, uproot also writes a count branch (`nTruth`, `nPFlow`, `nTruthJetsAntiKt05`, etc.). These are internal bookkeeping branches and do not need to be read directly.
 
 ## Particle Class IDs
-
 The `ClassID` field maps to particle type:
 
 | ClassID | PDG ID | Particle |
 |---------|--------|----------|
-| 0 | 211 | Charged hadron (π±) |
+| 0 | 211 | Charged hadron ($\pi^\pm$) |
 | 1 | 11 | Electron |
 | 2 | 13 | Muon |
-| 3 | 111 / 130 | Neutral hadron (π⁰ in neural; K_L⁰ or original PID in parametric) |
+| 3 | 111 / 130 | Neutral hadron ($\pi^0$ in neural; $K_L^0$ or original PID in parametric) |
 | 4 | 22 | Photon |
 
 ## Neural mode
@@ -67,10 +66,10 @@ If an isolation pipeline is configured, isolation fields are added:
 
 | Branch | Description |
 |--------|-------------|
-| `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
-| `Electrons.SumPt` | Total ΣpT of all particles in cone |
-| `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
-| `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
+| `Electrons.IsolationVar` | Relative isolation: ($\sum p_T$ in cone) / $p_T$ |
+| `Electrons.SumPt` | Total $\sum p_T$ of all particles in cone |
+| `Electrons.SumPtCharged` | $\sum p_T$ of charged particles in cone |
+| `Electrons.SumPtNeutral` | $\sum p_T$ of neutral particles in cone |
 
 `Muons.*` has the same structure, including `Muons.D0`, `Muons.Z0`, `Muons.ErrorD0`, and `Muons.ErrorZ0` when the impact model ran.
 
@@ -110,9 +109,9 @@ Calorimeter tower deposits.
 | Branch | Description |
 |--------|-------------|
 | `Tower.E` | Energy (GeV) |
-| `Tower.ET` | Transverse energy E / cosh(η) (GeV) |
-| `Tower.Eta` | Tower centre η |
-| `Tower.Phi` | Tower centre φ (rad) |
+| `Tower.ET` | Transverse energy $E / \cosh(\eta)$ (GeV) |
+| `Tower.Eta` | Tower centre $\eta$ |
+| `Tower.Phi` | Tower centre $\phi$ (rad) |
 | `Tower.T` | Tower time (s) |
 
 ### Parametric debug collections
@@ -143,10 +142,10 @@ If an isolation pipeline is configured, isolation fields are added:
 
 | Branch | Description |
 |--------|-------------|
-| `Electrons.IsolationVar` | Relative isolation: (ΣpT in cone) / pT |
-| `Electrons.SumPt` | Total ΣpT in cone |
-| `Electrons.SumPtCharged` | ΣpT of charged particles in cone |
-| `Electrons.SumPtNeutral` | ΣpT of neutral particles in cone |
+| `Electrons.IsolationVar` | Relative isolation: ($\sum p_T$ in cone) / $p_T$ |
+| `Electrons.SumPt` | Total $\sum p_T$ in cone |
+| `Electrons.SumPtCharged` | $\sum p_T$ of charged particles in cone |
+| `Electrons.SumPtNeutral` | $\sum p_T$ of neutral particles in cone |
 
 `Muons.*` has the same structure. Parametric mode does not include impact parameters.
 
@@ -159,12 +158,12 @@ One value per event (not jagged).
 | Branch | Description |
 |--------|-------------|
 | `Event.EventNumber` | Original event number from the input file |
-| `Event.TruthHT` | Truth-level scalar HT (GeV) |
-| `Event.TruthMET` | Truth-level MET magnitude (GeV) |
-| `Event.TruthMETx`, `Event.TruthMETy` | Truth MET x/y components (GeV) |
-| `Event.PFlowHT` | PFlow-level scalar HT (GeV) |
-| `Event.PFlowMET` | PFlow-level MET magnitude (GeV) |
-| `Event.PFlowMETx`, `Event.PFlowMETy` | PFlow MET x/y components (GeV) |
+| `Event.TruthHT` | Truth-level scalar $H_T$ (GeV) |
+| `Event.TruthMET` | Truth-level $E_{T}^{\text{miss}}$ magnitude (GeV) |
+| `Event.TruthMETx`, `Event.TruthMETy` | Truth-level $E_{x}^{\text{miss}}$ and $E_{y}^{\text{miss}}$ components (GeV) |
+| `Event.PFlowHT` | PFlow-level scalar $H_T$ (GeV) |
+| `Event.PFlowMET` | PFlow-level $E_{T}^{\text{miss}}$ magnitude (GeV) |
+| `Event.PFlowMETx`, `Event.PFlowMETy` | PFlow-level $E_{x}^{\text{miss}}$ and $E_{y}^{\text{miss}}$ components (GeV) |
 
 ---
 
@@ -177,5 +176,5 @@ One collection per clustering pipeline, named after the pipeline key in the conf
 | `<JetName>.PT` | Jet transverse momentum (GeV) |
 | `<JetName>.Eta` | Jet pseudorapidity |
 | `<JetName>.Phi` | Jet azimuthal angle (rad) |
-| `<JetName>.D2` | Energy correlation ratio D2 (jet substructure) |
-| `<JetName>.C2` | Energy correlation ratio C2 (jet substructure) |
+| `<JetName>.D2` | Energy correlation ratio $D_2$ (jet substructure) |
+| `<JetName>.C2` | Energy correlation ratio $C_2$ (jet substructure) |
