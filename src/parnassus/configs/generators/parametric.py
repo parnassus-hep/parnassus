@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from parnassus.configs.pileup import DelphesPileUpConfig
+
 from .base import GeneratorConfig
 
 
@@ -29,6 +31,7 @@ class ParametricGeneratorConfig(GeneratorConfig):
     max_particles: int = 100
     seed: int | None = None
     debug: bool = False
+    pileup: DelphesPileUpConfig | None = None
 
     def update_from_dict(self, config_dict: dict) -> None:
         """Update common generator parameters from a dict.
@@ -45,6 +48,8 @@ class ParametricGeneratorConfig(GeneratorConfig):
             self.seed = config_dict["seed"]
         if "debug" in config_dict:
             self.debug = config_dict["debug"]
+        if "pileup" in config_dict:
+            self.pileup = DelphesPileUpConfig.from_dict(config_dict["pileup"])
 
     def get_max_particles(self) -> int:
         """Get maximum particles for parametric generator.
