@@ -1138,7 +1138,7 @@ def _get_paths(
         validation_dir = validation_dir.with_name(validation_dir.name + "_pileup")
     validation_dir.mkdir(parents=True, exist_ok=True)
 
-    minbias_path = script_dir / "data" / "MinBias.pileup"
+    minbias_path = script_dir / "delphes_cards" / "MinBias.pileup"
 
     if args.num_events <= 100:
         input_fpath = data_process_dir / f"{args.process}_100.hepmc"
