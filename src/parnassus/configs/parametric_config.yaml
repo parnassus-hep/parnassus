@@ -7,6 +7,14 @@ generator:
   type: "parametric" # Generator type: "neural" or "parametric"
   name: "cms" # Specific generator name from the registry
   seed: 42 # Parametric-specific: random seed for reproducibility, remove for true randomness
+  # pileup:                          # Optional: Delphes-style pile-up merging
+  #   file_path: "MinBias.pileup"    # Path to Delphes .pileup binary file
+  #   mean_pileup: 50                # Average PU interactions per bunch crossing
+  #   max_z_spread: 0.25             # Vertex z truncation in meters (default: 0.25)
+  #   max_t_spread: 800e-12          # Vertex t truncation in seconds (default: 800e-12)
+  #   sigma_z: 0.053                 # Vertex z Gaussian sigma in meters (default: 0.053)
+  #   sigma_t: 160e-12               # Vertex t Gaussian sigma in seconds (default: 160e-12)
+  #   smear_hs_vertex: true          # Also smear hard-scatter vertex (default: true)
 
 pipelines:
   TruthJetsAntiKt05:
