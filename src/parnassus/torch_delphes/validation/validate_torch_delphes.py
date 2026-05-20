@@ -48,6 +48,7 @@ from torch.utils.data import DataLoader
 
 from parnassus.configs.accessors import AccessorStore
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
+from parnassus.configs.pileup import DelphesPileUpConfig
 from parnassus.configs.writer import WriterConfig
 from parnassus.data.adapters import ParametricAdapter, parametric_collate_fn
 from parnassus.data.hepmc import HepMCDataset
@@ -954,6 +955,8 @@ def main(
     max_events: int | None = None,
     batch_size: int = 100,
     debug: bool = False,
+    merge_pileup: bool = False,
+    pileup_input_file: str | Path | None = None,
 ) -> None:
     """Main processing function.
 
@@ -965,6 +968,8 @@ def main(
         max_events: Maximum number of events to process (None = all)
         batch_size: Number of events per DataLoader batch
         debug: Passed through to the detector card for intermediate output
+        merge_pileup: Whether to merge pileup events
+        pileup_input_file: Path to pileup input file (required if merge_pileup=True)
     """
     log = setup_logger()
 
@@ -985,10 +990,29 @@ def main(
     )
     log.info(f"Loaded {len(dataset)} events from HepMC.")
 
+    # Pileup merging config
+    if merge_pileup:
+        assert pileup_input_file is not None, (
+            "Pileup input file must be specified when merge_pileup=True"
+        )
+        log.info("Pileup merging enabled: configuring dataset stack with pileup.")
+        pileup_input_file = Path(pileup_input_file)
+        assert pileup_input_file.exists(), f"Pileup input file not found: {pileup_input_file}"
+
+        pileup = DelphesPileUpConfig(
+            file_path=str(pileup_input_file),
+            mean_pileup=50.0,
+        )
+    else:
+        pileup = None
+        log.info("Pileup merging disabled.")
+
     # -------------------------------------------------------------------------
     # 2. Run detector simulation via ParametricEventGenerator
     # -------------------------------------------------------------------------
-    config = ParametricGeneratorConfig(name=detector, card=detector.lower(), debug=True)
+    config = ParametricGeneratorConfig(
+        name=detector, card=detector.lower(), debug=True, pileup=pileup
+    )
     generator = ParametricEventGenerator(config, log)
     generator.to(torch.device(DEVICE))
 
@@ -1095,15 +1119,26 @@ def parse_args() -> argparse.Namespace:
             "(can be slow for large datasets)"
         ),
     )
+    parser.add_argument(
+        "--merge-pileup",
+        action="store_true",
+        help=("Enable pileup merging using a minimum bias input file. "),
+    )
     return parser.parse_args()
 
 
-def _get_paths(args, script_dir: Path) -> tuple[Path, Path, Path, Path]:
+def _get_paths(
+    args, script_dir: Path, merge_pileup: bool = False
+) -> tuple[Path, Path, Path, Path, Path]:
     data_process_dir = script_dir / "data" / args.process
     data_detector_dir = data_process_dir / args.detector
 
     validation_dir = script_dir / "validation_plots" / args.process / args.detector
+    if merge_pileup:
+        validation_dir = validation_dir.with_name(validation_dir.name + "_pileup")
     validation_dir.mkdir(parents=True, exist_ok=True)
+
+    minbias_path = script_dir / "data" / "MinBias.pileup"
 
     if args.num_events <= 100:
         input_fpath = data_process_dir / f"{args.process}_100.hepmc"
@@ -1126,14 +1161,20 @@ def _get_paths(args, script_dir: Path) -> tuple[Path, Path, Path, Path]:
             f"Unsupported number of events: {args.num_events}. Supported values: <= 100k."
         )
 
-    return input_fpath, output_fpath, benchmark_fpath, validation_dir
+    if args.merge_pileup:
+        output_fpath = output_fpath.with_name(output_fpath.stem + "_pileup.root")
+        benchmark_fpath = benchmark_fpath.with_name(benchmark_fpath.stem + "_pileup.root")
+
+    return input_fpath, output_fpath, benchmark_fpath, validation_dir, minbias_path
 
 
 if __name__ == "__main__":
     tic = time.time()
     args = parse_args()
     script_dir = Path(__file__).parent
-    input_fpath, output_fpath, benchmark_fpath, validation_dir = _get_paths(args, script_dir)
+    input_fpath, output_fpath, benchmark_fpath, validation_dir, minbias_path = _get_paths(
+        args, script_dir, merge_pileup=args.merge_pileup
+    )
 
     if args.skip_gen:
         if output_fpath.exists() and benchmark_fpath.exists():
@@ -1164,6 +1205,8 @@ if __name__ == "__main__":
             max_events=args.num_events,
             batch_size=args.batch_size,
             debug=args.debug,
+            merge_pileup=args.merge_pileup,
+            pileup_input_file=str(minbias_path) if args.merge_pileup else None,
         )
 
         if args.specific_event is not None and output_fpath.exists() and benchmark_fpath.exists():
