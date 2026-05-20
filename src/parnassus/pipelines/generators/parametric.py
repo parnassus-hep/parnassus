@@ -152,6 +152,8 @@ class ParametricEventGenerator:
         return self
 
     def __enter__(self) -> Self:
+        self.log.debug("[green]Setting precision to float64.")
+        torch.set_default_dtype(torch.float64)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -175,8 +177,6 @@ class ParametricEventGenerator:
         if self.config.seed is not None:
             self.set_seed(self.config.seed)
             self.log.info(f"Set random seed to {self.config.seed}")
-        self.log.debug("[green]Setting precision to float64.")
-        torch.set_default_dtype(torch.float64)
         self.card.eval()
         self._events = []
         self._exit_stack = ExitStack()
