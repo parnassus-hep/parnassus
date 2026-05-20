@@ -52,7 +52,7 @@ class DelphesPileUpMerger:
         )
 
         # Create a dedicated CPU generator for reproducibility
-        self._rng: torch.Generator | None = torch.Generator(device="cpu")
+        self._rng = torch.Generator(device="cpu")
         if seed is not None:
             self._rng.manual_seed(seed)
 
@@ -126,11 +126,14 @@ class DelphesPileUpMerger:
         """
         device = stable_particles.device
 
+        # Work on a copy so the caller's tensor is never mutated.
+        stable_particles = stable_particles.clone()
+
         # ----------------------------------------------------------------
         # 1. HS vertex smearing
         # ----------------------------------------------------------------
         if self.config.smear_hs_vertex:
-            stable_particles = self._smear_hs_vertices(stable_particles)
+            self._smear_hs_vertices(stable_particles)
 
         # Clone truth AFTER HS vertex smearing, BEFORE PU addition
         truth = stable_particles.clone()

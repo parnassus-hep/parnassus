@@ -168,7 +168,7 @@ class ParametricEventGenerator:
     def set_seed(self, seed: int) -> None:
         torch.manual_seed(seed)
         np.random.seed(seed)
-        if self.pu_merger is not None and self.pu_merger._rng is not None:  # noqa: SLF001
+        if self.pu_merger is not None:
             self.pu_merger._rng.manual_seed(seed)  # noqa: SLF001
 
     def initialize(self, n_events: int, n_batches: int) -> None:  # noqa: ARG002
