@@ -294,18 +294,21 @@ class DelphesPileUpMerger:
         unique_events, inverse_idx = torch.unique(event_col, return_inverse=True)
         n_events = unique_events.shape[0]
 
-        # Find the first particle per event using scatter_reduce_ to find
-        # the minimum original index for each event.
-        # MPS does not support float64, so run this step on CPU and move
-        # the result back to the original device afterwards.
+        # Find the first particle per event via scatter_reduce_(amin).
+        # MPS does not support float64, so fall back to CPU there.
         n_particles = particles.shape[0]
-        arange_cpu = torch.arange(n_particles, dtype=torch.float64)
-        first_idx_cpu = torch.full((n_events,), n_particles, dtype=torch.float64)
-        inverse_idx_cpu = inverse_idx.cpu()
-        first_idx_cpu.scatter_reduce_(
-            0, inverse_idx_cpu, arange_cpu, reduce="amin", include_self=False
-        )
-        first_idx = first_idx_cpu.long().to(device)
+        if device.type == "mps":
+            arange = torch.arange(n_particles, dtype=torch.float64)
+            first_idx_f = torch.full((n_events,), n_particles, dtype=torch.float64)
+            first_idx_f.scatter_reduce_(
+                0, inverse_idx.cpu(), arange, reduce="amin", include_self=False
+            )
+            first_idx = first_idx_f.long().to(device)
+        else:
+            arange = torch.arange(n_particles, device=device, dtype=torch.float64)
+            first_idx_f = torch.full((n_events,), n_particles, device=device, dtype=torch.float64)
+            first_idx_f.scatter_reduce_(0, inverse_idx, arange, reduce="amin", include_self=False)
+            first_idx = first_idx_f.long()
 
         # Extract reference (z0, t0) for each event
         z0_per_event = particles[first_idx, ColumnMap.Z]  # (n_events,)
