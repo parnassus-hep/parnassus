@@ -54,7 +54,17 @@ class DelphesPileUpMerger:
         # Create a dedicated CPU generator for reproducibility
         self._rng = torch.Generator(device="cpu")
         if seed is not None:
-            self._rng.manual_seed(seed)
+            self.set_seed(seed)
+
+    def set_seed(self, seed: int) -> None:
+        """Set the random seed for pile-up sampling.
+
+        Parameters
+        ----------
+        seed : int
+            New random seed.
+        """
+        self._rng.manual_seed(seed)
 
     @property
     def n_minbias_events(self) -> int:
