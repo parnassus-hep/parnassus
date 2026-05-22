@@ -48,7 +48,7 @@ class ParametricGeneratorConfig(GeneratorConfig):
             self.seed = config_dict["seed"]
         if "debug" in config_dict:
             self.debug = config_dict["debug"]
-        if "pileup" in config_dict:
+        if config_dict.get("pileup") is not None:
             self.pileup = DelphesPileUpConfig.from_dict(config_dict["pileup"])
 
     def get_max_particles(self) -> int:
