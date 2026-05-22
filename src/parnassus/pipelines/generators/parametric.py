@@ -23,6 +23,7 @@ from parnassus.configs.scheme import (
     GenTowerCollection,
 )
 from parnassus.data.particle_io import ColumnMap
+from parnassus.pipelines.pileup import DelphesPileUpMerger
 from parnassus.torch_delphes.defaults import (
     ATLASEnergyFlowDefault,
     CMSEnergyFlowDefault,
@@ -132,6 +133,13 @@ class ParametricEventGenerator:
         self._progress_bar: Progress | None = None
         self._task: TaskID | None = None
 
+        self.pu_merger: DelphesPileUpMerger | None = None
+        if config.pileup is not None:
+            self.pu_merger = DelphesPileUpMerger(config.pileup, seed=config.seed)
+            self.log.info(
+                f"Initialized DelphesPileUpMerger with mean_pileup={config.pileup.mean_pileup}"
+            )
+
         self.log.info(
             f"Initialized ParametricEventGenerator with card='{config.card}', debug={config.debug}"
         )
@@ -139,9 +147,13 @@ class ParametricEventGenerator:
     def to(self, device: torch.device) -> Self:
         self.card = self.card.to(device)
         self.device = device
+        if self.pu_merger is not None:
+            self.pu_merger.to(device)
         return self
 
     def __enter__(self) -> Self:
+        self.log.debug("[green]Setting precision to float64.")
+        torch.set_default_dtype(torch.float64)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback) -> None:
@@ -158,13 +170,13 @@ class ParametricEventGenerator:
     def set_seed(self, seed: int) -> None:
         torch.manual_seed(seed)
         np.random.seed(seed)
+        if self.pu_merger is not None:
+            self.pu_merger.set_seed(seed)
 
     def initialize(self, n_events: int, n_batches: int) -> None:  # noqa: ARG002
         if self.config.seed is not None:
             self.set_seed(self.config.seed)
             self.log.info(f"Set random seed to {self.config.seed}")
-        self.log.debug("[green]Setting precision to float64.")
-        torch.set_default_dtype(torch.float64)
         self.card.eval()
         self._events = []
         self._exit_stack = ExitStack()
@@ -179,12 +191,15 @@ class ParametricEventGenerator:
 
         all_particles: torch.Tensor = batch["all_particles"]
         stable_particles: torch.Tensor = batch["stable_particles"]
-        # Clone before passing to card: card may mutate input in-place, and
-        # .to(device) returns the same tensor when already on that device.
-        truth_particles = stable_particles.clone()
-        if stable_particles.shape[0] > 0:
+
+        if self.pu_merger is not None and stable_particles.shape[0] > 0:
+            merged, truth_particles = self.pu_merger.merge(stable_particles)
+            results = self.card(merged.to(self.device))
+        elif stable_particles.shape[0] > 0:
+            truth_particles = stable_particles.clone()
             results = self.card(stable_particles.to(self.device))
         else:
+            truth_particles = stable_particles.clone()
             results = _empty_card_results(all_particles, debug=self.config.debug)
 
         self._events.extend(

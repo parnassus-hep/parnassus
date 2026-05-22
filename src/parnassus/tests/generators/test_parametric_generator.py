@@ -1,5 +1,6 @@
 """Tests for ParametricEventGenerator and its conversion helpers."""
 
+import struct
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -8,6 +9,7 @@ import pytest
 import torch
 
 from parnassus.configs.generators.parametric import ParametricGeneratorConfig
+from parnassus.configs.pileup import DelphesPileUpConfig
 from parnassus.configs.scheme import GenParticleCollection, GenTowerCollection
 from parnassus.data.particle_io import N_FEATURES, ColumnMap
 from parnassus.pipelines.generators.parametric import (
@@ -384,3 +386,72 @@ def test_get_accessors_tower_output_names_and_collection():
     tower_accessors = accessors["Tower"]
     assert {a.output_name for a in tower_accessors} == {"E", "ET", "Eta", "Phi", "T"}
     assert all(a.collection == "Tower" for a in tower_accessors)
+
+
+# ---------------------------------------------------------------------------
+# Pile-up integration tests
+# ---------------------------------------------------------------------------
+
+
+def _write_pileup_file(path, events):
+    """Write a minimal .pileup file in Delphes XDR format."""
+    offsets = []
+    with open(path, "wb") as f:
+        for particles in events:
+            offsets.append(f.tell())
+            f.write(struct.pack(">i", len(particles)))
+            for pid, x, y, z, t, px, py, pz, e in particles:
+                f.write(struct.pack(">i", pid))
+                f.write(struct.pack(">ffffffff", x, y, z, t, px, py, pz, e))
+        f.writelines(struct.pack(">q", off) for off in offsets)
+        f.write(struct.pack(">q", len(events)))
+
+
+def test_generator_with_pileup_adds_pu_to_card_input(tmp_path):
+    """When pileup is configured, the card receives HS+PU particles."""
+    pion = (211, 0.0, 0.0, 0.0, 0.0, 3.0, 4.0, 1.0, 5.1)
+    _write_pileup_file(tmp_path / "mb.pileup", [[pion, pion]] * 10)
+
+    config = _make_config("cms", seed=42)
+    config.pileup = DelphesPileUpConfig(
+        file_path=str(tmp_path / "mb.pileup"),
+        mean_pileup=3.0,
+        smear_hs_vertex=False,
+    )
+    gen = ParametricEventGenerator(config, _STUB_LOG)
+
+    # Track what the card receives
+    received_sizes: list[int] = []
+
+    def _tracking_card(particles):
+        received_sizes.append(particles.shape[0])
+        return {"EFlowObject": particles, "Track": particles[:0], "Tower": particles[:0]}
+
+    gen.card = MagicMock(side_effect=_tracking_card)
+    gen.card.eval = MagicMock()
+    gen.card.to = MagicMock(return_value=gen.card)
+
+    gen.initialize(n_events=1, n_batches=1)
+    n_hs = 5
+    hs = _particle_torch(n_hs, event_number=1)
+    gen.process_batch({
+        "stable_particles": hs,
+        "all_particles": hs.clone(),
+        "event_numbers": torch.tensor([1]),
+        "n_particles": torch.tensor([n_hs]),
+    })
+
+    events = gen.get_events()
+    assert len(events) == 1
+    # Card should have received MORE particles than just HS
+    assert received_sizes[0] > n_hs
+    # Truth should be HS-only
+    assert len(events[0].truth_particles) == n_hs
+
+
+def test_generator_without_pileup_unchanged():
+    """Without pileup config, generator has no merger."""
+    config = _make_config("cms", seed=42)
+    assert config.pileup is None
+    gen = ParametricEventGenerator(config, _STUB_LOG)
+    assert gen.pu_merger is None

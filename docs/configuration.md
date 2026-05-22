@@ -45,6 +45,31 @@ Selects and configures the simulation backend.
 |-------|------|---------|-------------|
 | `seed` | integer | *none* | Random seed for reproducibility |
 | `debug` | boolean | `false` | Write intermediate detector-stage collections in addition to the standard parametric output |
+| `pileup` | object | *none* | Optional pile-up merging configuration (see below) |
+
+### Pile-up merging (`pileup`)
+
+When the `pileup` section is present under `generator`, the parametric pipeline merges pile-up particles from a pre-generated MinBias file with the hard-scatter input **before** detector simulation. This matches the behaviour of the C++ Delphes `PileUpMerger` module.
+
+```yaml
+generator:
+  type: "parametric"
+  name: "cms"
+  seed: 42
+  pileup:
+    file_path: "MinBias.pileup"
+    mean_pileup: 50
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `file_path` | string | *required* | Path to a Delphes `.pileup` binary (XDR) file |
+| `mean_pileup` | float | *required* | Average number of pile-up interactions per bunch crossing (Poisson-sampled) |
+| `max_z_spread` | float | `0.25` | Vertex z truncation bound in meters |
+| `max_t_spread` | float | `800e-12` | Vertex t truncation bound in seconds |
+| `sigma_z` | float | `0.053` | Gaussian sigma for vertex z-smearing in meters |
+| `sigma_t` | float | `160e-12` | Gaussian sigma for vertex t-smearing in seconds |
+| `smear_hs_vertex` | boolean | `true` | Also smear the hard-scatter primary vertex position |
 
 ## Pipelines
 
