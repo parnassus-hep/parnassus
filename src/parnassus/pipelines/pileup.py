@@ -126,6 +126,7 @@ class DelphesPileUpMerger:
             .clamp_(-max_spread, max_spread)
         )
 
+    @torch.inference_mode()
     def merge(self, stable_particles: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Merge PU particles into the HS batch tensor.
 
@@ -255,6 +256,7 @@ class DelphesPileUpMerger:
         merged = torch.cat([stable_particles, pu_particles.to(device)], dim=0)
         return merged, truth
 
+    @torch.inference_mode()
     def _smear_hs_vertices(self, particles: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Apply vertex smearing to hard-scatter particles.
 
