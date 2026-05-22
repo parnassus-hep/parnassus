@@ -173,20 +173,51 @@ def test_merge_adds_pu_particles(config: DelphesPileUpConfig) -> None:
     assert merged.shape[0] > hs.shape[0]
 
 
-def test_pu_particles_have_correct_event_number(
-    config: DelphesPileUpConfig,
+def test_pu_particles_assigned_to_each_event_independently(
+    pileup_path: Path,
 ) -> None:
-    """All PU particles must be assigned to valid HS event numbers."""
+    """Each HS event must receive its own PU particles with the correct EVENT_NUMBER.
+
+    Uses non-consecutive event numbers (100, 200, 300) to catch hardcoded
+    assumptions about sequential numbering. With mean_pileup=50 every event
+    is virtually guaranteed to receive PU particles.
+    """
     from parnassus.pipelines.pileup import DelphesPileUpMerger
 
+    config = DelphesPileUpConfig(
+        file_path=str(pileup_path),
+        mean_pileup=50.0,
+        smear_hs_vertex=False,
+    )
     merger = DelphesPileUpMerger(config, seed=42)
-    hs = _make_hs_tensor(3, particles_per_event=5)
-    hs_event_numbers = set(hs[:, ColumnMap.EVENT_NUMBER].unique().tolist())
+
+    event_ids = [100, 200, 300]
+    n_hs_per_event = 4
+    rows = []
+    for ev_id in event_ids:
+        arr = torch.zeros(n_hs_per_event, N_FEATURES, dtype=torch.float64)
+        arr[:, ColumnMap.PID] = 211
+        arr[:, ColumnMap.STATUS] = 1
+        arr[:, ColumnMap.CHARGE] = 1
+        arr[:, ColumnMap.E] = 10.0
+        arr[:, ColumnMap.PX] = 5.0
+        arr[:, ColumnMap.PY] = 5.0
+        arr[:, ColumnMap.PT] = float(np.sqrt(50.0))
+        arr[:, ColumnMap.PHI] = float(np.arctan2(5.0, 5.0))
+        arr[:, ColumnMap.EVENT_NUMBER] = ev_id
+        rows.append(arr)
+    hs = torch.cat(rows, dim=0)
 
     merged, _ = merger.merge(hs)
-    merged_event_numbers = set(merged[:, ColumnMap.EVENT_NUMBER].unique().tolist())
-    # All event numbers in merged must be HS event numbers
-    assert merged_event_numbers.issubset(hs_event_numbers)
+
+    # Only the original event IDs should appear — no fabricated numbers
+    merged_ids = set(merged[:, ColumnMap.EVENT_NUMBER].long().unique().tolist())
+    assert merged_ids == set(event_ids)
+
+    # Each event must have received PU particles (count > HS count)
+    for ev_id in event_ids:
+        mask = merged[:, ColumnMap.EVENT_NUMBER].long() == ev_id
+        assert mask.sum().item() > n_hs_per_event, f"Event {ev_id} should have PU particles added"
 
 
 def test_phi_rotation_applied_to_pu(pileup_path: Path) -> None:
