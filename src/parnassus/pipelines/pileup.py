@@ -130,6 +130,11 @@ class DelphesPileUpMerger:
     def merge(self, stable_particles: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Merge PU particles into the HS batch tensor.
 
+        .. warning::
+            This method mutates ``stable_particles`` in-place (HS vertex
+            smearing modifies Z and T columns).  Clone before calling if
+            the original tensor is needed downstream.
+
         Parameters
         ----------
         stable_particles : torch.Tensor
@@ -145,9 +150,6 @@ class DelphesPileUpMerger:
             but before PU addition (cloned).
         """
         device = stable_particles.device
-
-        # Work on a copy so the caller's tensor is never mutated.
-        stable_particles = stable_particles.clone()
 
         # ----------------------------------------------------------------
         # 1. HS vertex smearing
