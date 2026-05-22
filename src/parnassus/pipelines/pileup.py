@@ -16,7 +16,7 @@ from typing import Self
 import torch
 
 from parnassus.configs.pileup import DelphesPileUpConfig
-from parnassus.data.particle_io import ColumnMap
+from parnassus.data.particle_io import N_FEATURES, ColumnMap
 from parnassus.data.pileup_io import read_pileup_file
 
 __all__ = ["DelphesPileUpMerger"]
@@ -45,11 +45,16 @@ class DelphesPileUpMerger:
 
         # Load MinBias events from pileup file and convert to tensors
         raw_events = read_pileup_file(config.file_path)
-        self._minbias_events: list[torch.Tensor] = [torch.from_numpy(arr) for arr in raw_events]
-        # Store particle counts per MinBias event for efficient gathering
-        self._minbias_counts = torch.tensor(
-            [ev.shape[0] for ev in self._minbias_events], dtype=torch.long
+        tensors = [torch.from_numpy(arr) for arr in raw_events]
+
+        self._minbias_counts = torch.tensor([t.shape[0] for t in tensors], dtype=torch.long)
+        self._all_minbias = (
+            torch.cat(tensors, dim=0)
+            if tensors
+            else torch.empty(0, N_FEATURES, dtype=torch.float64)
         )
+        self._minbias_offsets = torch.zeros(len(tensors) + 1, dtype=torch.long)
+        self._minbias_offsets[1:] = self._minbias_counts.cumsum(0)
 
         # Create a dedicated CPU generator for reproducibility
         self._rng = torch.Generator(device="cpu")
@@ -69,7 +74,7 @@ class DelphesPileUpMerger:
     @property
     def n_minbias_events(self) -> int:
         """Number of MinBias events loaded from the pileup file."""
-        return len(self._minbias_events)
+        return self._minbias_counts.shape[0]
 
     def to(self, device: torch.device) -> Self:
         """Move MinBias data to the specified device.
@@ -84,8 +89,9 @@ class DelphesPileUpMerger:
         Self
             This merger instance (for chaining).
         """
-        self._minbias_events = [ev.to(device) for ev in self._minbias_events]
+        self._all_minbias = self._all_minbias.to(device)
         self._minbias_counts = self._minbias_counts.to(device)
+        self._minbias_offsets = self._minbias_offsets.to(device)
         return self
 
     def _sample_truncated_gaussian(
@@ -178,11 +184,18 @@ class DelphesPileUpMerger:
             generator=self._rng,
         )
 
-        # Gather all sampled MinBias particles (the ONE allowed loop)
-        pu_particles = torch.cat([self._minbias_events[int(idx)] for idx in mb_indices], dim=0)
+        counts_per_interaction = self._minbias_counts[mb_indices]
+        starts = self._minbias_offsets[mb_indices]
 
-        # Number of particles per PU interaction
-        counts_per_interaction = self._minbias_counts[mb_indices]  # (total_pu_interactions,)
+        total_particles = int(counts_per_interaction.sum().item())
+        offsets_within = torch.arange(total_particles, dtype=torch.long)
+        cum_counts = counts_per_interaction.cumsum(0)
+        interaction_starts = torch.zeros_like(cum_counts)
+        interaction_starts[1:] = cum_counts[:-1]
+        offsets_within -= torch.repeat_interleave(interaction_starts, counts_per_interaction)
+        flat_indices = torch.repeat_interleave(starts, counts_per_interaction) + offsets_within
+
+        pu_particles = self._all_minbias[flat_indices].clone()
 
         # ----------------------------------------------------------------
         # 4. Per-PU-interaction vertex smearing and phi rotation
