@@ -152,16 +152,17 @@ class DelphesPileUpMerger:
         # 1. HS vertex smearing
         # ----------------------------------------------------------------
         if self.config.smear_hs_vertex:
-            self._smear_hs_vertices(stable_particles)
+            unique_events, _inverse_idx = self._smear_hs_vertices(stable_particles)
+        else:
+            event_col = stable_particles[:, ColumnMap.EVENT_NUMBER]
+            unique_events, _inverse_idx = torch.unique(event_col, return_inverse=True)
 
         # Clone truth AFTER HS vertex smearing, BEFORE PU addition
         truth = stable_particles.clone()
 
         # ----------------------------------------------------------------
-        # 2. Determine unique events and sample PU counts
+        # 2. Sample PU counts
         # ----------------------------------------------------------------
-        event_col = stable_particles[:, ColumnMap.EVENT_NUMBER]
-        unique_events, _inverse_idx = torch.unique(event_col, return_inverse=True)
         n_events = unique_events.shape[0]
 
         if n_events == 0 or self.config.mean_pileup <= 0:
@@ -254,7 +255,7 @@ class DelphesPileUpMerger:
         merged = torch.cat([stable_particles, pu_particles.to(device)], dim=0)
         return merged, truth
 
-    def _smear_hs_vertices(self, particles: torch.Tensor) -> torch.Tensor:
+    def _smear_hs_vertices(self, particles: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Apply vertex smearing to hard-scatter particles.
 
         For each event, finds the first particle's (Z, T) as a reference,
@@ -264,16 +265,20 @@ class DelphesPileUpMerger:
         Parameters
         ----------
         particles : torch.Tensor
-            Shape ``(N, N_FEATURES)`` — the HS batch tensor (modified in-place
-            and returned).
+            Shape ``(N, N_FEATURES)`` — the HS batch tensor (modified in-place).
 
         Returns
         -------
-        torch.Tensor
-            The same tensor, with Z and T columns smeared.
+        unique_events : torch.Tensor
+            Unique event numbers found in the batch.
+        inverse_idx : torch.Tensor
+            Mapping from each particle to its event index.
         """
         if particles.shape[0] == 0:
-            return particles
+            return (
+                torch.empty(0, device=particles.device, dtype=particles.dtype),
+                torch.empty(0, device=particles.device, dtype=torch.long),
+            )
 
         device = particles.device
         event_col = particles[:, ColumnMap.EVENT_NUMBER]
@@ -318,4 +323,4 @@ class DelphesPileUpMerger:
             particles[:, ColumnMap.T] - t0_per_particle + dt_mmc_per_particle
         )
 
-        return particles
+        return unique_events, inverse_idx
