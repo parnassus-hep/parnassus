@@ -36,10 +36,10 @@ module PileUpMerger PileUpMerger {
   set VertexOutputArray vertices
 
   # pre-generated minbias input file
-  set PileUpFile parnassus/src/parnassus/torch_delphes/validation/delphes_cards/MinBias.pileup
+  set PileUpFile MinBias.pileup
 
   # average expected pile up
-  set MeanPileUp 50
+  set MeanPileUp 10
 
    # maximum spread in the beam direction in m
   set ZVertexSpread 0.25

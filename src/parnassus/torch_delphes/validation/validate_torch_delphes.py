@@ -1001,7 +1001,7 @@ def main(
 
         pileup = DelphesPileUpConfig(
             file_path=str(pileup_input_file),
-            mean_pileup=50.0,
+            mean_pileup=10,
         )
     else:
         pileup = None
