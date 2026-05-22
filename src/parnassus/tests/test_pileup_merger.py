@@ -16,6 +16,8 @@ import torch
 from parnassus.configs.pileup import DelphesPileUpConfig
 from parnassus.data.particle_io import N_FEATURES, ColumnMap
 
+_has_mps = torch.backends.mps.is_available()
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -427,3 +429,45 @@ def test_to_device(config: DelphesPileUpConfig) -> None:
     merged, truth = merger.merge(hs)
     assert merged.shape[1] == N_FEATURES
     assert truth.shape[1] == N_FEATURES
+
+
+@pytest.mark.skipif(not _has_mps, reason="MPS not available")
+def test_merge_on_mps(pileup_path: Path) -> None:
+    """Verify merge works when HS tensor is on MPS device."""
+    from parnassus.pipelines.pileup import DelphesPileUpMerger
+
+    config = DelphesPileUpConfig(
+        file_path=str(pileup_path),
+        mean_pileup=5.0,
+        smear_hs_vertex=True,
+    )
+    merger = DelphesPileUpMerger(config, seed=42)
+    merger.to(torch.device("mps"))
+
+    hs = _make_hs_tensor(2, particles_per_event=5).to(torch.float32).to("mps")
+    merged, truth = merger.merge(hs)
+
+    assert merged.device.type == "mps"
+    assert truth.device.type == "mps"
+    assert merged.shape[0] >= hs.shape[0]
+    assert truth.shape[0] == hs.shape[0]
+
+
+@pytest.mark.skipif(not _has_mps, reason="MPS not available")
+def test_merge_on_mps_no_hs_smear(pileup_path: Path) -> None:
+    """Verify merge works on MPS with HS smearing disabled."""
+    from parnassus.pipelines.pileup import DelphesPileUpMerger
+
+    config = DelphesPileUpConfig(
+        file_path=str(pileup_path),
+        mean_pileup=5.0,
+        smear_hs_vertex=False,
+    )
+    merger = DelphesPileUpMerger(config, seed=42)
+    merger.to(torch.device("mps"))
+
+    hs = _make_hs_tensor(2, particles_per_event=5).to(torch.float32).to("mps")
+    merged, truth = merger.merge(hs)
+
+    assert merged.device.type == "mps"
+    assert truth.device.type == "mps"

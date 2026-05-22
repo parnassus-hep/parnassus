@@ -255,7 +255,10 @@ class DelphesPileUpMerger:
         # ----------------------------------------------------------------
         # 5. Single transfer to device and concatenate
         # ----------------------------------------------------------------
-        merged = torch.cat([stable_particles, pu_particles.to(device)], dim=0)
+        # Cast PU particles to match the dtype of the HS tensor before
+        # moving to device (MPS does not support float64).
+        pu_on_device = pu_particles.to(dtype=stable_particles.dtype, device=device)
+        merged = torch.cat([stable_particles, pu_on_device], dim=0)
         return merged, truth
 
     @torch.inference_mode()
@@ -292,12 +295,17 @@ class DelphesPileUpMerger:
         n_events = unique_events.shape[0]
 
         # Find the first particle per event using scatter_reduce_ to find
-        # the minimum original index for each event
-        arange = torch.arange(particles.shape[0], device=device, dtype=torch.float64)
-        # Initialize with a large value so scatter_reduce(min) works
-        first_idx = torch.full((n_events,), particles.shape[0], device=device, dtype=torch.float64)
-        first_idx.scatter_reduce_(0, inverse_idx, arange, reduce="amin", include_self=False)
-        first_idx = first_idx.long()
+        # the minimum original index for each event.
+        # MPS does not support float64, so run this step on CPU and move
+        # the result back to the original device afterwards.
+        n_particles = particles.shape[0]
+        arange_cpu = torch.arange(n_particles, dtype=torch.float64)
+        first_idx_cpu = torch.full((n_events,), n_particles, dtype=torch.float64)
+        inverse_idx_cpu = inverse_idx.cpu()
+        first_idx_cpu.scatter_reduce_(
+            0, inverse_idx_cpu, arange_cpu, reduce="amin", include_self=False
+        )
+        first_idx = first_idx_cpu.long().to(device)
 
         # Extract reference (z0, t0) for each event
         z0_per_event = particles[first_idx, ColumnMap.Z]  # (n_events,)
@@ -311,9 +319,11 @@ class DelphesPileUpMerger:
             n_events, self.config.sigma_t, self.config.max_t_spread
         )
 
-        # Convert units
-        dz_mm = (dz * 1e3).to(device)
-        dt_mmc = (dt * C_LIGHT * 1e3).to(device)
+        # Convert units; cast to the particle tensor's dtype when transferring
+        # to device (MPS does not support float64).
+        target_dtype = particles.dtype
+        dz_mm = (dz * 1e3).to(dtype=target_dtype, device=device)
+        dt_mmc = (dt * C_LIGHT * 1e3).to(dtype=target_dtype, device=device)
 
         # Broadcast per-event values to per-particle via inverse_idx
         z0_per_particle = z0_per_event[inverse_idx]
