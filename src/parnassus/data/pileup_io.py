@@ -48,8 +48,8 @@ _N_FLOAT_FIELDS = 8  # x, y, z, t, px, py, pz, e
 # Total bytes per particle: 4 (pid) + 8*4 (floats)
 _RECORD_BYTES = 4 + _N_FLOAT_FIELDS * 4  # = 36
 
-# Compiled struct for one particle record: int32 pid + 8 float32s
-_RECORD_STRUCT = struct.Struct(">i8f")
+# Structured numpy dtype for one particle record: int32 pid + 8 float32s
+_RECORD_DTYPE = np.dtype([("pid", ">i4"), ("floats", ">f4", 8)])
 
 
 def _raw_to_columnmap(raw: np.ndarray) -> np.ndarray:
@@ -163,11 +163,10 @@ def read_pileup_file(path: Path | str) -> list[np.ndarray]:
             results.append(np.zeros((0, N_FEATURES), dtype=np.float64))
             continue
 
-        # Parse all particles using the pre-compiled struct for efficiency
-        raw_rows = [
-            _RECORD_STRUCT.unpack_from(data, pos + i * _RECORD_BYTES) for i in range(entry_size)
-        ]
-        raw = np.array(raw_rows, dtype=np.float64)  # shape (N, 9)
+        records = np.frombuffer(data, dtype=_RECORD_DTYPE, count=entry_size, offset=pos)
+        raw = np.zeros((entry_size, 9), dtype=np.float64)
+        raw[:, 0] = records["pid"]
+        raw[:, 1:] = records["floats"]
         results.append(_raw_to_columnmap(raw))
 
     return results
