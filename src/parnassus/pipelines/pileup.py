@@ -56,6 +56,8 @@ class DelphesPileUpMerger:
         self._minbias_offsets = torch.zeros(len(tensors) + 1, dtype=torch.long)
         self._minbias_offsets[1:] = self._minbias_counts.cumsum(0)
 
+        self._device = torch.device("cpu")
+
         # Create a dedicated CPU generator for reproducibility
         self._rng = torch.Generator(device="cpu")
         if seed is not None:
@@ -77,21 +79,22 @@ class DelphesPileUpMerger:
         return self._minbias_counts.shape[0]
 
     def to(self, device: torch.device) -> Self:
-        """Move MinBias data to the specified device.
+        """Set the target device for merged output tensors.
+
+        MinBias data stays on CPU (all PU sampling and smearing is done
+        on CPU); only the final merged tensor is transferred to *device*.
 
         Parameters
         ----------
         device : torch.device
-            Target device.
+            Target device for output tensors.
 
         Returns
         -------
         Self
             This merger instance (for chaining).
         """
-        self._all_minbias = self._all_minbias.to(device)
-        self._minbias_counts = self._minbias_counts.to(device)
-        self._minbias_offsets = self._minbias_offsets.to(device)
+        self._device = device
         return self
 
     def _sample_truncated_gaussian(
@@ -198,9 +201,8 @@ class DelphesPileUpMerger:
         pu_particles = self._all_minbias[flat_indices].clone()
 
         # ----------------------------------------------------------------
-        # 4. Per-PU-interaction vertex smearing and phi rotation
+        # 4. Per-PU-interaction vertex smearing and phi rotation (CPU)
         # ----------------------------------------------------------------
-        # Sample dz, dt, dphi for each PU interaction
         dz = self._sample_truncated_gaussian(
             total_pu_interactions, self.config.sigma_z, self.config.max_z_spread
         )
@@ -211,64 +213,45 @@ class DelphesPileUpMerger:
             -math.pi, math.pi, generator=self._rng
         )
 
-        # Convert units: meters -> mm, seconds -> mm/c
         dz_mm = dz * 1e3
         dt_mmc = dt * C_LIGHT * 1e3
 
-        # Map each PU interaction to an HS event number
-        # n_pu_per_event tells us how many interactions per event;
-        # repeat_interleave gives one event number per interaction
-        event_number_per_interaction = torch.repeat_interleave(
-            unique_events.cpu(), n_pu_per_event.cpu()
-        )
+        event_number_per_interaction = torch.repeat_interleave(unique_events.cpu(), n_pu_per_event)
 
-        # Expand per-interaction values to per-particle
-        dz_mm_per_particle = torch.repeat_interleave(dz_mm, counts_per_interaction.cpu())
-        dt_mmc_per_particle = torch.repeat_interleave(dt_mmc, counts_per_interaction.cpu())
-        dphi_per_particle = torch.repeat_interleave(dphi, counts_per_interaction.cpu())
+        dz_mm_per_particle = torch.repeat_interleave(dz_mm, counts_per_interaction)
+        dt_mmc_per_particle = torch.repeat_interleave(dt_mmc, counts_per_interaction)
+        dphi_per_particle = torch.repeat_interleave(dphi, counts_per_interaction)
         evnum_per_particle = torch.repeat_interleave(
-            event_number_per_interaction, counts_per_interaction.cpu()
+            event_number_per_interaction, counts_per_interaction
         )
 
-        # Move to device
-        pu_particles = pu_particles.to(device)
-        dz_mm_per_particle = dz_mm_per_particle.to(device)
-        dt_mmc_per_particle = dt_mmc_per_particle.to(device)
-        dphi_per_particle = dphi_per_particle.to(device)
-        evnum_per_particle = evnum_per_particle.to(device)
-
-        # Apply vertex smearing
+        # Apply vertex smearing (CPU)
         pu_particles[:, ColumnMap.Z] = pu_particles[:, ColumnMap.Z] + dz_mm_per_particle
         pu_particles[:, ColumnMap.T] = pu_particles[:, ColumnMap.T] + dt_mmc_per_particle
 
-        # Apply phi rotation
+        # Apply phi rotation (CPU)
         cos_dphi = torch.cos(dphi_per_particle)
         sin_dphi = torch.sin(dphi_per_particle)
 
-        # Rotate momentum (PX, PY)
         px = pu_particles[:, ColumnMap.PX].clone()
         py = pu_particles[:, ColumnMap.PY].clone()
         pu_particles[:, ColumnMap.PX] = px * cos_dphi - py * sin_dphi
         pu_particles[:, ColumnMap.PY] = px * sin_dphi + py * cos_dphi
-        # PT is invariant under rotation — no update needed
-        # Update PHI = atan2(PY', PX')
         pu_particles[:, ColumnMap.PHI] = torch.atan2(
             pu_particles[:, ColumnMap.PY], pu_particles[:, ColumnMap.PX]
         )
 
-        # Rotate position (X, Y)
         x = pu_particles[:, ColumnMap.X].clone()
         y = pu_particles[:, ColumnMap.Y].clone()
         pu_particles[:, ColumnMap.X] = x * cos_dphi - y * sin_dphi
         pu_particles[:, ColumnMap.Y] = x * sin_dphi + y * cos_dphi
 
-        # Stamp event numbers
         pu_particles[:, ColumnMap.EVENT_NUMBER] = evnum_per_particle
 
         # ----------------------------------------------------------------
-        # 5. Concatenate HS + PU
+        # 5. Single transfer to device and concatenate
         # ----------------------------------------------------------------
-        merged = torch.cat([stable_particles, pu_particles], dim=0)
+        merged = torch.cat([stable_particles, pu_particles.to(device)], dim=0)
         return merged, truth
 
     def _smear_hs_vertices(self, particles: torch.Tensor) -> torch.Tensor:
