@@ -28,7 +28,17 @@ Pythia8 configuration file. Events are generated on-the-fly before passing to th
 uv run parnassus run -i pythia_config.cmnd ...
 ```
 
-> **Note:** Pythia8 (`pythia8mc`) is included in the standard installation via `uv sync`. No extra steps are required.
+!!! info
+    Pythia8 (`pythia8mc`) is included in the standard installation via `uv sync` (or `pip install`). No extra steps are required.
+
+!!! danger "Caution"
+    When using Pytia8 cards, ensure that
+    ```
+    ParticleDecays:limitTau0 = on
+    ParticleDecays:tau0Max = 10          ! mm/c
+    ```
+    is set to match the CMS convention for stable particles (cτ > 10 mm).
+    This prevents long-lived particles from decaying in-flight, which can cause failures in the neural generator.
 
 ## Output Format
 
