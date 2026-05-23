@@ -75,6 +75,14 @@ uv run parnassus run -c src/parnassus/configs/parametric_config.yaml -i input.he
 - **HepMC3** (`.hepmc`): standard HEP event record format.
 - **ROOT** (`.root`): preprocessed input files used by `parnassus-core` to train/evaluate.
 - **Pythia8 card** (`.cmnd`): Pythia8 configuration file; events are generated on-the-fly using the `pythia` module before passing to the simulation pipeline.
+> [!CAUTION]
+> When using Pytia8 cards, ensure that
+> ```
+> ParticleDecays:limitTau0 = on
+> ParticleDecays:tau0Max = 10          ! mm/c
+> ```
+> is set to match the CMS convention for stable particles (cτ > 10 mm).
+> This prevents long-lived particles from decaying in-flight, which can cause failures in the neural generator.
 
 ### Command-Line Arguments
 

@@ -7,18 +7,22 @@
 
 ! 2) Settings related to the incoming beams
 Beams:idA = 2212                    ! first beam proton
-Beams:idA = 2212                    ! second beam proton
-Beams:eCM = 13000.                  ! beam COM energy
+Beams:idB = 2212                    ! second beam proton
+Beams:eCM = 7000.                   ! beam COM energy (CMS 2011)
 
 ! 3) Settings related to the decay we want to force
-HiggsSM:ff2Hff(t:ZZ) = on           ! VBF Higgs with H->ZZ enabled
+HiggsSM:gg2H = on                   ! Enable gluon fusion Higgs production
+25:m0 = 125.0                       ! Set Higgs mass to 125 GeV
 25:onMode = off
 25:onIfMatch = 23 23                ! Force H->ZZ
 23:onMode = off
 23:onIfAny = 11 13                  ! Force Z->2l
-! PhaseSpace:pTHatMin = 20.          ! Optionally tighten phase space
 
-! 4) Suppress output
+! 4) Particle decay limits — match CMS convention (cτ > 10 mm = stable)
+ParticleDecays:limitTau0 = on
+ParticleDecays:tau0Max = 10          ! mm/c
+
+! 5) Suppress output
 Next:numberShowInfo = 0
 Next:numberShowProcess = 0
 Next:numberShowEvent = 0
