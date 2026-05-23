@@ -1,8 +1,6 @@
 import math
-import os
-import sys
 import tempfile
-from contextlib import contextmanager, suppress
+from contextlib import suppress
 from pathlib import Path
 
 import pyhepmc
@@ -13,49 +11,6 @@ from parnassus.pythia import HepMC3Generator, Pythia8ToHepMC3
 
 N_EVENTS = 5
 N_JOBS = 2
-
-
-@contextmanager
-def suppress_stdout_stderr():
-    """Context manager to suppress stdout and stderr at the file descriptor level.
-    This is necessary to suppress output from backend C++ libraries like Pythia8.
-    """
-    # Save original file descriptors
-    stdout_fd = sys.stdout.fileno()
-    stderr_fd = sys.stderr.fileno()
-
-    # Save copies of original file descriptors
-    saved_stdout_fd = os.dup(stdout_fd)
-    saved_stderr_fd = os.dup(stderr_fd)
-
-    # Open devnull
-    devnull_fd = os.open(os.devnull, os.O_WRONLY)
-
-    try:
-        # Flush Python's buffered output
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-        # Redirect stdout and stderr to devnull
-        os.dup2(devnull_fd, stdout_fd)
-        os.dup2(devnull_fd, stderr_fd)
-
-        yield
-
-    finally:
-        # Flush again before restoring
-        sys.stdout.flush()
-        sys.stderr.flush()
-
-        # Restore original file descriptors
-        os.dup2(saved_stdout_fd, stdout_fd)
-        os.dup2(saved_stderr_fd, stderr_fd)
-
-        # Close temporary file descriptors
-        os.close(devnull_fd)
-        os.close(saved_stdout_fd)
-        os.close(saved_stderr_fd)
-
 
 # Helpers for validation ########################################
 
@@ -231,9 +186,10 @@ def compare_events(
     n_particles_mismatch = n_particles_c - n_particles_py
     if n_particles_mismatch < 0:
         event_match = False
-        mismatch_messages.append(
-            "Python event has more particles than C++ event, which should not happen."
-        )
+        mismatch_messages.extend((
+            "Python event has more particles than C++ event, which should not happen.",
+            f"  n_particles_c = {n_particles_c}, n_particles_py = {n_particles_py}",
+        ))
 
     # Check number of vertices #######################
     n_vertices_mismatch = n_vertices_c - n_vertices_py
@@ -253,6 +209,7 @@ def compare_events(
             if not particle_match:
                 event_match = False
                 mismatch_messages.append(f"Particle {i} mismatch (WITH ORDERING): {msg}")
+                break
     else:
         # Physics-based matching (by PDG ID, momentum, status)
         particles_c_list = list(evt_c.particles)
@@ -291,9 +248,10 @@ def compare_events(
                 event_match = False
                 mismatch_messages.append(
                     f"Particle {i} "
-                    "(pid={particle_c.pid}, status={particle_c.status}, p={particle_c.momentum}) "
+                    f"(pid={particle_c.pid}, status={particle_c.status}, p={particle_c.momentum}) "
                     "has no match in python event"
                 )
+                break
 
     # Check that vertices/topology match #######################
     # Build particle map by physics properties for vertex comparison
@@ -341,6 +299,7 @@ def compare_events(
                 f"Vertex {i} with {len(v_c.particles_in)} in, {len(v_c.particles_out)} out "
                 "has no match in python event"
             )
+            break
 
     # Check other event-level info (if present) #######################
 
@@ -483,66 +442,64 @@ def test_pythia8_to_hepmc3():
     # which is currently broken due to HepMC3 Python bindings limitations
 
     # Generate events with our interface #############
-    with suppress_stdout_stderr():
-        pythia = pythia8mc.Pythia()
+    pythia = pythia8mc.Pythia()
 
-        # Check version number to select benchmark file
-        pythia_version = str(pythia.settings.parm("Pythia:versionNumber"))
-        if pythia_version == "8.316":
-            fpath_benchmark = f"src/parnassus/tests/expected_results/HZZ4l_{N_EVENTS}_8316.hepmc"
-        elif pythia_version == "8.315":
-            fpath_benchmark = f"src/parnassus/tests/expected_results/HZZ4l_{N_EVENTS}_8315.hepmc"
-        else:
-            raise NotImplementedError(
-                f"No benchmark file for pythia8mc=={pythia_version}; must be in {8.315, 8.316}"
-            )
+    # Check version number to select benchmark file
+    pythia_version = str(pythia.settings.parm("Pythia:versionNumber"))
+    if pythia_version == "8.316":
+        fpath_benchmark = f"src/parnassus/tests/expected_results/HZZ4l_{N_EVENTS}_8316.hepmc"
+    elif pythia_version == "8.315":
+        fpath_benchmark = f"src/parnassus/tests/expected_results/HZZ4l_{N_EVENTS}_8315.hepmc"
+    else:
+        raise NotImplementedError(
+            f"No benchmark file for pythia8mc=={pythia_version}; must be in {8.315, 8.316}"
+        )
+    print(f"Using benchmark file {fpath_benchmark} for Pythia version {pythia_version}")
 
-        assert Path(fpath_benchmark).exists()
+    assert Path(fpath_benchmark).exists(), f"Benchmark file not found: {fpath_benchmark}"
 
-        # Random seed
-        pythia.readString("Random:setSeed = on")
-        pythia.readString("Random:seed = 42")
+    # Random seed
+    pythia.readString("Random:setSeed = on")
+    pythia.readString("Random:seed = 42")
 
-        # Command file for rest of config
-        pythia.readFile("src/parnassus/tests/HZZ4l.cmnd")
+    # Command file for rest of config
+    pythia.readFile("src/parnassus/tests/HZZ4l.cmnd")
 
-        if not pythia.init():
-            print("test_pythia::test_pythia8_to_hepmc3: Pythia initialization failed!")
-            return
+    if not pythia.init():
+        print("test_pythia::test_pythia8_to_hepmc3: Pythia initialization failed!")
+        return
 
-        converter = Pythia8ToHepMC3()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".hepmc") as f:
-            fpath_out = f.name
+    converter = Pythia8ToHepMC3()
+    with tempfile.NamedTemporaryFile(suffix=".hepmc") as f:
+        fpath_out = str(f.name)
 
-        writer = pyhepmc.io.WriterAscii(fpath_out)
-        n_written = 0
-        idx_event = 0
-        while n_written < N_EVENTS:
-            if not pythia.next():
-                continue  # event failed, try again
+        with pyhepmc.open(fpath_out, "w") as f_out:
+            n_written = 0
+            idx_event = 0
+            while n_written < N_EVENTS:
+                if not pythia.next():
+                    continue  # event failed, try again
 
-            hepmc_event = converter.fill_next_event(pythia, idx_event)
-            writer.write_event(hepmc_event)
-            n_written += 1
-            idx_event += 1
+                hepmc_event = converter.fill_next_event(pythia, idx_event)
+                f_out.write(hepmc_event)
+                n_written += 1
+                idx_event += 1
 
-            # Note: progress messages will also be suppressed inside this context
-
+                # Note: progress messages will also be suppressed inside this context
         pythia.stat()
-        writer.close()
 
-    print(f"Pythia8ToHepMC3: Generated {N_EVENTS} events")
+        print(f"Pythia8ToHepMC3: Generated {N_EVENTS} events")
 
-    # Compare against C++ benchmark #############
-    match, message, _ = compare_hepmc_files(
-        fpath_benchmark,
-        fpath_out,
-        N_EVENTS,
-        verbose=True,  # Print details for each event
-        check_particle_ordering=False,  # Don't require same particle order
-        check_event_number=True,
-    )
-    assert match, f"Pythia8ToHepMC3: HepMC files do not match! {message}"
+        # Compare against C++ benchmark #############
+        match, message, _ = compare_hepmc_files(
+            fpath_benchmark,
+            fpath_out,
+            N_EVENTS,
+            verbose=True,  # Print details for each event
+            check_particle_ordering=False,  # Don't require same particle order
+            check_event_number=True,
+        )
+        assert match, f"Pythia8ToHepMC3: HepMC files do not match! {message}"
 
 
 def test_hepmc3_generator():
@@ -560,8 +517,8 @@ def test_hepmc3_generator():
     # So that is all the methods of HepMC3Generator covered
 
     with (
-        tempfile.TemporaryDirectory(delete=False) as log_dir,
-        tempfile.TemporaryDirectory(delete=False) as output_dir,
+        tempfile.TemporaryDirectory() as log_dir,
+        tempfile.TemporaryDirectory() as output_dir,
     ):
         generator = HepMC3Generator(
             cmnd_file="src/parnassus/tests/HZZ4l.cmnd",
