@@ -29,7 +29,7 @@ pip install .
 
 ## Development
 
-For development, we recommend using [`uv`](https://docs.astral.sh/uv/), a fast Python package installer and resolver. 
+For development, we recommend using [`uv`](https://docs.astral.sh/uv/), a fast Python package installer and resolver.
 
 Install uv with one of the following methods:
 
