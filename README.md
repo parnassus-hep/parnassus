@@ -1,24 +1,57 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Parnassus docs](https://img.shields.io/badge/info-documentation-informational)](https://parnassus-hep.github.io/parnassus/)
 
 
+![Testing workflow](https://github.com/parnassus-hep/parnassus/actions/workflows/test.yml/badge.svg)
+![Linting workflow](https://github.com/parnassus-hep/parnassus/actions/workflows/lint.yml/badge.svg)
+![Pages workflow](https://github.com/parnassus-hep/parnassus/actions/workflows/docs.yml/badge.svg)
 
 # Parnassus
 
 ## Installation
 
-To install the `Parnassus` package, ensure you have Python 3.10 or 3.11 and [uv](https://github.com/astral-sh/uv) installed. Then run:
+Parnassus requires Python 3.12.
+
+We recommend using [`uv`](https://github.com/astral-sh/uv) to manage dependencies and install the package.
 
 ```bash
 # Clone the repository
 git clone https://github.com/parnassus-hep/parnassus.git
 cd parnassus
 
-# Install package and all dependencies
+# Install with uv
 uv sync --all-extras
+
+# Or install with pip
+pip install .
 ```
 
 ## Development
+
+For development, we recommend using [`uv`](https://docs.astral.sh/uv/), a fast Python package installer and resolver. 
+
+Install uv with one of the following methods:
+
+```bash
+# On macOS and Linux
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# On Windows
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Or with pip (If installing from PyPI, we recommend installing uv into an isolated environment)
+pip install uv
+```
+
+Then clone the repository and install `Parnassus` with all development dependencies:
+
+```bash
+git clone https://github.com/parnassus-hep/parnassus.git
+cd parnassus
+uv sync --all-extras
+```
+This installs `Parnassus` in editable mode, along with development tools for testing, linting, and type checking.
 
 Set up and run pre-commit hooks (ruff, mypy, basedpyright) with:
 
@@ -42,16 +75,24 @@ gdown --folder https://drive.google.com/drive/folders/1W-V_rU6lRmtuaOclj3gYB1qJS
 
 ## Running the Package
 
-To copy the default neural and parametric configuration files to the current directory:
+Copy the default neural and parametric configuration files to the current directory:
 
 ```bash
+# uv installation
 uv run parnassus init
+
+# pip installation
+parnassus init
 ```
 
-To run the `parnassus` package:
+Run `Parnassus` with a configuration file:
 
 ```bash
+# uv installation
 uv run parnassus run -c <config-file> -i <input-file> -ne <num-events> -bs <batch-size> -o <output-file>
+
+# pip installation
+parnassus run -c <config-file> -i <input-file> -ne <num-events> -bs <batch-size> -o <output-file>
 ```
 
 ### Generator Modes
@@ -61,13 +102,21 @@ Parnassus supports two simulation backends, selected via the `generator.type` fi
 **Neural** (`generator.type: "neural"`): uses flow-based generative models to simulate detector response.
 
 ```bash
+# With uv installation
 uv run parnassus run -c src/parnassus/configs/neural_config.yaml -i input.hepmc -ne 100 -bs 10 -o output.root
+
+# With pip installation
+parnassus run -c src/parnassus/configs/neural_config.yaml -i input.hepmc -ne 100 -bs 10 -o output.root
 ```
 
 **Parametric** (`generator.type: "parametric"`): uses `torch_delphes`, a PyTorch-based fast detector simulation that reproduces Delphes-like smearing and efficiencies. Supported detector cards: `"cms"` and `"atlas"`.
 
 ```bash
+# With uv installation
 uv run parnassus run -c src/parnassus/configs/parametric_config.yaml -i input.hepmc -ne 100 -bs 10 -o output.root
+
+# With pip installation
+parnassus run -c src/parnassus/configs/parametric_config.yaml -i input.hepmc -ne 100 -bs 10 -o output.root
 ```
 
 ### Input Formats
