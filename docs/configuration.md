@@ -99,8 +99,9 @@ These execution controls are supported by both `cluster` and `isolation` pipelin
 |-------|------|---------|-------------|
 | `type` | string | -- | `"cluster"` |
 | `collection` | string | `"pflow"` | `"truth"` or `"pflow"` |
-| `algorithm` | string | `"antikt"` | `"antikt"` or `"genkt"` |
+| `algorithm` | string | `"antikt"` | `"antikt"`, `"cambridge"`, `"genkt"`, or `"ee-genkt"` |
 | `dr` | float | `0.5` | Jet radius |
+| `algorithm_param` | float | *none* | Extra *p* parameter for `"genkt"` / `"ee-genkt"` (required for those algorithms) |
 | `pt_min` | float | `0` | Minimum jet pT (GeV) |
 | `nconst_min` | integer | `2` | Minimum constituents |
 

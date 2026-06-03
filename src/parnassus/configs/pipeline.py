@@ -1,7 +1,13 @@
 from dataclasses import dataclass, field, fields
 from typing import Any, Self
 
-from fastjet import JetDefinition, antikt_algorithm, ee_genkt_algorithm
+from fastjet import (
+    JetDefinition,
+    antikt_algorithm,
+    cambridge_algorithm,
+    ee_genkt_algorithm,
+    genkt_algorithm,
+)
 
 
 @dataclass(slots=True)
@@ -40,12 +46,18 @@ class JetClusteringConfig(GenPipelineConfig):
     ----------
     name : str
         Name of the clustering pipeline.
-    algorithm : str, optional
-        Jet clustering algorithm to use ("antikt" or "genkt"), by default "antikt".
     collection : str, optional
         Particle collection to cluster ("pflow" or "truth"), by default "pflow".
+    algorithm : str, optional
+        Jet clustering algorithm to use ("ee-genkt", "genkt", "antikt", or "cambridge"),
+        by default "antikt".
     dr : float, optional
         Jet radius parameter, by default 0.5.
+    algorithm_param : float, optional
+        Additional parameter for the jet algorithm,
+        used for "ee-genkt" and "genkt" algorithms to specify the p parameter
+        (p=1 for kt, p=0 for Cambridge/Aachen, p=-1 for anti-kt).
+        By default None, which means it must be set for the relevant algorithms.
     nconst_min : int, optional
         Minimum number of constituents for a jet to be kept, by default 2.
     pt_min : float, optional
@@ -57,9 +69,12 @@ class JetClusteringConfig(GenPipelineConfig):
         Used to suppress FastJet output.
     """
 
-    algorithm: str = "antikt"
     collection: str = "pflow"
+
+    algorithm: str = "antikt"
     dr: float = 0.5
+    algorithm_param: float | None = None
+
     nconst_min: int = 2
     pt_min: float = 0
     num_processes: int = 1
@@ -69,10 +84,24 @@ class JetClusteringConfig(GenPipelineConfig):
     jet_definition: JetDefinition = field(init=False)
 
     def __post_init__(self):
-        if self.algorithm == "genkt":
-            self.jet_definition = JetDefinition(ee_genkt_algorithm, self.dr, -1.0)
+        if self.algorithm == "ee-genkt":
+            assert self.algorithm_param is not None, (
+                "algorithm_param must be set for ee-genkt algorithm,"
+                " it corresponds to the p parameter of the algorithm "
+                "(p=1 for kt, p=0 for Cambridge/Aachen, p=-1 for anti-kt)"
+            )
+            self.jet_definition = JetDefinition(ee_genkt_algorithm, self.dr, self.algorithm_param)
+        elif self.algorithm == "genkt":
+            assert self.algorithm_param is not None, (
+                "algorithm_param must be set for genkt algorithm,"
+                " it corresponds to the p parameter of the algorithm "
+                "(p=1 for kt, p=0 for Cambridge/Aachen, p=-1 for anti-kt)"
+            )
+            self.jet_definition = JetDefinition(genkt_algorithm, self.dr, self.algorithm_param)
         elif self.algorithm == "antikt":
             self.jet_definition = JetDefinition(antikt_algorithm, self.dr)
+        elif self.algorithm == "cambridge":
+            self.jet_definition = JetDefinition(cambridge_algorithm, self.dr)
         else:
             raise NotImplementedError(f"Jet algorithm {self.algorithm} is not supported!")
         if self.collection not in {"pflow", "truth"}:

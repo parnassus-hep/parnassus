@@ -1,6 +1,9 @@
+from typing import Any
+
 import fastjet as fj
 import numpy as np
 import pytest
+from awkward.highlevel import Array, Record
 
 from parnassus.configs.pipeline import JetClusteringConfig
 from parnassus.configs.scheme import GenEvent, GenParticleCollection
@@ -27,22 +30,31 @@ def test_get_cluster_sequence(mock_particle_collection: GenParticleCollection):
     user_indices = list(range(len(mock_particle_collection)))
     # Extract numpy arrays from awkward array
     px = np.array([v.px.item() for v in four_vectors])  # type: ignore
-    py = np.array([v.py.item() for v in four_vectors])
-    pz = np.array([v.pz.item() for v in four_vectors])
-    E = np.array([v.E.item() for v in four_vectors])
+    py = np.array([v.py.item() for v in four_vectors])  # type: ignore
+    pz = np.array([v.pz.item() for v in four_vectors])  # type: ignore
+    E = np.array([v.E.item() for v in four_vectors])  # type: ignore
     cs = get_cluster_sequence(jetdef, px, py, pz, E, user_indices)
     assert len(cs.inclusive_jets(0.0)) == 1, "Expected to have one jet."
-    assert len(cs.inclusive_jets(0.0)[0].constituents()) == 3, (
+    assert len(cs.inclusive_jets(0.0)[0].constituents()) == 3, (  # type: ignore
         "Expected to have 3 particles in jet."
     )
 
 
-def test_cluster_jets(mock_particle_collection: GenParticleCollection):
+@pytest.mark.parametrize("algorithm", ["antikt", "ee-genkt", "genkt", "cambridge"])
+def test_cluster_jets(algorithm: str, mock_particle_collection: GenParticleCollection):
     """Test cluster_jets function."""
     from parnassus.pipelines.cluster import cluster_jets
 
+    algorithm_param = None
+    if algorithm in {"genkt", "ee-genkt"}:
+        algorithm_param = -1.0  # Use anti-kt behavior for genkt algorithms in this test
     config = JetClusteringConfig(
-        name="test_cluster", algorithm="antikt", dr=0.4, nconst_min=2, pt_min=0
+        name="test_cluster",
+        algorithm=algorithm,
+        dr=0.4,
+        nconst_min=2,
+        pt_min=0,
+        algorithm_param=algorithm_param,
     )
     # Convert GenParticleCollection to particle data dictionary
     four_vectors = mock_particle_collection.get4vecs_numpy()
@@ -82,15 +94,17 @@ def mock_fj_jet_cs():
 
 
 @pytest.fixture
-def mock_jet(mock_fj_jet_cs) -> Jet:
+def mock_jet(mock_fj_jet_cs: tuple[Any | str | bytes | Array | Record, fj.ClusterSequence]) -> Jet:
     mock_fj_jet, _ = mock_fj_jet_cs
-    return Jet(mock_fj_jet[0], dr=0.4, calc_substructure=True)
+    return Jet(mock_fj_jet[0], dr=0.4, calc_substructure=True)  # type: ignore
 
 
-def test_jet_init_basic(mock_fj_jet_cs):
+def test_jet_init_basic(
+    mock_fj_jet_cs: tuple[Any | str | bytes | Array | Record, fj.ClusterSequence],
+):
     """Test basic Jet initialization without substructure calculation."""
     mock_fj_jet, _ = mock_fj_jet_cs
-    jet = Jet(mock_fj_jet[0], dr=0.4, calc_substructure=False)
+    jet = Jet(mock_fj_jet[0], dr=0.4, calc_substructure=False)  # type: ignore
     assert jet.dR == 0.4  # noqa: RUF069
     assert jet.nconstituents == 3
     assert len(jet.constituents_pt) == 3

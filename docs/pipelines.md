@@ -27,8 +27,9 @@ Performs jet clustering using FastJet. Groups particles into jets based on a dis
 |-----------|------|---------|-------------|
 | `type` | string | -- | Must be `"cluster"` |
 | `collection` | string | `"pflow"` | Particle collection to cluster: `"truth"` or `"pflow"` |
-| `algorithm` | string | `"antikt"` | Clustering algorithm: `"antikt"` or `"genkt"` |
+| `algorithm` | string | `"antikt"` | Clustering algorithm: `"antikt"`, `"cambridge"`, `"genkt"`, or `"ee-genkt"` |
 | `dr` | float | `0.5` | Jet radius parameter |
+| `algorithm_param` | float | *none* | Extra algorithm parameter (the *p* exponent for `"genkt"` and `"ee-genkt"`: *p* = 1 for kt, 0 for Cambridge/Aachen, −1 for anti-kt). Required when using `"genkt"` or `"ee-genkt"`. |
 | `pt_min` | float | `0` | Minimum jet transverse momentum in GeV |
 | `nconst_min` | integer | `2` | Minimum number of jet constituents |
 
