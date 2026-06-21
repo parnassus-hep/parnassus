@@ -27,3 +27,55 @@ def test_pipeline_execution_controls_are_loaded():
     assert isinstance(isolation, IsolationConfig)
     assert isolation.batch_size == 19
     assert isolation.num_processes == 4
+
+
+def test_particle_filtering_config_from_dict():
+    from parnassus.configs.pipeline import (
+        FilterCondition,
+        ParticleFilteringConfig,
+        get_pipeline_config,
+    )
+
+    cfg = get_pipeline_config(
+        "TruthFilter",
+        {
+            "type": "filter",
+            "collection": "truth",
+            "combine": "all",
+            "conditions": [
+                {"field": "pt", "op": ">", "value": 0.5},
+                {"field": "eta", "op": "<=", "value": 2.5, "abs": True},
+                {"field": "pdg_id", "op": "not in", "value": [12, 14, 16]},
+            ],
+        },
+    )
+
+    assert isinstance(cfg, ParticleFilteringConfig)
+    assert cfg.name == "TruthFilter"
+    assert cfg.collection == "truth"
+    assert cfg.combine == "all"
+    assert len(cfg.conditions) == 3
+    assert all(isinstance(c, FilterCondition) for c in cfg.conditions)
+    assert cfg.conditions[1].abs is True
+    assert cfg.conditions[2].value == [12, 14, 16]
+
+
+def test_particle_filtering_config_validates_op():
+    import pytest
+
+    from parnassus.configs.pipeline import ParticleFilteringConfig
+
+    with pytest.raises(ValueError, match="Unsupported filter op"):
+        ParticleFilteringConfig(
+            name="bad",
+            conditions=[{"field": "pt", "op": "=>", "value": 1}],  # type: ignore[list-item]
+        )
+
+
+def test_particle_filtering_config_validates_combine():
+    import pytest
+
+    from parnassus.configs.pipeline import ParticleFilteringConfig
+
+    with pytest.raises(ValueError, match="combine"):
+        ParticleFilteringConfig(name="bad", combine="xor")

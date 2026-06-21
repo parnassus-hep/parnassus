@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field, fields
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 
 from fastjet import (
     JetDefinition,
@@ -138,6 +138,79 @@ class IsolationConfig(GenPipelineConfig):
             raise ValueError(f'Only positive values of "dR" are supported, asked for {self.dr}')
 
 
+@dataclass(slots=True)
+class FilterCondition:
+    """A single declarative cut applied to one field of a collection.
+
+    Parameters
+    ----------
+    field : str
+        Attribute name on the target collection (array attribute or property).
+    op : str
+        Comparison operator: one of >, >=, <, <=, ==, !=, in, not in.
+    value : float | int | list
+        Scalar for comparison ops; a list/sequence for ``in`` / ``not in``.
+    abs : bool, optional
+        If True, compare ``np.abs(field)`` instead of ``field``, by default False.
+    """
+
+    field: str
+    op: str
+    value: Any
+    abs: bool = False
+
+
+@dataclass(slots=True)
+class ParticleFilteringConfig(GenPipelineConfig):
+    """Configuration for the particle filtering pipeline.
+
+    Parameters
+    ----------
+    collection : str, optional
+        Target collection: "truth", "pflow", "electrons", "muons", or a key in
+        ``event.collections`` (e.g. "Track", "Tower"). By default "pflow".
+    combine : str, optional
+        How to combine conditions: "all" (AND) or "any" (OR), by default "all".
+    conditions : list[FilterCondition], optional
+        Conditions to apply. Particles failing the combined mask are dropped.
+    """
+
+    SUPPORTED_OPS: ClassVar[frozenset[str]] = frozenset({
+        ">",
+        ">=",
+        "<",
+        "<=",
+        "==",
+        "!=",
+        "in",
+        "not in",
+    })
+
+    collection: str = "pflow"
+    combine: str = "all"
+    conditions: list[FilterCondition] = field(default_factory=list)
+
+    def __post_init__(self):
+        # Allow conditions supplied as plain dicts (from YAML) and convert them.
+        self.conditions = [
+            c if isinstance(c, FilterCondition) else FilterCondition(**c) for c in self.conditions
+        ]
+        if self.combine not in {"all", "any"}:
+            raise ValueError(
+                f'Requested combine="{self.combine}", only "all" and "any" are supported.'
+            )
+        for cond in self.conditions:
+            if cond.op not in self.SUPPORTED_OPS:
+                raise ValueError(
+                    f"Unsupported filter op '{cond.op}'. Supported: {sorted(self.SUPPORTED_OPS)}"
+                )
+            if cond.op in {"in", "not in"} and not isinstance(cond.value, (list, tuple, set)):
+                raise ValueError(
+                    f"Op '{cond.op}' on field '{cond.field}' requires a list value, "
+                    f"got {type(cond.value).__name__}."
+                )
+
+
 def get_pipeline_config(name: str, config: dict[str, Any]) -> GenPipelineConfig:
     """Factory function to create pipeline configuration objects.
 
@@ -158,5 +231,7 @@ def get_pipeline_config(name: str, config: dict[str, Any]) -> GenPipelineConfig:
             return JetClusteringConfig.from_dict(name=name, config=config)
         case "isolation":
             return IsolationConfig.from_dict(name=name, config=config)
+        case "filter":
+            return ParticleFilteringConfig.from_dict(name=name, config=config)
         case _:
             return GenPipelineConfig(name=name)
