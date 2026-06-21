@@ -167,9 +167,10 @@ def get_charge_from_pdg_id(pids: np.ndarray) -> np.ndarray:
     charges : np.ndarray
         NumPy array of electric charges
     """
-    unique_pids = np.unique(pids)
-    charge_map = {pid: _get_pdg_charge(int(pid)) for pid in unique_pids}
-    return np.array([charge_map[pid] for pid in pids], dtype=np.float64)
+    pids = np.asarray(pids)
+    unique_pids, inverse = np.unique(pids, return_inverse=True)
+    charges = np.array([_get_pdg_charge(int(pid)) for pid in unique_pids], dtype=np.float64)
+    return charges[inverse.reshape(-1)]
 
 
 def get_mass_from_pdg_id(pids: np.ndarray) -> np.ndarray:
@@ -198,6 +199,81 @@ def get_mass_from_pdg_id(pids: np.ndarray) -> np.ndarray:
 
 
 # ==================== PARTICLE CONVERSION ====================
+
+
+def compute_eta(pt: np.ndarray, pz: np.ndarray) -> np.ndarray:
+    """Pseudorapidity with the C++ Delphes convention for zero-pt particles.
+
+    Returns ``±999.9`` (sign of ``pz``) for particles with ``pt < PT_MIN`` and
+    ``0.0`` when both ``pt`` and ``pz`` vanish.
+
+    Returns
+    -------
+    np.ndarray
+        Pseudorapidity values, same shape as ``pt``.
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        eta = np.where(pt < PT_MIN, np.sign(pz) * 999.9, np.arcsinh(pz / pt))
+    return np.where((pt < PT_MIN) & (pz == 0), 0.0, eta)
+
+
+def build_particle_array(
+    pid: np.ndarray,
+    status: np.ndarray,
+    e: np.ndarray,
+    px: np.ndarray,
+    py: np.ndarray,
+    pz: np.ndarray,
+    mass: np.ndarray,
+    x: np.ndarray,
+    y: np.ndarray,
+    z: np.ndarray,
+    t: np.ndarray,
+    event_number: np.ndarray | float,
+) -> np.ndarray:
+    """Assemble an ``(N, N_FEATURES)`` ColumnMap array from raw per-particle arrays.
+
+    Derives ``pt``, ``phi``, ``eta`` and the PDG charge; all other columns are
+    copied verbatim.  Shared by :func:`hepmc_particles_to_tensor` and the
+    line-based HepMC reader so both produce identical tensors.
+
+    Parameters
+    ----------
+    pid, status, e, px, py, pz, mass, x, y, z, t : np.ndarray
+        Per-particle physics quantities, each of shape ``(N,)``.
+    event_number : np.ndarray | float
+        Scalar or per-particle event number written to the ``EVENT_NUMBER`` column.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape ``(N, N_FEATURES)`` in :class:`ColumnMap` layout.
+    """
+    n = len(pid)
+    pt = np.sqrt(px * px + py * py)
+    phi = np.arctan2(py, px)
+    eta = compute_eta(pt, pz)
+    charges = get_charge_from_pdg_id(np.asarray(pid, dtype=np.int64))
+
+    arr = np.zeros((n, N_FEATURES), dtype=np.float64)
+    arr[:, ColumnMap.PID] = pid
+    arr[:, ColumnMap.STATUS] = status
+    arr[:, ColumnMap.CHARGE] = charges
+    arr[:, ColumnMap.E] = e
+    arr[:, ColumnMap.PX] = px
+    arr[:, ColumnMap.PY] = py
+    arr[:, ColumnMap.PZ] = pz
+    arr[:, ColumnMap.PT] = pt
+    arr[:, ColumnMap.ETA] = eta
+    arr[:, ColumnMap.PHI] = phi
+    arr[:, ColumnMap.T] = t
+    arr[:, ColumnMap.X] = x
+    arr[:, ColumnMap.Y] = y
+    arr[:, ColumnMap.Z] = z
+    arr[:, ColumnMap.MASS] = mass
+    arr[:, ColumnMap.EVENT_NUMBER] = event_number
+    # ETA_OUTER, PHI_OUTER computed by ParticlePropagator
+    return arr
 
 
 def hepmc_particles_to_tensor(
@@ -263,45 +339,20 @@ def hepmc_particles_to_tensor(
     else:
         masses = get_mass_from_pdg_id(pids)
 
-    # ===== VECTORIZED COMPUTATIONS =====
-    e = momenta[:, 0]
-    px = momenta[:, 1]
-    py = momenta[:, 2]
-    pz = momenta[:, 3]
-
-    pt = np.sqrt(px**2 + py**2)
-    phi = np.arctan2(py, px)
-
-    # Match C++ Delphes: use ±999.9 for zero-pt particles
-    eta = np.where(
-        pt < PT_MIN,
-        np.sign(pz) * 999.9,
-        np.arcsinh(pz / pt),
+    particles = build_particle_array(
+        pid=pids,
+        status=statuses,
+        e=momenta[:, 0],
+        px=momenta[:, 1],
+        py=momenta[:, 2],
+        pz=momenta[:, 3],
+        mass=masses,
+        x=vertices[:, 0],
+        y=vertices[:, 1],
+        z=vertices[:, 2],
+        t=vertices[:, 3],
+        event_number=event_number,
     )
-    eta = np.where((pt < PT_MIN) & (pz == 0), 0.0, eta)
-
-    charges = get_charge_from_pdg_id(pids)
-
-    # ===== BUILD TENSOR =====
-    particles = np.zeros((n_particles, N_FEATURES), dtype=np.float64)
-    particles[:, ColumnMap.PID] = pids
-    particles[:, ColumnMap.STATUS] = statuses
-    particles[:, ColumnMap.CHARGE] = charges
-    particles[:, ColumnMap.E] = e
-    particles[:, ColumnMap.PX] = px
-    particles[:, ColumnMap.PY] = py
-    particles[:, ColumnMap.PZ] = pz
-    particles[:, ColumnMap.PT] = pt
-    particles[:, ColumnMap.ETA] = eta
-    particles[:, ColumnMap.PHI] = phi
-    particles[:, ColumnMap.T] = vertices[:, 3]
-    particles[:, ColumnMap.X] = vertices[:, 0]
-    particles[:, ColumnMap.Y] = vertices[:, 1]
-    particles[:, ColumnMap.Z] = vertices[:, 2]
-    particles[:, ColumnMap.MASS] = masses
-    particles[:, ColumnMap.EVENT_NUMBER] = event_number
-    # ETA_OUTER, PHI_OUTER computed by ParticlePropagator
-
     return torch.from_numpy(particles).to(dtype)
 
 
