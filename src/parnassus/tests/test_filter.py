@@ -147,3 +147,22 @@ def test_unknown_collection_raises():
 def test_get_accessors_empty():
     cfg = ParticleFilteringConfig(name="f", collection="truth")
     assert ParticleFilteringPipeline(cfg).get_accessors() == {}
+
+
+def test_pipeline_exported_from_package():
+    from parnassus.pipelines import ParticleFilteringPipeline as Exported
+
+    assert Exported is ParticleFilteringPipeline
+
+
+def test_runs_before_clustering_sees_survivors():
+    # Filtering pflow then accessing the collection reflects the cut.
+    event = make_event()
+    cfg = ParticleFilteringConfig(
+        name="f",
+        collection="pflow",
+        conditions=[{"field": "pt", "op": ">=", "value": 15.0}],  # type: ignore[list-item]
+    )
+    ParticleFilteringPipeline(cfg).process([event])
+    assert event.pflow_particles.num_particles == 1
+    assert event.pflow_particles.pt[0] == 20.0

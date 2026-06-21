@@ -6,8 +6,13 @@ from pathlib import Path
 
 from parnassus.configs import Config
 from parnassus.configs.generators import NeuralGeneratorConfig, ParametricGeneratorConfig
-from parnassus.configs.pipeline import IsolationConfig, JetClusteringConfig
-from parnassus.pipelines import GenerationPipeline, IsolationPipeline, JetClusteringPipeline
+from parnassus.configs.pipeline import IsolationConfig, JetClusteringConfig, ParticleFilteringConfig
+from parnassus.pipelines import (
+    GenerationPipeline,
+    IsolationPipeline,
+    JetClusteringPipeline,
+    ParticleFilteringPipeline,
+)
 from parnassus.utils.logger import setup_logger
 from parnassus.writers import RootWriter
 
@@ -144,7 +149,7 @@ def main(args: Sequence[str] | None = None) -> None:
         gen_events, accessors_dict = generation_pipeline.run()
         accessor_store.update_from_dict(accessors_dict)
         log.info("[green]Starting postprocessing.")
-        pipeline: JetClusteringPipeline | IsolationPipeline
+        pipeline: JetClusteringPipeline | IsolationPipeline | ParticleFilteringPipeline
         for pipeline_config in config.pipeline_configs:
             if isinstance(pipeline_config, JetClusteringConfig):
                 pipeline = JetClusteringPipeline(pipeline_config)
@@ -152,6 +157,10 @@ def main(args: Sequence[str] | None = None) -> None:
                 accessor_store.update_from_dict(pipeline.get_accessors())
             elif isinstance(pipeline_config, IsolationConfig):
                 pipeline = IsolationPipeline(pipeline_config)
+                pipeline.process(gen_events)
+                accessor_store.update_from_dict(pipeline.get_accessors())
+            elif isinstance(pipeline_config, ParticleFilteringConfig):
+                pipeline = ParticleFilteringPipeline(pipeline_config)
                 pipeline.process(gen_events)
                 accessor_store.update_from_dict(pipeline.get_accessors())
         log.info("[green]Postprocessing completed.")
