@@ -72,6 +72,18 @@ def test_particle_filtering_config_validates_op():
         )
 
 
+def test_particle_filtering_config_in_op_requires_list():
+    import pytest
+
+    from parnassus.configs.pipeline import ParticleFilteringConfig
+
+    with pytest.raises(ValueError, match="requires a list value"):
+        ParticleFilteringConfig(
+            name="bad",
+            conditions=[{"field": "pdg_id", "op": "in", "value": 12}],  # type: ignore[list-item]
+        )
+
+
 def test_particle_filtering_config_validates_combine():
     import pytest
 
