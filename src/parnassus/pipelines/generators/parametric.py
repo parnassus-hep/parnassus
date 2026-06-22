@@ -25,6 +25,7 @@ from parnassus.configs.scheme import (
 from parnassus.data.particle_io import ColumnMap
 from parnassus.pipelines.pileup import DelphesPileUpMerger
 from parnassus.torch_delphes.defaults import (
+    ALEPHEnergyFlowDefault,
     ATLASEnergyFlowDefault,
     CMSEnergyFlowDefault,
 )
@@ -39,6 +40,7 @@ T_SCALE_CONVERSION = 1e-3 / 299792458.0  # Convert mm/c to seconds for Delphes c
 _CARD_REGISTRY: dict[str, type[DelphesBaseCard]] = {
     "cms": CMSEnergyFlowDefault,
     "atlas": ATLASEnergyFlowDefault,
+    "aleph": ALEPHEnergyFlowDefault,
 }
 
 # All fields produced by the detector card for particles and tracks.

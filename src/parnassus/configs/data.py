@@ -39,6 +39,7 @@ class DatasetConfig:
     entry_start: int = 0
     batch_loading: bool = False
     batch_size: int | None = None
+    truth_pt_cut: float | None = None
 
     def __post_init__(self):
         if isinstance(self.file_path, str):
@@ -92,4 +93,5 @@ class DatasetConfig:
             entry_start=config.get("entry_start", 0),
             batch_loading=config.get("batch_loading", False),
             batch_size=config.get("batch_size"),
+            truth_pt_cut=generator_config.truth_pt_cut,
         )

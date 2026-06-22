@@ -1,7 +1,7 @@
 """Generator configuration abstractions for different event generation backends."""
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(slots=True)
@@ -15,6 +15,9 @@ class GeneratorConfig(ABC):
 
     name: str
     type: str  # Generator type: "neural", "parametric", etc.
+    # Optional pt cut for truth particles (used by neural generators). Keyword-only with a
+    # default so subclasses can declare non-default fields (e.g. ``card``) after it.
+    truth_pt_cut: float | None = field(default=None, kw_only=True)
 
     @abstractmethod
     def get_max_particles(self) -> int:

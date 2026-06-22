@@ -87,6 +87,10 @@ class SimpleCalorimeter(nn.Module):
             self.resolution_func = self._ecal_atlas_resolution
         elif resolution_formula == "hcal_atlas":
             self.resolution_func = self._hcal_atlas_resolution
+        elif resolution_formula == "ecal_aleph":
+            self.resolution_func = self._ecal_aleph_resolution
+        elif resolution_formula == "hcal_aleph":
+            self.resolution_func = self._hcal_aleph_resolution
         elif callable(resolution_formula):
             self.resolution_func = resolution_formula
         else:
@@ -1094,3 +1098,27 @@ class SimpleCalorimeter(nn.Module):
         smeared = torch.where(mean > 0, smeared, torch.zeros_like(smeared))
 
         return smeared
+
+    @staticmethod
+    def _ecal_aleph_resolution(eta: torch.Tensor, energy: torch.Tensor) -> torch.Tensor:
+        abs_eta = torch.abs(eta)
+        res = torch.zeros_like(energy)
+        mask = abs_eta <= 2.5
+        # The TCL card implements: sqrt( (0.07 / sqrt(energy))^2 + (0.02)^2 )
+        res = torch.where(
+            mask,
+            torch.sqrt((0.07 / torch.sqrt(torch.clamp(energy, min=1e-10))) ** 2 + 0.02**2),
+            res,
+        )
+        return res
+
+    @staticmethod
+    def _hcal_aleph_resolution(eta: torch.Tensor, energy: torch.Tensor) -> torch.Tensor:
+        abs_eta = torch.abs(eta)
+        res = torch.zeros_like(energy)
+        mask = abs_eta <= 2.5
+        # The TCL card implements:  sqrt( (0.6 / sqrt(energy))^2 + (0.06)^2 )
+        res = torch.where(
+            mask, torch.sqrt((0.6 / torch.sqrt(torch.clamp(energy, min=1e-10))) ** 2 + 0.06**2), res
+        )
+        return res

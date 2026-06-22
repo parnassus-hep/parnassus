@@ -65,6 +65,9 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
     ) -> None:
         super().__init__()
         self.cfg = cfg
+        # Fall back to the historical default (0.25 GeV) when unset so that
+        # DatasetConfigs built directly (e.g. in tests) don't hit a None comparison.
+        self.truth_pt_cut = cfg.truth_pt_cut if cfg.truth_pt_cut is not None else 0.25
         self.var_transform_dict: dict[str, VarTransform] = var_transform_dict or {}
         self.ctxt_vars: list[str] = cfg.variable_requirements.ctxt_vars_stripped
         self.ctxt_global_vars: list[str] = cfg.variable_requirements.ctxt_global_vars_stripped
@@ -85,8 +88,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
                 self._valid_idx.append(i)
                 self._event_numbers.append(int(item["event_number"]))
 
-    @staticmethod
-    def _selection_mask(p: Tensor) -> Tensor:
+    def _selection_mask(self, p: Tensor) -> Tensor:
         """Return boolean mask selecting neural-cut particles from a ColumnMap tensor.
 
         Returns
@@ -98,7 +100,7 @@ class NeuralAdapter(Dataset[dict[str, Tensor]]):
         return (
             (p[:, ColumnMap.STATUS] == 1)
             & (p[:, ColumnMap.ETA].abs() < 2.7)
-            & (p[:, ColumnMap.PT] > 0.25)
+            & (p[:, ColumnMap.PT] > self.truth_pt_cut)
             & (abs_pid != 12)
             & (abs_pid != 14)
             & (abs_pid != 16)

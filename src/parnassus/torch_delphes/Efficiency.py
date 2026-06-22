@@ -87,6 +87,15 @@ class Efficiency(nn.Module):
         elif self.efficiency_formula == "muon_cms":
             self.efficiency_func = self._muon_cms_efficiency
             self.pdg_filter_func = pdg_filters.muon_filter
+        elif self.efficiency_formula == "charged_hadron_aleph":
+            self.efficiency_func = self._charged_hadron_aleph_efficiency
+            self.pdg_filter_func = pdg_filters.charged_hadron_filter
+        elif self.efficiency_formula == "electron_aleph":
+            self.efficiency_func = self._electron_aleph_efficiency
+            self.pdg_filter_func = pdg_filters.electron_filter
+        elif self.efficiency_formula == "muon_aleph":
+            self.efficiency_func = self._muon_aleph_efficiency
+            self.pdg_filter_func = pdg_filters.muon_filter
         elif callable(self.efficiency_formula):
             self.efficiency_func = self.efficiency_formula
             self.pdg_filter_func = None
@@ -254,4 +263,30 @@ class Efficiency(nn.Module):
         eff6 = 0.98 * torch.exp(0.5 - pt * 5.0e-4)
         eff = torch.where(mask6, eff6, eff)
 
+        return eff
+
+    @staticmethod
+    def _charged_hadron_aleph_efficiency(pt: torch.Tensor, eta_outer: torch.Tensor) -> torch.Tensor:
+        abs_eta_outer = torch.abs(eta_outer)
+        eff = torch.zeros_like(pt)
+        mask1 = (pt > 0.1) & (abs_eta_outer <= 1.5)
+        eff = torch.where(mask1, torch.tensor(0.98, device=pt.device), eff)
+        mask2 = (pt > 0.1) & (abs_eta_outer > 1.5) & (abs_eta_outer <= 2.5)
+        eff = torch.where(mask2, torch.tensor(0.95, device=pt.device), eff)
+        return eff
+
+    @staticmethod
+    def _electron_aleph_efficiency(pt: torch.Tensor, eta_outer: torch.Tensor) -> torch.Tensor:
+        abs_eta_outer = torch.abs(eta_outer)
+        eff = torch.zeros_like(pt)
+        mask1 = (pt > 0.1) & (abs_eta_outer <= 1.5)
+        eff = torch.where(mask1, torch.tensor(0.98, device=pt.device), eff)
+        return eff
+
+    @staticmethod
+    def _muon_aleph_efficiency(pt: torch.Tensor, eta_outer: torch.Tensor) -> torch.Tensor:
+        abs_eta_outer = torch.abs(eta_outer)
+        eff = torch.zeros_like(pt)
+        mask1 = (pt > 0.1) & (abs_eta_outer <= 1.5)
+        eff = torch.where(mask1, torch.tensor(0.99, device=pt.device), eff)
         return eff

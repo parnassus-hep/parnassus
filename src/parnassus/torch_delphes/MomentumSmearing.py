@@ -83,6 +83,12 @@ class MomentumSmearing(nn.Module):
             self.resolution_func = self._electron_cms_momentum_resolution
         elif resolution_formula == "muon_cms":
             self.resolution_func = self._muon_cms_momentum_resolution
+        elif resolution_formula == "charged_hadron_aleph":
+            self.resolution_func = self._charged_hadron_aleph_momentum_resolution
+        elif resolution_formula == "electron_aleph":
+            self.resolution_func = self._electron_aleph_momentum_resolution
+        elif resolution_formula == "muon_aleph":
+            self.resolution_func = self._muon_aleph_momentum_resolution
         elif callable(resolution_formula):
             self.resolution_func = resolution_formula
         else:
@@ -272,4 +278,32 @@ class MomentumSmearing(nn.Module):
         res3 = torch.sqrt(0.10**2 + pt**2 * (2.0e-3) ** 2)
         res = torch.where(mask3, res3, res)
 
+        return res
+
+    @staticmethod
+    def _charged_hadron_aleph_momentum_resolution(
+        pt: torch.Tensor, eta_outer: torch.Tensor
+    ) -> torch.Tensor:
+        abs_eta_outer = torch.abs(eta_outer)
+        res = torch.zeros_like(pt)
+        mask = abs_eta_outer <= 2.5
+        res = torch.where(mask, torch.sqrt((0.0003 * pt) ** 2 + 0.015**2), res)
+        return res
+
+    @staticmethod
+    def _electron_aleph_momentum_resolution(
+        pt: torch.Tensor, eta_outer: torch.Tensor
+    ) -> torch.Tensor:
+        abs_eta_outer = torch.abs(eta_outer)
+        res = torch.zeros_like(pt)
+        mask = abs_eta_outer <= 2.5
+        res = torch.where(mask, torch.sqrt((0.00012 * pt) ** 2 + 0.005**2), res)
+        return res
+
+    @staticmethod
+    def _muon_aleph_momentum_resolution(pt: torch.Tensor, eta_outer: torch.Tensor) -> torch.Tensor:
+        abs_eta_outer = torch.abs(eta_outer)
+        res = torch.zeros_like(pt)
+        mask = abs_eta_outer <= 2.5
+        res = torch.where(mask, torch.sqrt((0.00015 * pt) ** 2 + 0.010**2), res)
         return res

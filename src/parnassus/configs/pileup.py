@@ -36,6 +36,13 @@ class DelphesPileUpConfig:
     sigma_t: float = 160e-12
     smear_hs_vertex: bool = True
 
+    def __post_init__(self):
+        self.mean_pileup = float(self.mean_pileup)
+        self.max_z_spread = float(self.max_z_spread)
+        self.max_t_spread = float(self.max_t_spread)
+        self.sigma_z = float(self.sigma_z)
+        self.sigma_t = float(self.sigma_t)
+
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> DelphesPileUpConfig:
         return cls(**{k: v for k, v in d.items() if k in cls.__dataclass_fields__})

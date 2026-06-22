@@ -107,7 +107,7 @@ class Config:
             If the specified generator name is not found in GENERATORS_REGISTRY.
         """
         output_config_dict = config_dict["output"]
-        pipeline_config_dict = config_dict["pipelines"]
+        pipeline_config_dict = config_dict.get("pipelines", {})  # Optional, default to empty dict
         dataset_config_dict = config_dict["dataset"]
         gen_config_dict = config_dict["generator"]
 

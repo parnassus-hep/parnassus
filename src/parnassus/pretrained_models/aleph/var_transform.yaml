@@ -1,0 +1,75 @@
+ht:
+  mean: 60.0641
+  std: 22.8754
+  min: 0.0
+  max: 418.8635
+met_x:
+  mean: 0.0059
+  std: 7.3787
+  min: -270.619
+  max: 153.555
+met_y:
+  mean: 0.0102
+  std: 7.3976
+  min: -224.904
+  max: 143.581
+npart:
+  mean: 21.4292
+  std: 8.3474
+  min: 0.0
+  max: 68.0
+pv_x:
+  mean: -0.0059
+  std: 0.4673
+  min: -164.7516
+  max: 73.8072
+pv_y:
+  mean: -0.0062
+  std: 0.4797
+  min: -169.0062
+  max: 39.1481
+pv_z:
+  mean: -0.0157
+  std: 1.833
+  min: -264.4556
+  max: 256.7236
+pt:
+  mean: 2.8029
+  std: 3.141
+  min: 0.5
+  max: 363.8175
+eta:
+  mean: -0.0002
+  std: 0.7925
+  min: -2.7
+  max: 2.7
+phi:
+  mean: 0.0006
+  std: 1.813
+  min: -3.1415
+  max: 3.1416
+ptrel:
+  mean: 0.0466
+  std: 0.051
+  min: 0.0026
+  max: 1.0
+class:
+  mean: 1.7734
+  std: 1.8309
+  min: 0.0
+  max: 4.0
+vx:
+  mean: 0
+  std: 14.9837
+  min: -482.041
+  max: 638.7708
+vy:
+  mean: 0
+  std: 15.0135
+  min: -635.0049
+  max: 588.8484
+vz:
+  mean: 0
+  std: 17.3427
+  min: -587.7417
+  max: 578.1023

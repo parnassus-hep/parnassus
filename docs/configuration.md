@@ -38,6 +38,7 @@ Selects and configures the simulation backend.
 |-------|------|---------|-------------|
 | `num_steps` | integer | `50` | Number of ODE integration steps |
 | `max_particles` | integer | from model | Maximum particles per event. Set from the model metadata; this is not a YAML setting for neural generators. Particles beyond this limit are dropped during preprocessing. |
+| `truth_pt_cut` | float | from model | Minimum truth-particle pT (GeV) for the neural selection cut. Set from the model metadata (`0.25` for `cms_2011_flow_v00`, `0.5` for `aleph_flow_v00`); not a YAML setting. |
 
 ### Parametric-specific fields
 
