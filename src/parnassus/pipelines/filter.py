@@ -167,4 +167,5 @@ class ParticleFilteringPipeline(GenPipeline):
             setter(_apply_mask(collection, mask))
             # Keep cached scalar HT/MET event features consistent with the
             # filtered particle collections (leptons are not re-derived).
-            event.update_event_features()
+            if self.config.update_event_features:
+                event.update_event_features()

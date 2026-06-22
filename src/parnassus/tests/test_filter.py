@@ -292,28 +292,43 @@ def test_equality_and_in_ops():
     assert np.all(event_eq.truth_particles.pdg_id == 211)
 
 
-def test_event_features_updated_after_filtering():
+@pytest.mark.parametrize("update_event_features", [True, False])
+def test_event_features_updated_after_filtering(update_event_features):
     event = make_event()
     # Capture stale (pre-filter) HT, then drop the 0.2 GeV truth particle.
     ht_before = event.truth_ht
+    met_x_before = event.truth_met_x
+    met_y_before = event.truth_met_y
+    met_before = event.truth_met
     cfg = ParticleFilteringConfig(
         name="f",
         collection="truth",
         conditions=[{"field": "pt", "op": ">", "value": 1.0}],  # type: ignore[list-item]
+        update_event_features=update_event_features,
     )
     ParticleFilteringPipeline(cfg).process([event])
 
     # HT must reflect the survivors, not the original collection.
     expected_ht = np.sum(event.truth_particles.pt)
-    assert event.truth_ht == pytest.approx(expected_ht)
-    assert event.truth_ht == pytest.approx(ht_before - 0.2)
+    if update_event_features:
+        assert event.truth_ht == pytest.approx(expected_ht)
+        assert event.truth_ht == pytest.approx(ht_before - 0.2)
+    else:
+        # If update_event_features is False, the cached HT remains stale.
+        assert event.truth_ht == pytest.approx(ht_before)
 
     # MET is recomputed consistently from the surviving particles.
     expected_met_x = np.sum(event.truth_particles.pt * np.cos(event.truth_particles.phi))
     expected_met_y = np.sum(event.truth_particles.pt * np.sin(event.truth_particles.phi))
-    assert event.truth_met_x == pytest.approx(expected_met_x)
-    assert event.truth_met_y == pytest.approx(expected_met_y)
-    assert event.truth_met == pytest.approx(np.sqrt(expected_met_x**2 + expected_met_y**2))
+    if update_event_features:
+        assert event.truth_met_x == pytest.approx(expected_met_x)
+        assert event.truth_met_y == pytest.approx(expected_met_y)
+        assert event.truth_met == pytest.approx(np.sqrt(expected_met_x**2 + expected_met_y**2))
+    else:
+        # If update_event_features is False, the cached MET remains stale.
+        assert event.truth_met_x == pytest.approx(met_x_before)
+        assert event.truth_met_y == pytest.approx(met_y_before)
+        assert event.truth_met == pytest.approx(met_before)
 
     # pflow was untouched, so its features are unchanged.
     assert event.pflow_ht == pytest.approx(np.sum(event.pflow_particles.pt))

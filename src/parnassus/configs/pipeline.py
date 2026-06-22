@@ -173,6 +173,8 @@ class ParticleFilteringConfig(GenPipelineConfig):
         How to combine conditions: "all" (AND) or "any" (OR), by default "all".
     conditions : list[FilterCondition], optional
         Conditions to apply. Particles failing the combined mask are dropped.
+    update_event_features : bool, optional
+        Whether to update event-level features (e.g. MET) after filtering, by default True.
     """
 
     SUPPORTED_OPS: ClassVar[frozenset[str]] = frozenset({
@@ -189,6 +191,7 @@ class ParticleFilteringConfig(GenPipelineConfig):
     collection: str = "pflow"
     combine: str = "all"
     conditions: list[FilterCondition] = field(default_factory=list)
+    update_event_features: bool = True
 
     def __post_init__(self):
         # Allow conditions supplied as plain dicts (from YAML) and convert them.

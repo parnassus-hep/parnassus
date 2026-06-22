@@ -47,6 +47,7 @@ def test_particle_filtering_config_from_dict():
                 {"field": "eta", "op": "<=", "value": 2.5, "abs": True},
                 {"field": "pdg_id", "op": "not in", "value": [12, 14, 16]},
             ],
+            "update_event_features": False,
         },
     )
 
@@ -58,6 +59,7 @@ def test_particle_filtering_config_from_dict():
     assert all(isinstance(c, FilterCondition) for c in cfg.conditions)
     assert cfg.conditions[1].abs is True
     assert cfg.conditions[2].value == [12, 14, 16]
+    assert cfg.update_event_features is False
 
 
 def test_particle_filtering_config_validates_op():

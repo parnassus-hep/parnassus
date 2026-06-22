@@ -111,6 +111,7 @@ conditions. Because it mutates the collection, declare a `filter` pipeline
 | `collection` | string | `"pflow"` | Target collection: `"truth"`, `"pflow"`, `"electrons"`, `"muons"`, or a generator collection key (e.g. `"Track"`, `"Tower"`) |
 | `combine` | string | `"all"` | How to combine conditions: `"all"` (AND) or `"any"` (OR) |
 | `conditions` | list | `[]` | List of cut conditions (see below) applied to the collection |
+| `update_event_features` | bool | `true` | Whether to update cached scalar event features (HT, MET) after filtering. If `false`, HT/MET remain stale and inconsistent with the cut collection. |
 
 Each entry in `conditions` has:
 
@@ -133,6 +134,7 @@ pipelines:
       - {field: pt,  op: ">",  value: 0.5}
       - {field: eta, op: "<=", value: 3.0, abs: true}   # |eta| <= 3.0
       - {field: pdg_id, op: "not in", value: [12, 14, 16]}  # drop neutrinos
+    update_event_features: true # Update HT/MET after filtering (default true)
 ```
 
 ### Notes
@@ -140,7 +142,7 @@ pipelines:
 - Filtering keeps the collection's identity, so it adds no new output branches;
   downstream collections simply contain fewer entries.
 - Scalar event-level features (truth/pflow `HT` and `MET`) are recomputed from the
-  surviving particles after filtering, so they stay consistent with the cut collection.
+  surviving particles after filtering, so they stay consistent with the cut collection if `update_event_features` is `true`. If `false`, HT/MET remain stale and inconsistent with the cut collection.
 - `Electrons`/`Muons` are derived from the pflow particles when the event is built.
   Filtering `pflow` afterwards does **not** re-derive those lepton collections.
 - Conditions must reference fields that exist on the target collection, otherwise
