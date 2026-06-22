@@ -225,6 +225,7 @@ class NeuralGeneratorConfig(GeneratorConfig):
             event_model_config=event_model_config,
             particle_model_config=particle_model_config,
             impact_model_config=impact_model_config,
+            truth_pt_cut=metadata.get("truth_pt_cut", 0.25),
         )
 
 
@@ -232,5 +233,8 @@ class NeuralGeneratorConfig(GeneratorConfig):
 NEURAL_GENERATORS_REGISTRY: dict[str, GeneratorConfig] = {
     "cms_2011_flow_v00": NeuralGeneratorConfig.load_from_metadata(
         Path(__file__).parent.parent.parent / "pretrained_models/cms_2011/metadata.yaml"
-    )
+    ),
+    "aleph_flow_v00": NeuralGeneratorConfig.load_from_metadata(
+        Path(__file__).parent.parent.parent / "pretrained_models/aleph/metadata.yaml"
+    ),
 }

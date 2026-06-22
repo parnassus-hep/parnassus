@@ -8,6 +8,7 @@ from typing import Self, final
 import numpy as np
 import torch
 from rich.progress import Progress, TaskID
+from torch import nn
 
 from parnassus.configs.accessors import (
     Accessor,
@@ -397,18 +398,22 @@ class NeuralEventGenerator:
         # Concat event-level generated data to global context
         ctxt_global_data = torch.cat([ctxt_global_data, fs_evt], -1)
         particle_mask = torch.stack([ctxt_mask, fs_mask], -1)
-
-        fs_part = self.particle_model.sample(
-            (
-                fs_evt.shape[0],
-                self.max_particles,
-            ),
-            mask=particle_mask,
-            ctxt_data=ctxt_data,
-            ctxt_global_data=ctxt_global_data,
-            callback=particle_callback,
-            to_cpu=False,
-        )
+        with nn.attention.sdpa_kernel([
+            nn.attention.SDPBackend.CUDNN_ATTENTION,
+            nn.attention.SDPBackend.EFFICIENT_ATTENTION,
+            nn.attention.SDPBackend.MATH,
+        ]):
+            fs_part = self.particle_model.sample(
+                (
+                    fs_evt.shape[0],
+                    self.max_particles,
+                ),
+                mask=particle_mask,
+                ctxt_data=ctxt_data,
+                ctxt_global_data=ctxt_global_data,
+                callback=particle_callback,
+                to_cpu=False,
+            )
         pf_impact_data_dict = {}
         if self.impact_model is not None:
             pf_ctxt_data = fs_part

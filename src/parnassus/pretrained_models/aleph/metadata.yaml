@@ -1,0 +1,62 @@
+name: ALEPH Flow v1
+max_particles: 128
+truth_pt_cut: 0.5
+
+variables:
+  truth_vars_to_load:
+    - pt
+    - eta
+    - phi
+    - vx
+    - vy
+    - vz
+    - class
+  ctxt_vars:
+    - truth_ptrel
+    - truth_eta
+    - truth_phi
+    - truth_vx
+    - truth_vy
+    - truth_vz
+    - truth_class
+  ctxt_global_vars:
+    - means
+    - truth_ht
+    - truth_met_x
+    - truth_met_y
+    - ntruth
+    - pflow_ht
+    - pflow_met_x
+    - pflow_met_y
+    - npflow
+
+models:
+  event:
+    file_name: event.pt2
+    version: v1
+    timestamp: 20231010_120000
+    sampler:
+      type: euler
+      num_steps: 50
+      reverse_time: true
+    fs_vars:
+      - pflow_ht
+      - pflow_met_x
+      - pflow_met_y
+      - npflow
+  particle:
+    file_name: particle.pt2
+    version: v1
+    timestamp: 20231010_120000
+    sampler:
+      type: euler
+      num_steps: 50
+      reverse_time: true
+    fs_vars:
+      - pflow_ptrel
+      - pflow_eta
+      - pflow_phi
+      - pflow_vx
+      - pflow_vy
+      - pflow_vz
+      - pflow_class
