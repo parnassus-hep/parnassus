@@ -436,16 +436,40 @@ class GenEvent:
     pflow_met_y: np.float32 = field(init=False)
     pflow_met: np.float32 = field(init=False)
 
-    def __post_init__(self):
-        self.truth_ht = np.sum(self.truth_particles.pt)
-        self.truth_met_x = np.sum(self.truth_particles.pt * np.cos(self.truth_particles.phi))
-        self.truth_met_y = np.sum(self.truth_particles.pt * np.sin(self.truth_particles.phi))
-        self.truth_met = np.sqrt(self.truth_met_x**2 + self.truth_met_y**2)
+    @staticmethod
+    def _ht_met(
+        particles: GenParticleCollection,
+    ) -> tuple[np.float32, np.float32, np.float32, np.float32]:
+        """Compute scalar (HT, MET_x, MET_y, MET) event features for a collection.
 
-        self.pflow_ht = np.sum(self.pflow_particles.pt)
-        self.pflow_met_x = np.sum(self.pflow_particles.pt * np.cos(self.pflow_particles.phi))
-        self.pflow_met_y = np.sum(self.pflow_particles.pt * np.sin(self.pflow_particles.phi))
-        self.pflow_met = np.sqrt(self.pflow_met_x**2 + self.pflow_met_y**2)
+        Returns
+        -------
+        tuple[np.float32, np.float32, np.float32, np.float32]
+            The scalar sum-pt (HT), missing-ET x/y components, and missing-ET
+            magnitude derived from the collection's ``pt`` and ``phi``.
+        """
+        ht = np.sum(particles.pt)
+        met_x = np.sum(particles.pt * np.cos(particles.phi))
+        met_y = np.sum(particles.pt * np.sin(particles.phi))
+        met = np.sqrt(met_x**2 + met_y**2)
+        return ht, met_x, met_y, met
+
+    def update_event_features(self) -> None:
+        """Recompute scalar HT/MET features from the current particle collections.
+
+        Call after mutating ``truth_particles`` or ``pflow_particles`` (e.g. after
+        filtering) to keep the cached event-level features consistent. The
+        ``electrons``/``muons`` lepton collections are NOT re-derived here.
+        """
+        self.truth_ht, self.truth_met_x, self.truth_met_y, self.truth_met = self._ht_met(
+            self.truth_particles
+        )
+        self.pflow_ht, self.pflow_met_x, self.pflow_met_y, self.pflow_met = self._ht_met(
+            self.pflow_particles
+        )
+
+    def __post_init__(self):
+        self.update_event_features()
 
         self.muons = GenLeptonCollection.from_particles(self.pflow_particles, name="muons")
         self.electrons = GenLeptonCollection.from_particles(self.pflow_particles, name="electrons")

@@ -95,6 +95,59 @@ The pipeline adds isolation fields to the `Electrons` or `Muons` collection (the
 
 Muons use `Muons.*` with the same isolation fields.
 
+## Filter Pipeline
+
+**Type:** `filter`
+
+Drops particles from a collection in place based on declarative per-field
+conditions. Because it mutates the collection, declare a `filter` pipeline
+**before** any `cluster`/`isolation` pipeline so they operate on the survivors only.
+
+### Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `type` | string | -- | Must be `"filter"` |
+| `collection` | string | `"pflow"` | Target collection: `"truth"`, `"pflow"`, `"electrons"`, `"muons"`, or a generator collection key (e.g. `"Track"`, `"Tower"`) |
+| `combine` | string | `"all"` | How to combine conditions: `"all"` (AND) or `"any"` (OR) |
+| `conditions` | list | `[]` | List of cut conditions (see below) applied to the collection |
+| `update_event_features` | bool | `true` | Whether to update cached scalar event features (HT, MET) after filtering. If `false`, HT/MET remain stale and inconsistent with the cut collection. |
+
+Each entry in `conditions` has:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `field` | string | -- | Attribute on the collection to test (e.g. `pt`, `eta`, `pdg_id`; towers use `e`/`et`/`eta`/`phi`/`t`) |
+| `op` | string | -- | One of `>`, `>=`, `<`, `<=`, `==`, `!=`, `in`, `not in` |
+| `value` | number or list | -- | Scalar for comparisons; a list for `in` / `not in` |
+| `abs` | bool | `false` | Compare `abs(field)` instead of `field` (handy for `eta`) |
+
+### Example
+
+```yaml
+pipelines:
+  TruthParticleFilter:
+    type: "filter"
+    collection: truth
+    combine: all
+    conditions:
+      - {field: pt,  op: ">",  value: 0.5}
+      - {field: eta, op: "<=", value: 3.0, abs: true}   # |eta| <= 3.0
+      - {field: pdg_id, op: "not in", value: [12, 14, 16]}  # drop neutrinos
+    update_event_features: true # Update HT/MET after filtering (default true)
+```
+
+### Notes
+
+- Filtering keeps the collection's identity, so it adds no new output branches;
+  downstream collections simply contain fewer entries.
+- Scalar event-level features (truth/pflow `HT` and `MET`) are recomputed from the
+  surviving particles after filtering, so they stay consistent with the cut collection if `update_event_features` is `true`. If `false`, HT/MET remain stale and inconsistent with the cut collection.
+- `Electrons`/`Muons` are derived from the pflow particles when the event is built.
+  Filtering `pflow` afterwards does **not** re-derive those lepton collections.
+- Conditions must reference fields that exist on the target collection, otherwise
+  an error is raised (e.g. towers have no `pt`/`pdg_id`).
+
 ## Full Example
 
 A typical configuration defines multiple pipelines for different jet collections and isolation calculations:

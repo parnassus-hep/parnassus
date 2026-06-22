@@ -11,6 +11,13 @@ generator:
   device: "cpu" # Shared: device for computation (cpu/cuda/mps)
 
 pipelines:
+  # ParticleFilter:                # Drop particles before clustering/isolation
+  #   type: "filter"
+  #   collection: truth            # truth | pflow | electrons | muons | <collections key>
+  #   combine: all                 # all (AND) | any (OR)
+  #   conditions:
+  #     - {field: pt,  op: ">",  value: 0.5}
+  #     - {field: eta, op: "<=", value: 3.0, abs: true}
   TruthJetsAntiKt05:
     type: "cluster"
     collection: truth
