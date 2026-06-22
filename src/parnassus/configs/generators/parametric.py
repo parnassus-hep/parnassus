@@ -63,6 +63,7 @@ class ParametricGeneratorConfig(GeneratorConfig):
 
 
 PARAMETRIC_GENERATORS_REGISTRY: dict[str, ParametricGeneratorConfig] = {
-    "cms": ParametricGeneratorConfig(name="cms", card="cms"),
-    "atlas": ParametricGeneratorConfig(name="atlas", card="atlas"),
+    "cms": ParametricGeneratorConfig(name="cms", card="cms", truth_pt_cut=None),
+    "atlas": ParametricGeneratorConfig(name="atlas", card="atlas", truth_pt_cut=None),
+    "aleph": ParametricGeneratorConfig(name="aleph", card="aleph", truth_pt_cut=None),
 }
