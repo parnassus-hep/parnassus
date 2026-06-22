@@ -40,6 +40,7 @@ Higher values produce better-quality samples at the cost of longer inference. `5
 | Name | Description |
 |------|-------------|
 | `cms_2011_flow_v00` | CMS 2011 era flow-based model. Includes event-level, particle-level, and optional impact parameter models. Uses model-defined max particles, variable transformations, and tunable sampling steps. |
+| `aleph_flow_v00` | ALEPH flow-based model for LEP-era $e^+e^-$ collisions. Includes event-level and particle-level models. Selects truth particles above a 0.5 GeV pT cut (defined in the model metadata). |
 
 ## Example
 

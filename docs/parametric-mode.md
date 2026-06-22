@@ -20,7 +20,7 @@ generator:
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `type` | string | -- | Must be `"parametric"` |
-| `name` | string | -- | Detector card name: `"cms"` or `"atlas"` |
+| `name` | string | -- | Detector card name: `"cms"`, `"atlas"`, or `"aleph"` |
 | `seed` | integer | *none* | Random seed for reproducibility. Omit for non-deterministic output. |
 | `debug` | boolean | `false` | Write intermediate detector-stage collections; see [Output Reference](output-reference.md#parametric-debug-collections) |
 | `pileup` | object | *none* | Optional pile-up merging; see [Pile-Up Merging](#pile-up-merging) below |
@@ -31,6 +31,7 @@ generator:
 |------|---------------|----------------|-------|
 | `cms` | 1.29 m | 3.8 T | Momentum smearing, ECal/HCal simulation |
 | `atlas` | 1.15 m | 2.0 T | Muons included in calorimeter tower output |
+| `aleph` | 1.5 m | 0.435 T | LEP-era $e^+e^-$ detector; charged-hadron/electron/muon tracking, ECal/HCal simulation |
 
 ## Example
 

@@ -12,8 +12,10 @@ Two simulation backends are available:
 | Generator | Type | Description |
 |-----------|------|-------------|
 | `cms_2011_flow_v00` | Neural | CMS 2011 flow-based generative model |
+| `aleph_flow_v00` | Neural | ALEPH flow-based generative model |
 | `cms` | Parametric | CMS detector card (tracker radius 1.29 m, B = 3.8 T) |
 | `atlas` | Parametric | ATLAS detector card (tracker radius 1.15 m, B = 2.0 T) |
+| `aleph` | Parametric | ALEPH detector card (tracker radius 1.5 m, B = 0.435 T) |
 
 ## Getting Started
 
