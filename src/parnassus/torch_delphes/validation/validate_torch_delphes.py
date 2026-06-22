@@ -110,6 +110,7 @@ def _axis_scale(ax: matplotlib.axes.Axes, var: str) -> None:
 PROCESS_LABELS: dict[str, str] = {
     "HZZ4l": r"$H \to ZZ \to 4\ell$",
     "ttbarW": r"$t\bar{t} \to W$",
+    "AlephZZqq": r"$e^+e^- \to ZZ \to q\bar{q}$",
 }
 
 
@@ -131,6 +132,9 @@ def _get_suptitle(
         suptitle += f"Process: {_process_label('HZZ4l')}"
     elif "ttbarW" in str(benchmark_file):
         suptitle += f"Process: {_process_label('ttbarW')}"
+    elif "ALEPH_ZZqq" in str(benchmark_file):
+        suptitle += f"Process: {_process_label('AlephZZqq')}"
+        suptitle += "\nDetector: ALEPH"
 
     if "CMS" in str(benchmark_file):
         suptitle += "\nDetector: CMS"
@@ -1011,7 +1015,11 @@ def main(
     # 2. Run detector simulation via ParametricEventGenerator
     # -------------------------------------------------------------------------
     config = ParametricGeneratorConfig(
-        name=detector, card=detector.lower(), debug=True, pileup=pileup
+        name=detector,
+        card=detector.lower(),
+        debug=True,
+        pileup=pileup,
+        truth_pt_cut=0.0,
     )
     generator = ParametricEventGenerator(config, log)
     generator.to(torch.device(DEVICE))
@@ -1071,7 +1079,7 @@ def parse_args() -> argparse.Namespace:
         "-proc",
         type=str,
         default="HZZ4l",
-        choices=["HZZ4l", "ttbarW"],
+        choices=["HZZ4l", "ttbarW", "ALEPH_ZZqq"],
         help="Process to simulate (default: HZZ4l)",
     )
     parser.add_argument(
@@ -1079,7 +1087,7 @@ def parse_args() -> argparse.Namespace:
         "-det",
         type=str,
         default="CMS",
-        choices=["CMS", "ATLAS"],
+        choices=["CMS", "ATLAS", "ALEPH"],
         help="Detector configuration to use (default: CMS)",
     )
     parser.add_argument(

@@ -1,0 +1,42 @@
+! ============================================================
+! PYTHIA8 card: e+ e- -> Z -> q qbar at LEP1 / ALEPH energy
+! sqrt(s) = 91.2 GeV
+! ============================================================
+
+! Beam setup
+Beams:idA = 11
+Beams:idB = -11
+Beams:eCM = 91.2
+
+! Process: e+e- -> gamma*/Z -> q qbar
+WeakSingleBoson:ffbar2gmZ = on
+
+! Only allow hadronic Z decays
+23:onMode = off
+23:onIfAny = 1 2 3 4 5
+
+! Keep QED/weak setup simple
+PDF:lepton = off
+SpaceShower:QEDshowerByL = off
+
+! Final-state shower and hadronization
+PartonLevel:ISR = on
+PartonLevel:FSR = on
+HadronLevel:Hadronize = on
+HadronLevel:Decay = on
+
+! Use PYTHIA default Lund fragmentation/tune
+Tune:ee = 7
+
+! Event printout controls
+Init:showChangedSettings = on
+Init:showChangedParticleData = on
+Next:numberShowInfo = 1
+Next:numberShowProcess = 1
+Next:numberShowEvent = 0
+
+! Random seed
+Random:setSeed = on
+Random:seed = 12345
+
+Main:numberOfEvents = 20000
