@@ -139,6 +139,8 @@ pipelines:
 
 - Filtering keeps the collection's identity, so it adds no new output branches;
   downstream collections simply contain fewer entries.
+- Scalar event-level features (truth/pflow `HT` and `MET`) are recomputed from the
+  surviving particles after filtering, so they stay consistent with the cut collection.
 - `Electrons`/`Muons` are derived from the pflow particles when the event is built.
   Filtering `pflow` afterwards does **not** re-derive those lepton collections.
 - Conditions must reference fields that exist on the target collection, otherwise

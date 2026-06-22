@@ -165,7 +165,7 @@ def test_runs_before_clustering_sees_survivors():
     )
     ParticleFilteringPipeline(cfg).process([event])
     assert event.pflow_particles.num_particles == 1
-    assert event.pflow_particles.pt[0] == 20.0
+    assert event.pflow_particles.pt[0] == pytest.approx(20.0)
 
 
 def test_jet_idx_and_particle_jet_idx_masked():
@@ -290,3 +290,45 @@ def test_equality_and_in_ops():
     assert event_eq.truth_particles.num_particles == 2
     assert event_eq.truth_particles.pdg_id is not None
     assert np.all(event_eq.truth_particles.pdg_id == 211)
+
+
+def test_event_features_updated_after_filtering():
+    event = make_event()
+    # Capture stale (pre-filter) HT, then drop the 0.2 GeV truth particle.
+    ht_before = event.truth_ht
+    cfg = ParticleFilteringConfig(
+        name="f",
+        collection="truth",
+        conditions=[{"field": "pt", "op": ">", "value": 1.0}],  # type: ignore[list-item]
+    )
+    ParticleFilteringPipeline(cfg).process([event])
+
+    # HT must reflect the survivors, not the original collection.
+    expected_ht = np.sum(event.truth_particles.pt)
+    assert event.truth_ht == pytest.approx(expected_ht)
+    assert event.truth_ht == pytest.approx(ht_before - 0.2)
+
+    # MET is recomputed consistently from the surviving particles.
+    expected_met_x = np.sum(event.truth_particles.pt * np.cos(event.truth_particles.phi))
+    expected_met_y = np.sum(event.truth_particles.pt * np.sin(event.truth_particles.phi))
+    assert event.truth_met_x == pytest.approx(expected_met_x)
+    assert event.truth_met_y == pytest.approx(expected_met_y)
+    assert event.truth_met == pytest.approx(np.sqrt(expected_met_x**2 + expected_met_y**2))
+
+    # pflow was untouched, so its features are unchanged.
+    assert event.pflow_ht == pytest.approx(np.sum(event.pflow_particles.pt))
+
+
+def test_pflow_features_updated_but_leptons_not_rederived():
+    event = make_event()
+    n_electrons_before = event.electrons.num_particles
+    cfg = ParticleFilteringConfig(
+        name="f",
+        collection="pflow",
+        conditions=[{"field": "pt", "op": ">=", "value": 15.0}],  # type: ignore[list-item]
+    )
+    ParticleFilteringPipeline(cfg).process([event])
+    # pflow HT reflects the single surviving particle (pt=20).
+    assert event.pflow_ht == pytest.approx(20.0)
+    # Leptons are intentionally NOT re-derived (documented limitation).
+    assert event.electrons.num_particles == n_electrons_before
