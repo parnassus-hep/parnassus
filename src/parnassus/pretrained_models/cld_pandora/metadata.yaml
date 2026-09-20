@@ -1,0 +1,69 @@
+name: CLD Pandora Flow v1
+max_particles: 128
+
+variables:
+  truth_vars_to_load:
+    - pt
+    - eta
+    - phi
+    - pdgId
+    - class
+    - charge
+    - vx
+    - vy
+    - vz
+    - d0
+    - z0
+  ctxt_vars:
+    - truth_ptrel
+    - truth_eta
+    - truth_phi
+    - truth_charge
+    - truth_class
+    - truth_vx
+    - truth_vy
+    - truth_vz
+    - truth_d0
+    - truth_z0
+  ctxt_global_vars:
+    - means
+    - truth_ht
+    - truth_met_x
+    - truth_met_y
+    - ntruth
+    - pflow_ht
+    - pflow_met_x
+    - pflow_met_y
+    - npflow
+
+models:
+  event:
+    file_name: event.pt2
+    version: v1
+    timestamp: "20260917_181229"
+    sampler:
+      type: euler
+      num_steps: 50
+      reverse_time: false
+    fs_vars:
+      - pflow_ht
+      - pflow_met_x
+      - pflow_met_y
+      - npflow
+  particle:
+    file_name: particle.pt2
+    version: v1
+    timestamp: "20260917_181229"
+    sampler:
+      type: euler
+      num_steps: 50
+      reverse_time: true
+    fs_vars:
+      - pflow_ptrel
+      - pflow_eta
+      - pflow_phi
+      - pflow_class
+      - pflow_d0
+      - pflow_z0
+      - pflow_d0Sig
+      - pflow_z0Sig

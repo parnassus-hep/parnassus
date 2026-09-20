@@ -80,6 +80,8 @@ class GenParticleCollection:
     z0: FloatArray | None = None
     d0_error: FloatArray | None = None
     z0_error: FloatArray | None = None
+    d0_sig: FloatArray | None = None
+    z0_sig: FloatArray | None = None
 
     # Additional properties
     pdg_id: IntArray | None = None
@@ -207,6 +209,8 @@ class GenLeptonCollection:
     z0: FloatArray | None = None
     d0_error: FloatArray | None = None
     z0_error: FloatArray | None = None
+    d0_sig: FloatArray | None = None
+    z0_sig: FloatArray | None = None
 
     # Isolation variables
     iso_var: FloatArray | None = None
@@ -239,7 +243,7 @@ class GenLeptonCollection:
                 vertex_attrs[key] = attr[class_mask]
 
         impact_attrs = {}
-        for key in ["d0", "z0", "d0_error", "z0_error"]:
+        for key in ["d0", "z0", "d0_error", "z0_error", "d0_sig", "z0_sig"]:
             attr = getattr(particles, key)
             if attr is not None:
                 impact_attrs[key] = attr[class_mask]

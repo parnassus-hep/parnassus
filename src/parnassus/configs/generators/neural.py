@@ -237,4 +237,7 @@ NEURAL_GENERATORS_REGISTRY: dict[str, GeneratorConfig] = {
     "aleph_flow_v00": NeuralGeneratorConfig.load_from_metadata(
         Path(__file__).parent.parent.parent / "pretrained_models/aleph/metadata.yaml"
     ),
+    "cld_pandora_flow_v00": NeuralGeneratorConfig.load_from_metadata(
+        Path(__file__).parent.parent.parent / "pretrained_models/cld_pandora/metadata.yaml"
+    ),
 }

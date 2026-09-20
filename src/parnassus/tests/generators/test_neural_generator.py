@@ -139,3 +139,93 @@ def test_generator_smoke_generation(cms_generator):
         assert ev.truth_particles is not None
         assert ev.pflow_particles is not None
         assert ev.pflow_particles.d0 is not None  # impact params present
+
+
+# ---------------------------------------------------------------------------
+# CLD Pandora: full-chain model with a different pflow schema
+#   - context includes one-hot charge (truth_charge)
+#   - particle model emits impact significances (d0/z0 + d0Sig/z0Sig) directly,
+#     with no production vertices (vx/vy/vz) and no separate impact model
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="module")
+def cld_config() -> NeuralGeneratorConfig:
+    return NEURAL_GENERATORS_REGISTRY["cld_pandora_flow_v00"]  # type: ignore[return-value]
+
+
+def test_registry_contains_cld_pandora(cld_config):
+    assert cld_config.max_particles == 128
+    assert cld_config.impact_model_config is None  # impact bundled in particle model
+
+
+def test_cld_config_has_correct_fs_vars(cld_config):
+    assert "npflow" in cld_config.event_model_config.fs_vars
+    part_fs = cld_config.particle_model_config.fs_vars
+    assert "pflow_d0Sig" in part_fs and "pflow_z0Sig" in part_fs
+    assert "truth_charge" in cld_config.variable_requirements.ctxt_vars
+    # No production vertices in the pflow output schema.
+    assert not {"vx", "vy", "vz"}.issubset(cld_config.pflow_output_vars)
+
+
+@pytest.fixture(scope="module")
+def cld_generator(cld_config) -> NeuralEventGenerator:
+    import copy
+
+    cfg = copy.deepcopy(cld_config)
+    cfg.set_num_steps(1)
+    return NeuralEventGenerator(cfg, setup_logger())
+
+
+def test_cld_generator_smoke_generation(cld_generator):
+    """End-to-end CLD chain: the schema-aware output layer must assemble events
+    with significance impact params and without vertices."""
+    cfg = cld_generator.config
+    max_p = cfg.max_particles
+
+    # ctxt_vars = [ptrel, eta, phi, charge, class, vx, vy, vz, d0, z0]
+    # encoded: ptrel(1)+eta(1)+phi(2)+charge one-hot(3)+class one-hot(5)+vx+vy+vz+d0+z0 = 17
+    N_CTXT = 17
+    # event ctxt_global = means(8) + [truth_ht, truth_met_x, truth_met_y, ntruth] = 12
+    N_GLOBAL = 12
+
+    batch_size = 2
+    n_real = 5
+
+    ctxt = torch.zeros(batch_size, max_p, N_CTXT)
+    ctxt[:, :n_real, :] = 0.1
+    mask = torch.zeros(batch_size, max_p, dtype=torch.bool)
+    mask[:, :n_real] = True
+    global_data = torch.zeros(batch_size, N_GLOBAL)
+    global_data[:, 0] = 1.0
+    event_number = torch.arange(batch_size, dtype=torch.long).unsqueeze(-1)
+
+    batch = {
+        "ctxt_data": ctxt,
+        "ctxt_global_data": global_data,
+        "mask": mask,
+        "event_number": event_number,
+    }
+
+    with cld_generator:
+        cld_generator.initialize(n_events=batch_size, n_batches=1)
+        cld_generator.process_batch(batch)
+        events = cld_generator.get_events()
+
+    assert isinstance(events, list)
+    for ev in events:
+        pf = ev.pflow_particles
+        assert pf is not None
+        # Impact significances present; production vertices absent.
+        assert pf.d0 is not None and pf.z0 is not None
+        assert pf.d0_sig is not None and pf.z0_sig is not None
+        assert pf.vx is None and pf.vy is None and pf.vz is None
+
+
+def test_cld_accessors_are_schema_aware(cld_generator):
+    """PFlow accessors must use significances and omit vertex outputs for CLD."""
+    accessors = cld_generator.get_accessors()
+    pflow_names = {a.output_name for a in accessors["PFlow"]}
+    assert {"D0", "Z0", "D0Sig", "Z0Sig"}.issubset(pflow_names)
+    assert not {"X", "Y", "Z"} & pflow_names  # no production vertices
+    assert not {"ErrorD0", "ErrorZ0"} & pflow_names  # significances, not errors

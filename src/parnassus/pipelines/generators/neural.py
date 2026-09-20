@@ -3,7 +3,7 @@
 from collections.abc import Callable, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
-from typing import Self, final
+from typing import ClassVar, Self, final
 
 import numpy as np
 import torch
@@ -45,6 +45,28 @@ class _GenerationBuffers:
 @final
 class NeuralEventGenerator:
     """Neural network-based event generator implementing EventGenerator protocol."""
+
+    # Maps generation-buffer keys to GenParticleCollection kwargs. Buffers only
+    # ever hold the keys a given model produces (derived from truth/pflow output
+    # vars), so this lets get_events() assemble collections without assuming a
+    # fixed schema (e.g. CMS vertices+errors vs. CLD significances, no vertices).
+    _BUFFER_TO_FIELD: ClassVar[dict[str, str]] = {
+        "pt": "pt",
+        "eta": "eta",
+        "phi": "phi",
+        "vx": "vx",
+        "vy": "vy",
+        "vz": "vz",
+        "d0": "d0",
+        "z0": "z0",
+        "d0Error": "d0_error",
+        "z0Error": "z0_error",
+        "d0Sig": "d0_sig",
+        "z0Sig": "z0_sig",
+        "class": "class_id",
+        "charge": "charge",
+    }
+    _INT_FIELDS: ClassVar[frozenset[str]] = frozenset({"class_id", "charge"})
 
     def __init__(self, config: NeuralGeneratorConfig, log):
         self.config = config
@@ -116,12 +138,34 @@ class NeuralEventGenerator:
     # Accessor management                                                  #
     # ------------------------------------------------------------------ #
 
+    @property
+    def _pflow_has_vertex(self) -> bool:
+        """Whether the particle model emits production vertices (vx, vy, vz)."""
+        return {"vx", "vy", "vz"}.issubset(self.config.pflow_output_vars)
+
+    @property
+    def _pflow_impact_specs(self) -> list[AccessorSpec]:
+        """Impact accessors matching the pflow schema.
+
+        Two schemas are supported:
+          * error-based (CMS/ALEPH): d0/z0 + d0_error/z0_error, produced by a
+            separate impact model (``has_impact_model``);
+          * significance-based (CLD): d0/z0 + d0_sig/z0_sig, produced directly
+            by the particle model as extra fs_vars (no separate impact model).
+        """
+        pflow_vars = set(self.config.pflow_output_vars)
+        if {"d0Sig", "z0Sig"} & pflow_vars:
+            return AccessorTemplates.IMPACT_SIGNIFICANCES
+        if self.has_impact_model or ({"d0Error", "z0Error"} & pflow_vars):
+            return AccessorTemplates.IMPACT_PARAMETERS
+        return []
+
     def _get_accessors_builder(
         self, collection: str, specs: Sequence[AccessorSpec], use_impact: bool = False
     ) -> AccessorListBuilder:
         builder = AccessorListBuilder.for_particles(collection).add_from_specs(specs)
         if use_impact:
-            builder.add_from_specs(AccessorTemplates.IMPACT_PARAMETERS)
+            builder.add_from_specs(self._pflow_impact_specs)
         return builder
 
     def get_accessors(self) -> dict[str, list[Accessor]]:
@@ -132,24 +176,33 @@ class NeuralEventGenerator:
         dict[str, list[Accessor]]
             Dictionary mapping collection names to lists of accessors.
         """
+        has_impact = bool(self._pflow_impact_specs)
+        # PFlow specs adapt to the model schema: production vertices are only
+        # emitted for schemas that produce them (e.g. CMS), while CLD reports
+        # impact significances and no vertices.
+        pflow_specs = [
+            *AccessorTemplates.KINEMATICS,
+            *(AccessorTemplates.VERTEX if self._pflow_has_vertex else []),
+            *AccessorTemplates.CLASS_IDS,
+        ]
         return {
             "Truth": self._get_accessors_builder(
                 collection="truth_particles", specs=AccessorTemplates.FULL_PARTICLE
             ).build(),
             "PFlow": self._get_accessors_builder(
                 collection="pflow_particles",
-                specs=AccessorTemplates.FULL_PARTICLE,
-                use_impact=self.has_impact_model,
+                specs=pflow_specs,
+                use_impact=has_impact,
             ).build(),
             "Electrons": self._get_accessors_builder(
                 collection="electrons",
                 specs=AccessorTemplates.KINEMATICS,
-                use_impact=self.has_impact_model,
+                use_impact=has_impact,
             ).build(),
             "Muons": self._get_accessors_builder(
                 collection="muons",
                 specs=AccessorTemplates.KINEMATICS,
-                use_impact=self.has_impact_model,
+                use_impact=has_impact,
             ).build(),
         }
 
@@ -301,36 +354,9 @@ class NeuralEventGenerator:
 
         for i in range(buffers.count):
             truth_ind = buffers.truth_data["ind"][i] > 0
-            truth_particles = GenParticleCollection(
-                name="truth",
-                pt=buffers.truth_data["pt"][i][truth_ind],
-                eta=buffers.truth_data["eta"][i][truth_ind],
-                phi=buffers.truth_data["phi"][i][truth_ind],
-                vx=buffers.truth_data["vx"][i][truth_ind],
-                vy=buffers.truth_data["vy"][i][truth_ind],
-                vz=buffers.truth_data["vz"][i][truth_ind],
-                class_id=buffers.truth_data["class"][i][truth_ind].astype(np.int32),
-            )
+            truth_particles = self._build_collection("truth", buffers.truth_data, i, truth_ind)
             pflow_ind = (buffers.pflow_data["ind"][i] > 0) & (buffers.pflow_data["pt"][i] > 1)
-            impact_dict = {}
-            if self.has_impact_model:
-                impact_dict = {
-                    "d0": buffers.pflow_data["d0"][i][pflow_ind],
-                    "z0": buffers.pflow_data["z0"][i][pflow_ind],
-                    "d0_error": buffers.pflow_data["d0Error"][i][pflow_ind],
-                    "z0_error": buffers.pflow_data["z0Error"][i][pflow_ind],
-                }
-            pflow_particles = GenParticleCollection(
-                name="pflow",
-                pt=buffers.pflow_data["pt"][i][pflow_ind],
-                eta=buffers.pflow_data["eta"][i][pflow_ind],
-                phi=buffers.pflow_data["phi"][i][pflow_ind],
-                vx=buffers.pflow_data["vx"][i][pflow_ind],
-                vy=buffers.pflow_data["vy"][i][pflow_ind],
-                vz=buffers.pflow_data["vz"][i][pflow_ind],
-                class_id=buffers.pflow_data["class"][i][pflow_ind].astype(np.int32),
-                **impact_dict,
-            )
+            pflow_particles = self._build_collection("pflow", buffers.pflow_data, i, pflow_ind)
             event_list.append(
                 GenEvent(
                     event_number=buffers.event_numbers[i],
@@ -340,6 +366,31 @@ class NeuralEventGenerator:
             )
 
         return event_list
+
+    def _build_collection(
+        self, name: str, data: dict[str, np.ndarray], i: int, ind: np.ndarray
+    ) -> GenParticleCollection:
+        """Assemble a GenParticleCollection from the buffer keys that exist.
+
+        Only keys the model actually produced are present in ``data``, so the
+        resulting collection carries exactly the available fields (e.g. CLD has
+        no vx/vy/vz and reports d0_sig/z0_sig instead of d0_error/z0_error).
+
+        Returns
+        -------
+        GenParticleCollection
+            Collection holding the mapped fields present in ``data``.
+        """
+        kwargs: dict[str, np.ndarray] = {}
+        for key, arr in data.items():
+            field = self._BUFFER_TO_FIELD.get(key)
+            if field is None:  # e.g. "ind"
+                continue
+            values = arr[i][ind]
+            if field in self._INT_FIELDS:
+                values = values.astype(np.int32)
+            kwargs[field] = values
+        return GenParticleCollection(name=name, **kwargs)
 
     # ------------------------------------------------------------------ #
     # Internal sampling (renamed from generate_batch)                     #
