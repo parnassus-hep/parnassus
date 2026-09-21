@@ -213,6 +213,11 @@ class Unscaler:
         elif var_name.endswith("class"):
             var = data[..., var_idx : var_idx + 5].argmax(-1)
             index_shift = 5
+        elif var_name.endswith("charge"):
+            # one-hot(3) over (-1, 0, +1); mirror the encoder in
+            # parnassus_core (F.one_hot(charge + 1, num_classes=3)).
+            var = data[..., var_idx : var_idx + 3].argmax(-1) - 1
+            index_shift = 3
         else:
             var = self.transform_dict[var_name].inverse_transform(data[..., var_idx])
             index_shift = 1

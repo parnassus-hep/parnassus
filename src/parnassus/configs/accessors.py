@@ -317,14 +317,34 @@ class AccessorTemplates:
         AccessorSpec("z0_error", output_name="ErrorZ0"),
     ]
 
-    # Full particle info
-    FULL_PARTICLE: ClassVar = [
-        *KINEMATICS,
+    # Impact parameters reported as significances (d0/z0 + d0Sig/z0Sig),
+    # e.g. the CLD pflow schema where the particle model emits significances
+    # directly instead of a separate error model.
+    IMPACT_SIGNIFICANCES: ClassVar = [
+        AccessorSpec("d0", output_name="D0"),
+        AccessorSpec("z0", output_name="Z0"),
+        AccessorSpec("d0_sig", output_name="D0Sig"),
+        AccessorSpec("z0_sig", output_name="Z0Sig"),
+    ]
+
+    # Production vertex
+    VERTEX: ClassVar = [
         AccessorSpec("vx", output_name="X"),
         AccessorSpec("vy", output_name="Y"),
         AccessorSpec("vz", output_name="Z"),
+    ]
+
+    # Class / PDG identifiers
+    CLASS_IDS: ClassVar = [
         AccessorSpec("class_id", output_name="ClassID", dtype="int32"),
         AccessorSpec("pdg_id", output_name="PID", dtype="int32"),
+    ]
+
+    # Full particle info
+    FULL_PARTICLE: ClassVar = [
+        *KINEMATICS,
+        *VERTEX,
+        *CLASS_IDS,
     ]
 
     # Isolation variables
